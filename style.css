@@ -1,0 +1,353 @@
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --c-bg1: #120825;
+  --c-bg2: #1e0d35;
+  --c-bg3: #2a0a3e;
+  --c-bg4: #1a0f40;
+  --c-primary: #ff6b9d;
+  --c-secondary: #ff4d6d;
+  --c-heart: #ff1744;
+  --c-accent: #ffb3c6;
+  --c-text: #fff5f7;
+  --c-glass: rgba(255, 255, 255, 0.07);
+  --c-glass-border: rgba(255, 255, 255, 0.14);
+  --c-glow: rgba(255, 107, 157, 0.55);
+  --radius-pill: 50px;
+  --font: 'Georgia', 'Times New Roman', serif;
+  --transition: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--c-text);
+  background: var(--c-bg1);
+}
+
+/* ============================================================
+   ANIMATED GRADIENT BACKGROUND
+   ============================================================ */
+#gradientBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(-45deg, #120825, #1e0d35, #2a0a3e, #1a0f40, #200830);
+  background-size: 500% 500%;
+  animation: gradientShift 18s ease infinite;
+  will-change: background-position;
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ============================================================
+   CANVAS LAYERS
+   ============================================================ */
+#bgCanvas,
+#mainCanvas,
+#fxCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  will-change: transform;
+}
+#bgCanvas   { z-index: 1; }
+#mainCanvas { z-index: 2; }
+#fxCanvas   { z-index: 3; }
+
+/* ============================================================
+   UI OVERLAY
+   ============================================================ */
+#uiOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none; /* children opt-in */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   QUESTION PANEL
+   ============================================================ */
+#questionPanel {
+  /* No transform — transform would make this a containing block for
+     position:fixed children, breaking the noBtn hover-dodge positioning */
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+#questionPanel.visible {
+  pointer-events: auto;
+}
+
+#questionText {
+  font-size: clamp(1.4rem, 5vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--c-text);
+  text-shadow: 0 0 24px var(--c-glow), 0 2px 8px rgba(0,0,0,0.4);
+  min-height: 3rem;
+  line-height: 1.4;
+}
+
+/* Letter spans injected by JS */
+#questionText .char {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(12px);
+  transition: opacity 0.4s var(--transition),
+              filter  0.4s var(--transition),
+              transform 0.4s var(--transition);
+  will-change: opacity, filter, transform;
+}
+#questionText .char.revealed {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+#questionText .char.space {
+  width: 0.35em;
+}
+
+/* ============================================================
+   BUTTONS AREA
+   ============================================================ */
+#buttonsArea {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  min-height: 70px;
+}
+
+/* ============================================================
+   BUTTONS – BASE
+   ============================================================ */
+.btn {
+  position: relative;
+  padding: 15px 40px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  outline: none;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.18s var(--transition),
+              box-shadow 0.18s var(--transition),
+              opacity 0.3s var(--transition);
+  will-change: transform, opacity;
+  touch-action: manipulation;
+}
+
+/* Glass shine overlay */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.18) 0%,
+    rgba(255,255,255,0.04) 60%,
+    transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Ripple element */
+.btn__ripple {
+  position: absolute;
+  width: 0; height: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* ============================================================
+   YES BUTTON
+   ============================================================ */
+.btn--yes {
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff6b9d 100%);
+  color: #fff;
+  box-shadow:
+    0 4px 22px rgba(255, 77, 109, 0.45),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transform-origin: center center;
+}
+
+.btn--yes:hover {
+  box-shadow:
+    0 8px 36px rgba(255, 77, 109, 0.65),
+    inset 0 1px 0 rgba(255,255,255,0.30);
+  transform: scale(1.06) !important;
+}
+
+.btn--yes:active {
+  transform: scale(0.97) !important;
+}
+
+/* ============================================================
+   NO BUTTON
+   ============================================================ */
+.btn--no {
+  background: var(--c-glass);
+  color: rgba(255,255,255,0.75);
+  border: 1px solid var(--c-glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  transform-origin: center center;
+}
+
+.btn--no:hover {
+  background: rgba(255,255,255,0.12);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+}
+
+.btn--no.escaped {
+  position: fixed;
+  z-index: 10;
+  /* transition injected by JS for desktop hover-dodge; mobile keeps instant jumps */
+}
+
+/* shake keyframes */
+@keyframes shake {
+  0%,100% { translate: 0 0; }
+  20%      { translate: -8px 0; }
+  40%      { translate:  8px 0; }
+  60%      { translate: -6px 0; }
+  80%      { translate:  6px 0; }
+}
+
+.btn--no.shaking {
+  animation: shake 0.35s ease;
+}
+
+/* ============================================================
+   FINAL PANEL
+   ============================================================ */
+#finalPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#finalPanel.visible {
+  opacity: 1;
+}
+
+#finalText {
+  font-size: clamp(2rem, 9vw, 4.5rem);
+  font-weight: 400;
+  color: #fff;
+  text-align: center;
+  text-shadow:
+    0 0 20px rgba(255, 107, 157, 0.9),
+    0 0 50px rgba(255, 107, 157, 0.55),
+    0 0 100px rgba(255, 107, 157, 0.3);
+  animation: finalFloat 3.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.final-char {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateY(20px) scale(0.8);
+  will-change: opacity, filter, transform;
+}
+
+@keyframes finalFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+.hidden {
+  display: none !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 480px) {
+  #questionPanel {
+    gap: 28px;
+    padding: 0 16px;
+  }
+
+  .btn {
+    padding: 13px 32px;
+    font-size: 1rem;
+  }
+
+  #buttonsArea {
+    gap: 16px;
+  }
+}
+
+@media (max-height: 640px) {
+  #questionPanel {
+    gap: 22px;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  #gradientBg {
+    animation: none;
+    background: var(--c-bg1);
+  }
+}

@@ -1,0 +1,31 @@
+# ── macOS ────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ── Windows ──────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── Linux ────────────────────────────────────────────────
+*~
+
+# ── Editors & IDEs ───────────────────────────────────────
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# ── Node (in case npm is used later) ─────────────────────
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# ── Misc ─────────────────────────────────────────────────
+*.log
+.env

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>💕</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/EasePack.min.js"></script>
+</head>
+<body>
+  <!-- Layer 0: animated gradient background -->
+  <div id="gradientBg" aria-hidden="true"></div>
+
+  <!-- Layer 1: bokeh particle canvas -->
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <!-- Layer 2: main scene canvas (daisy → transform → heart) -->
+  <canvas id="mainCanvas" aria-hidden="true"></canvas>
+
+  <!-- Layer 3: fx canvas (fireworks / finale) -->
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+
+  <!-- Layer 4: UI overlay -->
+  <div id="uiOverlay">
+
+    <!-- Question panel: shown after heart forms -->
+    <div id="questionPanel">
+      <h1 id="questionText" role="heading" aria-level="1" aria-live="polite"></h1>
+
+      <div id="buttonsArea" role="group" aria-label="Cevap seçenekleri">
+        <!-- Yes button -->
+        <button id="yesBtn" class="btn btn--yes" type="button" aria-label="Evet cevabını ver">
+          <span class="btn__text">Evet</span>
+          <div class="btn__ripple" aria-hidden="true"></div>
+        </button>
+
+        <!-- No button -->
+        <button id="noBtn" class="btn btn--no" type="button" aria-label="Hayır cevabını ver">
+          <span class="btn__text">Hayır</span>
+          <div class="btn__ripple" aria-hidden="true"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Final message: shown after yes -->
+    <div id="finalPanel" class="hidden" aria-live="assertive">
+      <div id="finalText"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
