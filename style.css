@@ -306,6 +306,121 @@ html, body {
 }
 
 /* ============================================================
+   PAGE NAVIGATION LINKS
+   ============================================================ */
+#proposalNav {
+  margin-top: 12px;
+  text-align: center;
+  opacity: 0;
+}
+
+.page-link {
+  pointer-events: auto;
+  text-decoration: none;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 20px;
+  transition: color 0.3s, opacity 0.3s;
+}
+
+.page-link--proposal {
+  color: rgba(255, 183, 204, 0.45);
+}
+.page-link--proposal:hover {
+  color: rgba(255, 183, 204, 0.90);
+}
+
+/* ============================================================
+   HEART PHOTO FRAMES
+   ============================================================ */
+.photo-wrap {
+  position: fixed;
+  top: 48%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.photo-wrap.visible {
+  animation:
+    photoFadeIn 2.2s ease forwards,
+    heartPulseGlow 2.8s ease-in-out 2.2s infinite;
+}
+
+@keyframes photoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes heartPulseGlow {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 10px rgba(255, 107, 157, 0.80))
+      drop-shadow(0 0 24px rgba(255, 107, 157, 0.40));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 20px rgba(255, 107, 157, 1.00))
+      drop-shadow(0 0 42px rgba(255, 107, 157, 0.65));
+  }
+}
+
+.photo-wrap--left  { left: 14px; }
+.photo-wrap--right { right: 14px; }
+
+.photo-heart {
+  width: 130px;
+  height: 130px;
+  clip-path: path('M 65,28 C 65,12 50,4 40,4 C 24,4 8,17 8,34 C 8,55 30,74 65,100 C 100,74 122,55 122,34 C 122,17 106,4 90,4 C 80,4 65,12 65,28 Z');
+  overflow: hidden;
+  background: #1e0d35; /* dark background for letterbox areas */
+  will-change: transform;
+}
+
+.photo-heart img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+.photo-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.11em;
+  color: rgba(255, 183, 204, 0.55);
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(255, 107, 157, 0.5);
+}
+
+/* Tablet */
+@media (max-width: 640px) {
+  .photo-heart {
+    width: 88px;
+    height: 88px;
+    clip-path: path('M 44,19 C 44,8 34,3 27,3 C 16,3 5,11 5,22 C 5,37 20,51 44,68 C 68,51 83,37 83,22 C 83,11 72,3 61,3 C 54,3 44,8 44,19 Z');
+  }
+  .photo-wrap--left  { left: 5px; }
+  .photo-wrap--right { right: 5px; }
+  .photo-label { font-size: 0.6rem; }
+}
+
+/* Hide on very narrow screens where there's no room */
+@media (max-width: 359px) {
+  .photo-wrap { display: none; }
+}
+
+/* ============================================================
    UTILITY
    ============================================================ */
 .hidden {
@@ -349,5 +464,10 @@ html, body {
   #gradientBg {
     animation: none;
     background: var(--c-bg1);
+  }
+  .photo-wrap.visible {
+    animation: none;
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.80));
   }
 }

@@ -23,6 +23,23 @@
   <!-- Layer 3: fx canvas (fireworks / finale) -->
   <canvas id="fxCanvas" aria-hidden="true"></canvas>
 
+  <!-- Heart photo frames (outside uiOverlay so they don't shake) -->
+  <div class="photo-wrap photo-wrap--left" id="photoLeft" aria-hidden="true">
+    <div class="photo-heart">
+      <img src="assets/photos/couple1.jpg" alt="Büşra &amp; Buğra" draggable="false">
+    </div>
+    <p class="photo-label">Büşra &amp; Buğra</p>
+  </div>
+  <div class="photo-wrap photo-wrap--right" id="photoRight" aria-hidden="true">
+    <div class="photo-heart">
+      <img src="assets/photos/couple2.jpg" alt="Büşra &amp; Buğra" draggable="false">
+    </div>
+    <p class="photo-label">Büşra &amp; Buğra</p>
+  </div>
+
+  <!-- Background music — plays after Evet -->
+  <audio id="bgMusic" src="assets/sounds/gonul-sayfam.mp4" preload="none" loop></audio>
+
   <!-- Layer 4: UI overlay -->
   <div id="uiOverlay">
 
@@ -42,6 +59,13 @@
           <span class="btn__text">Hayır</span>
           <div class="btn__ripple" aria-hidden="true"></div>
         </button>
+      </div>
+
+      <!-- Navigation to proposal page -->
+      <div id="proposalNav">
+        <a href="proposal.html" class="page-link page-link--proposal">
+          💍 Daha büyük bir sorum var...
+        </a>
       </div>
     </div>
 

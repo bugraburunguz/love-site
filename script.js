@@ -724,8 +724,31 @@ const Finale = {
     // Camera shake
     this.cameraShake(8, 600);
 
+    // Play music ♫
+    this.playMusic();
+
     // Show final message after 2.8s
     setTimeout(() => this.showFinalMessage(), 2800);
+  },
+
+  playMusic() {
+    const audio = document.getElementById('bgMusic');
+    if (!audio) return;
+    audio.volume = 0;
+    audio.play().catch(() => {
+      // Autoplay blocked — attach one-time user-gesture fallback
+      const unlock = () => { audio.play().catch(() => {}); document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+      document.addEventListener('click', unlock, { once: true });
+      document.addEventListener('touchstart', unlock, { once: true });
+    });
+    // Fade volume in over 3 seconds
+    let vol = 0;
+    const step = () => {
+      vol = Math.min(0.65, vol + 0.65 / 90); // ~90 frames @ 60fps = 1.5s
+      audio.volume = vol;
+      if (vol < 0.65) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   },
 
   launchFireworks() {
@@ -1061,6 +1084,18 @@ function showButtons() {
 
   // Desktop hover-dodge (no-op on touch devices)
   Buttons.initHoverDodge(noBtn);
+
+  // Fade-in proposal nav link after buttons settle
+  const propNav = document.getElementById('proposalNav');
+  if (propNav && typeof gsap !== 'undefined') {
+    gsap.fromTo(propNav, { opacity: 0 }, { opacity: 1, duration: 1.2, delay: 2 });
+  }
+
+  // Reveal heart photo frames (left then right, staggered)
+  const photoLeft  = document.getElementById('photoLeft');
+  const photoRight = document.getElementById('photoRight');
+  if (photoLeft)  setTimeout(() => photoLeft.classList.add('visible'),  700);
+  if (photoRight) setTimeout(() => photoRight.classList.add('visible'), 1200);
 
   // Ripple on click
   [yesBtn, noBtn].forEach(btn => {

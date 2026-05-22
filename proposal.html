@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>💍</title>
+  <link rel="stylesheet" href="proposal.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/EasePack.min.js"></script>
+</head>
+<body>
+
+  <!-- Layer 0: animated gradient -->
+  <div id="gradientBg" aria-hidden="true"></div>
+
+  <!-- Layer 1: bokeh + Kayahan lyrics -->
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <!-- Layer 2: main scene (rose → heart) -->
+  <canvas id="mainCanvas" aria-hidden="true"></canvas>
+
+  <!-- Layer 3: finale fx -->
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+
+  <!-- Heart photo frames (outside uiOverlay so they don't shake) -->
+  <div class="photo-wrap photo-wrap--left" id="photoLeft" aria-hidden="true">
+    <div class="photo-heart">
+      <img src="assets/photos/couple1.jpg" alt="Büşra &amp; Buğra" draggable="false">
+    </div>
+    <p class="photo-label">Büşra &amp; Buğra</p>
+  </div>
+  <div class="photo-wrap photo-wrap--right" id="photoRight" aria-hidden="true">
+    <div class="photo-heart">
+      <img src="assets/photos/couple2.jpg" alt="Büşra &amp; Buğra" draggable="false">
+    </div>
+    <p class="photo-label">Büşra &amp; Buğra</p>
+  </div>
+
+  <!-- Background music — plays after Evet -->
+  <audio id="bgMusic" src="assets/sounds/bir-ask-hikayesi.mp4" preload="none" loop></audio>
+
+  <!-- Layer 4: UI -->
+  <div id="uiOverlay">
+
+    <div id="questionPanel">
+      <h1 id="questionText" role="heading" aria-level="1" aria-live="polite"></h1>
+
+      <div id="buttonsArea" role="group" aria-label="Cevap seçenekleri">
+        <button id="yesBtn" class="btn btn--yes" type="button" aria-label="Evet cevabını ver">
+          <span class="btn__text">Evet 💍</span>
+          <div class="btn__ripple" aria-hidden="true"></div>
+        </button>
+        <button id="noBtn" class="btn btn--no" type="button" aria-label="Hayır cevabını ver">
+          <span class="btn__text">Henüz değil...</span>
+          <div class="btn__ripple" aria-hidden="true"></div>
+        </button>
+      </div>
+
+      <!-- Back navigation -->
+      <div id="backNav">
+        <a href="index.html" class="page-link page-link--back">
+          ← Küçük bir sorum da var
+        </a>
+      </div>
+    </div>
+
+    <!-- Final message -->
+    <div id="finalPanel" class="hidden" aria-live="assertive">
+      <div class="final-stack">
+        <div id="finalText"></div>
+        <div id="bonusText" aria-live="polite"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="proposal.js"></script>
+</body>
+</html>

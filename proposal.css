@@ -1,0 +1,365 @@
+/* ============================================================
+   PROPOSAL PAGE — Evlilik Teklifi
+   Wine · Gold · Crimson palette
+   ============================================================ */
+
+:root {
+  --c-bg1: #0d0408;
+  --c-bg2: #1a0510;
+  --c-bg3: #2a0a1a;
+  --c-bg4: #1a0a05;
+  --c-gold: #c9a227;
+  --c-gold-light: #f0c040;
+  --c-crimson: #c0392b;
+  --c-rose: #e8758a;
+  --c-heart-glow: rgba(192, 57, 43, 0.8);
+  --c-text: #f8f4e8;
+  --c-glass: rgba(201, 162, 39, 0.08);
+  --c-glass-border: rgba(201, 162, 39, 0.20);
+  --c-glow: rgba(201, 162, 39, 0.55);
+  --radius-pill: 50px;
+  --font: 'Georgia', 'Times New Roman', serif;
+  --transition: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--c-text);
+  background: var(--c-bg1);
+}
+
+/* ── Gradient ── */
+#gradientBg {
+  position: fixed; inset: 0; z-index: 0;
+  background: linear-gradient(-45deg, #0d0408, #1a0510, #2a0a1a, #1a0a05, #200810);
+  background-size: 500% 500%;
+  animation: gradientShift 20s ease infinite;
+  will-change: background-position;
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Canvases ── */
+#bgCanvas, #mainCanvas, #fxCanvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  will-change: transform;
+}
+#bgCanvas   { z-index: 1; }
+#mainCanvas { z-index: 2; }
+#fxCanvas   { z-index: 3; }
+
+/* ── UI Overlay ── */
+#uiOverlay {
+  position: fixed; inset: 0; z-index: 4;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Question Panel ── */
+#questionPanel {
+  position: absolute;
+  left: 0; width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+#questionPanel.visible { pointer-events: auto; }
+
+#questionText {
+  font-size: clamp(1.5rem, 5.5vw, 2.6rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: var(--c-text);
+  text-shadow: 0 0 28px var(--c-glow), 0 2px 10px rgba(0,0,0,0.5);
+  min-height: 3rem;
+  line-height: 1.4;
+}
+
+/* Letter spans */
+#questionText .char {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(12px);
+  transition: opacity 0.45s var(--transition),
+              filter  0.45s var(--transition),
+              transform 0.45s var(--transition);
+  will-change: opacity, filter, transform;
+}
+#questionText .char.revealed {
+  opacity: 1; filter: blur(0); transform: translateY(0);
+}
+#questionText .char.space { width: 0.35em; }
+
+/* ── Buttons Area ── */
+#buttonsArea {
+  display: flex; gap: 20px;
+  align-items: center; justify-content: center;
+  flex-wrap: nowrap;
+  min-height: 70px;
+}
+
+/* ── Button Base ── */
+.btn {
+  position: relative;
+  padding: 15px 36px;
+  border: none; border-radius: var(--radius-pill);
+  font-family: var(--font);
+  font-size: 1.1rem; font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer; outline: none;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  transition: transform 0.18s var(--transition), box-shadow 0.18s var(--transition), opacity 0.3s;
+  will-change: transform, opacity;
+  touch-action: manipulation;
+}
+.btn::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 60%, transparent 100%);
+  border-radius: inherit; pointer-events: none;
+}
+.btn__ripple {
+  position: absolute;
+  width: 0; height: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+  transform: translate(-50%,-50%);
+  pointer-events: none; opacity: 0;
+}
+
+/* ── Yes Button — gold ── */
+.btn--yes {
+  background: linear-gradient(135deg, #b8860b 0%, #c9a227 40%, #f0c040 100%);
+  color: #1a0a05;
+  box-shadow: 0 4px 24px rgba(201,162,39,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.25);
+  border: 1px solid rgba(240,192,64,0.35);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transform-origin: center center;
+}
+.btn--yes:hover {
+  box-shadow: 0 8px 40px rgba(201,162,39,0.70),
+              inset 0 1px 0 rgba(255,255,255,0.35);
+  transform: scale(1.06) !important;
+}
+.btn--yes:active { transform: scale(0.97) !important; }
+
+/* ── No Button — dark glass ── */
+.btn--no {
+  background: var(--c-glass);
+  color: rgba(248,244,232,0.65);
+  border: 1px solid var(--c-glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transform-origin: center center;
+}
+.btn--no:hover { background: rgba(201,162,39,0.12); }
+.btn--no.escaped { position: fixed; z-index: 10; }
+
+@keyframes shake {
+  0%,100% { translate: 0 0; }
+  20% { translate: -8px 0; } 40% { translate: 8px 0; }
+  60% { translate: -5px 0; } 80% { translate: 5px 0; }
+}
+.btn--no.shaking { animation: shake 0.35s ease; }
+
+/* ── Back nav ── */
+#backNav {
+  margin-top: 8px;
+  opacity: 0;
+}
+.page-link {
+  pointer-events: auto;
+  color: rgba(201,162,39,0.45);
+  text-decoration: none;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  transition: color 0.3s, opacity 0.3s;
+  display: inline-block;
+  padding: 4px 8px;
+}
+.page-link:hover { color: rgba(201,162,39,0.9); }
+.page-link--back { font-size: 0.82rem; }
+
+/* ── Heart Photo Frames ── */
+.photo-wrap {
+  position: fixed;
+  top: 48%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.photo-wrap.visible {
+  animation:
+    photoFadeIn 2.2s ease forwards,
+    heartPulseGlowGold 2.8s ease-in-out 2.2s infinite;
+}
+
+@keyframes photoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes heartPulseGlowGold {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 12px rgba(201, 162, 39, 0.85))
+      drop-shadow(0 0 26px rgba(192,  57, 43, 0.50));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 22px rgba(201, 162, 39, 1.00))
+      drop-shadow(0 0 44px rgba(192,  57, 43, 0.80));
+  }
+}
+
+.photo-wrap--left  { left: 14px; }
+.photo-wrap--right { right: 14px; }
+
+.photo-heart {
+  width: 130px;
+  height: 130px;
+  clip-path: path('M 65,28 C 65,12 50,4 40,4 C 24,4 8,17 8,34 C 8,55 30,74 65,100 C 100,74 122,55 122,34 C 122,17 106,4 90,4 C 80,4 65,12 65,28 Z');
+  overflow: hidden;
+  background: #1a0510; /* dark wine background for letterbox areas */
+  will-change: transform;
+}
+
+.photo-heart img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+.photo-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: rgba(201, 162, 39, 0.55);
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(201, 162, 39, 0.5);
+}
+
+@media (max-width: 640px) {
+  .photo-heart {
+    width: 88px;
+    height: 88px;
+    clip-path: path('M 44,19 C 44,8 34,3 27,3 C 16,3 5,11 5,22 C 5,37 20,51 44,68 C 68,51 83,37 83,22 C 83,11 72,3 61,3 C 54,3 44,8 44,19 Z');
+  }
+  .photo-wrap--left  { left: 5px; }
+  .photo-wrap--right { right: 5px; }
+  .photo-label { font-size: 0.6rem; }
+}
+
+@media (max-width: 359px) {
+  .photo-wrap { display: none; }
+}
+
+/* ── Final Panel ── */
+#finalPanel {
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  text-align: center;
+  padding: 0 16px;
+}
+#finalText {
+  font-size: clamp(1.6rem, 7vw, 3.8rem);
+  font-weight: 400; font-style: italic;
+  color: #fff;
+  text-shadow:
+    0 0 22px rgba(201,162,39,0.95),
+    0 0 55px rgba(201,162,39,0.55),
+    0 0 110px rgba(192,57,43,0.3);
+  line-height: 1.45;
+}
+.final-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: finalFloat 3.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+#bonusText {
+  font-size: clamp(1rem, 3.8vw, 1.7rem);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--c-gold-light);
+  text-align: center;
+  text-shadow:
+    0 0 20px rgba(201, 162, 39, 0.95),
+    0 0 45px rgba(201, 162, 39, 0.50),
+    0 0 80px rgba(192,  57, 43, 0.30);
+  opacity: 0;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.final-char {
+  display: inline-block; opacity: 0;
+  filter: blur(12px);
+  transform: translateY(20px) scale(0.8);
+  will-change: opacity, filter, transform;
+}
+@keyframes finalFloat {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  #questionPanel { gap: 28px; padding: 0 16px; }
+  .btn { padding: 13px 28px; font-size: 1rem; }
+  #buttonsArea { gap: 14px; }
+}
+@media (max-height: 640px) {
+  #questionPanel { gap: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  #gradientBg { animation: none; background: var(--c-bg1); }
+  .photo-wrap.visible {
+    animation: none;
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(201, 162, 39, 0.85));
+  }
+}
