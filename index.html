@@ -2,79 +2,83 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>💕</title>
-  <link rel="stylesheet" href="style.css?v=3" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/EasePack.min.js"></script>
+  <title>♥</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="landing.css" />
 </head>
 <body>
-  <!-- Layer 0: animated gradient background -->
-  <div id="gradientBg" aria-hidden="true"></div>
 
-  <!-- Layer 1: bokeh particle canvas -->
-  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+  <!-- 500vh scroll driver + sticky scene -->
+  <div id="scrollContainer">
+    <div id="stickyScene">
 
-  <!-- Layer 2: main scene canvas (daisy → transform → heart) -->
-  <canvas id="mainCanvas" aria-hidden="true"></canvas>
+      <!-- Canvas world (rain → flowers → sun) -->
+      <canvas id="worldCanvas" aria-hidden="true"></canvas>
 
-  <!-- Layer 3: fx canvas (fireworks / finale) -->
-  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+      <!-- Text overlay -->
+      <div id="textOverlay">
 
-  <!-- Heart photo frames (outside uiOverlay so they don't shake) -->
-  <div class="photo-wrap photo-wrap--left" id="photoLeft" aria-hidden="true">
-    <div class="photo-heart">
-      <img src="assets/photos/couple1.jpg" alt="Büşra &amp; Buğra" draggable="false">
-    </div>
-    <p class="photo-label">Büşra &amp; Buğra</p>
+        <!-- Section 1: hero typewriter -->
+        <div id="section1" class="text-section">
+          <p id="heroText" class="hero-text" aria-live="polite"></p>
+          <div id="heroHairline" class="hairline"></div>
+        </div>
+
+        <!-- Section 2: transition -->
+        <div id="section2" class="text-section">
+          <div class="t-lines">
+            <p class="t-line t-line-1">Duvarlar çatladı.</p>
+            <p class="t-line t-line-2">Ama çatlaklardan da ışık<br>girer.</p>
+          </div>
+        </div>
+
+        <!-- Section 3: final -->
+        <div id="section3" class="text-section">
+          <div class="final-wrap">
+            <p class="final-main">Sonra seni buldum.</p>
+            <p class="final-sub">Ve dünya yeniden nefes almaya başladı.</p>
+            <div class="final-cta">
+              <div class="hairline-sm"></div>
+              <a href="ask.html" class="cta-link">devam et →</a>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /textOverlay -->
+    </div><!-- /stickyScene -->
+  </div><!-- /scrollContainer -->
+
+  <!-- Scroll hint -->
+  <div id="scrollHint" aria-hidden="true">
+    <span class="sh-text">kaydır</span>
+    <div class="sh-line"></div>
   </div>
-  <div class="photo-wrap photo-wrap--right" id="photoRight" aria-hidden="true">
-    <div class="photo-heart">
-      <img src="assets/photos/couple2.jpg" alt="Büşra &amp; Buğra" draggable="false">
-    </div>
-    <p class="photo-label">Büşra &amp; Buğra</p>
-  </div>
 
-  <!-- İhtilal — plays automatically and continues throughout -->
-  <audio id="bgMusic" src="assets/sounds/AliFiru - İhtilal (Official Video).mp3" preload="auto" loop></audio>
-
-  <!-- Layer 4: UI overlay -->
-  <div id="uiOverlay">
-
-    <!-- Question panel: shown after heart forms -->
-    <div id="questionPanel">
-      <h1 id="questionText" role="heading" aria-level="1" aria-live="polite"></h1>
-
-      <div id="buttonsArea" role="group" aria-label="Cevap seçenekleri">
-        <!-- Yes button -->
-        <button id="yesBtn" class="btn btn--yes" type="button" aria-label="Evet cevabını ver">
-          <span class="btn__text">Evet</span>
-          <div class="btn__ripple" aria-hidden="true"></div>
-        </button>
-
-        <!-- No button -->
-        <button id="noBtn" class="btn btn--no" type="button" aria-label="Hayır cevabını ver">
-          <span class="btn__text">Hayır</span>
-          <div class="btn__ripple" aria-hidden="true"></div>
-        </button>
+  <!-- Audio player -->
+  <div id="audioPlayer" role="region" aria-label="Müzik çalar">
+    <canvas id="vizCanvas" aria-hidden="true"></canvas>
+    <div class="pl-inner">
+      <div id="vinylDisc" class="vinyl" aria-hidden="true">
+        <div class="vinyl-core"><span>♪</span></div>
       </div>
-
-      <!-- Navigation to proposal page -->
-      <div id="proposalNav">
-        <a href="proposal.html" class="page-link page-link--proposal">
-          💍 Daha büyük bir sorum var...
-        </a>
+      <div class="pl-meta">
+        <p class="pl-title">İhtilal</p>
+        <p class="pl-artist">Ali Firu</p>
       </div>
-    </div>
-
-    <!-- Final message: shown after yes -->
-    <div id="finalPanel" class="hidden" aria-live="assertive">
-      <div id="finalText"></div>
+      <button id="playBtn" class="pl-btn" aria-label="Oynat / Durdur">
+        <svg id="icPlay"  viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="icPause" viewBox="0 0 24 24" fill="currentColor" hidden><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <audio id="bgAudio" src="assets/sounds/AliFiru - İhtilal (Official Video).mp3" preload="none"></audio>
+
+  <script src="landing.js"></script>
 </body>
 </html>
