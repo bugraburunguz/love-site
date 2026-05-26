@@ -934,11 +934,17 @@ const Finale = {
     const textEl = document.getElementById('finalText');
     panel.classList.remove('hidden');
 
-    // Build char spans (no CSS-class conflict with TextReveal)
-    const msg = 'Seni Çok Özledim. ❤️';
-    textEl.innerHTML = [...msg].map(ch =>
-      `<span class="final-char" style="display:inline-block">${ch === ' ' ? '&nbsp;' : ch}</span>`
-    ).join('');
+    // Build char spans — \n becomes <br> so each word stacks on mobile
+    const msg = 'Seni\nÇok\nÖzledim.\n❤️';
+    const fragments = [];
+    for (const ch of msg) {
+      if (ch === '\n') {
+        fragments.push('<br>');
+      } else {
+        fragments.push(`<span class="final-char" style="display:inline-block">${ch === ' ' ? '&nbsp;' : ch}</span>`);
+      }
+    }
+    textEl.innerHTML = fragments.join('');
 
     const chars = textEl.querySelectorAll('.final-char');
 

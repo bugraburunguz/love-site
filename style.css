@@ -280,7 +280,8 @@ html, body {
 }
 
 #finalText {
-  font-size: clamp(2rem, 9vw, 4.5rem);
+  font-size: clamp(2.8rem, 11vw, 5rem);
+  line-height: 1.25;
   font-weight: 400;
   color: #fff;
   text-align: center;
