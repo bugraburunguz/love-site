@@ -16,7 +16,7 @@ const CFG = {
     heartC     : '#ff8fab',
     heartGlow  : 'rgba(255,77,109,0.85)',
     particle   : '#ff9fc1',
-    confetti   : ['#ff6b9d','#ff4d6d','#ffb3c6','#ffffff','#ffd700','#ff9fc1','#ffcce7','#c77dff'],
+    confetti   : ['#c9921a','#a86e10','#f0d090','#ffffff','#ffd700','#e8b84b','#f5ead8','#d4881a'],
   },
 
   daisy: {
@@ -168,8 +168,8 @@ const Background = {
 
       const alpha = p.opacity * (0.65 + 0.35 * Math.sin(p.phase));
       const g = bgCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2);
-      g.addColorStop(0, `rgba(255,183,204,${alpha})`);
-      g.addColorStop(1, `rgba(255,183,204,0)`);
+      g.addColorStop(0, `rgba(195,150,65,${alpha})`);
+      g.addColorStop(1, `rgba(195,150,65,0)`);
       bgCtx.beginPath();
       bgCtx.arc(p.x, p.y, p.r * 2, 0, Math.PI*2);
       bgCtx.fillStyle = g;
@@ -733,18 +733,13 @@ const Finale = {
 
   playMusic() {
     const audio = document.getElementById('bgMusic');
-    if (!audio) return;
+    if (!audio || !audio.paused) return; // already playing — let it continue
+    // Autoplay was blocked; Evet click is a valid gesture — start now
     audio.volume = 0;
-    audio.play().catch(() => {
-      // Autoplay blocked — attach one-time user-gesture fallback
-      const unlock = () => { audio.play().catch(() => {}); document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
-      document.addEventListener('click', unlock, { once: true });
-      document.addEventListener('touchstart', unlock, { once: true });
-    });
-    // Fade volume in over 3 seconds
+    audio.play().catch(() => {});
     let vol = 0;
     const step = () => {
-      vol = Math.min(0.65, vol + 0.65 / 90); // ~90 frames @ 60fps = 1.5s
+      vol = Math.min(0.65, vol + 0.65 / 90);
       audio.volume = vol;
       if (vol < 0.65) requestAnimationFrame(step);
     };
@@ -754,7 +749,7 @@ const Finale = {
   launchFireworks() {
     S.fireworks = [];
     const W = window.innerWidth, H = window.innerHeight;
-    const cols = ['#ff6b9d','#ff4d6d','#ff1744','#ffb3c6','#ff9fc1','#ffd700','#c77dff'];
+    const cols = ['#c9921a','#a86e10','#ffd700','#f0d090','#e8b84b','#d4881a','#f5c842'];
 
     for (let f = 0; f < 10; f++) {
       setTimeout(() => {
@@ -940,7 +935,7 @@ const Finale = {
     panel.classList.remove('hidden');
 
     // Build char spans (no CSS-class conflict with TextReveal)
-    const msg = 'Biliyordum ❤️';
+    const msg = 'Seni Çok Özledim. ❤️';
     textEl.innerHTML = [...msg].map(ch =>
       `<span class="final-char" style="display:inline-block">${ch === ' ' ? '&nbsp;' : ch}</span>`
     ).join('');
@@ -973,6 +968,37 @@ const Finale = {
    MAIN ORCHESTRATOR
    ============================================================ */
 async function init() {
+  // İhtilal: resume from landing page or autoplay fresh
+  (function startIhtilal() {
+    const bgm = document.getElementById('bgMusic');
+    if (!bgm) return;
+    const saved = sessionStorage.getItem('ihtilal_time');
+    if (saved !== null) {
+      bgm.currentTime = parseFloat(saved);
+      sessionStorage.removeItem('ihtilal_time');
+      sessionStorage.removeItem('ihtilal_playing');
+    }
+    bgm.volume = 0;
+    bgm.play().catch(() => {
+      const unlock = () => {
+        bgm.play().catch(() => {});
+        document.removeEventListener('click',      unlock);
+        document.removeEventListener('touchstart', unlock);
+        document.removeEventListener('scroll',     unlock);
+      };
+      document.addEventListener('click',      unlock, { once: true });
+      document.addEventListener('touchstart', unlock, { once: true });
+      document.addEventListener('scroll',     unlock, { once: true, passive: true });
+    });
+    let vol = 0;
+    const fadeVol = () => {
+      vol = Math.min(0.65, vol + 0.65 / 90);
+      bgm.volume = vol;
+      if (vol < 0.65) requestAnimationFrame(fadeVol);
+    };
+    requestAnimationFrame(fadeVol);
+  })();
+
   // Grab DOM
   bgCvs   = document.getElementById('bgCanvas');
   mainCvs = document.getElementById('mainCanvas');
@@ -1085,10 +1111,22 @@ function showButtons() {
   // Desktop hover-dodge (no-op on touch devices)
   Buttons.initHoverDodge(noBtn);
 
-  // Fade-in proposal nav link after buttons settle
+  // Fade-in proposal nav link after buttons settle; save İhtilal state before navigating
   const propNav = document.getElementById('proposalNav');
-  if (propNav && typeof gsap !== 'undefined') {
-    gsap.fromTo(propNav, { opacity: 0 }, { opacity: 1, duration: 1.2, delay: 2 });
+  if (propNav) {
+    if (typeof gsap !== 'undefined') {
+      gsap.fromTo(propNav, { opacity: 0 }, { opacity: 1, duration: 1.2, delay: 2 });
+    }
+    const propLink = propNav.querySelector('a');
+    if (propLink) {
+      propLink.addEventListener('click', () => {
+        const bgm = document.getElementById('bgMusic');
+        if (bgm) {
+          sessionStorage.setItem('ihtilal_time',    bgm.currentTime);
+          sessionStorage.setItem('ihtilal_playing', bgm.paused ? '0' : '1');
+        }
+      });
+    }
   }
 
   // Reveal heart photo frames (left then right, staggered)

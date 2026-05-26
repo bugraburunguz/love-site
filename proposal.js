@@ -698,20 +698,11 @@ const Finale = {
 
   playMusic(){
     const audio=document.getElementById('bgMusic');
-    if(!audio) return;
+    if(!audio||!audio.paused) return; // already playing — let it continue
     audio.volume=0;
-    audio.play().catch(()=>{
-      const unlock=()=>{ audio.play().catch(()=>{}); document.removeEventListener('click',unlock); document.removeEventListener('touchstart',unlock); };
-      document.addEventListener('click',unlock,{once:true});
-      document.addEventListener('touchstart',unlock,{once:true});
-    });
-    // Soft fade-in over ~2s
+    audio.play().catch(()=>{});
     let vol=0;
-    const step=()=>{
-      vol=Math.min(0.65, vol+0.65/120);
-      audio.volume=vol;
-      if(vol<0.65) requestAnimationFrame(step);
-    };
+    const step=()=>{ vol=Math.min(0.65,vol+0.65/90); audio.volume=vol; if(vol<0.65) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   },
 
@@ -954,6 +945,33 @@ const Finale = {
 
 /* ── MAIN SEQUENCE ── */
 async function init(){
+  // İhtilal: resume from previous page or autoplay fresh
+  (function startIhtilal(){
+    const bgm=document.getElementById('bgMusic');
+    if(!bgm) return;
+    const saved=sessionStorage.getItem('ihtilal_time');
+    if(saved!==null){
+      bgm.currentTime=parseFloat(saved);
+      sessionStorage.removeItem('ihtilal_time');
+      sessionStorage.removeItem('ihtilal_playing');
+    }
+    bgm.volume=0;
+    bgm.play().catch(()=>{
+      const unlock=()=>{
+        bgm.play().catch(()=>{});
+        document.removeEventListener('click',unlock);
+        document.removeEventListener('touchstart',unlock);
+        document.removeEventListener('scroll',unlock);
+      };
+      document.addEventListener('click',unlock,{once:true});
+      document.addEventListener('touchstart',unlock,{once:true});
+      document.addEventListener('scroll',unlock,{once:true,passive:true});
+    });
+    let vol=0;
+    const fadeVol=()=>{ vol=Math.min(0.65,vol+0.65/90); bgm.volume=vol; if(vol<0.65) requestAnimationFrame(fadeVol); };
+    requestAnimationFrame(fadeVol);
+  })();
+
   bgCvs=document.getElementById('bgCanvas');
   mainCvs=document.getElementById('mainCanvas');
   fxCvs=document.getElementById('fxCanvas');

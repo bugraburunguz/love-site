@@ -2,18 +2,18 @@
    DESIGN TOKENS
    ============================================================ */
 :root {
-  --c-bg1: #120825;
-  --c-bg2: #1e0d35;
-  --c-bg3: #2a0a3e;
-  --c-bg4: #1a0f40;
-  --c-primary: #ff6b9d;
-  --c-secondary: #ff4d6d;
+  --c-bg1: #0e0904;
+  --c-bg2: #1a0c04;
+  --c-bg3: #231205;
+  --c-bg4: #1c0f06;
+  --c-primary: #c9921a;
+  --c-secondary: #a87012;
   --c-heart: #ff1744;
-  --c-accent: #ffb3c6;
-  --c-text: #fff5f7;
+  --c-accent: #f0d090;
+  --c-text: #f5ead8;
   --c-glass: rgba(255, 255, 255, 0.07);
   --c-glass-border: rgba(255, 255, 255, 0.14);
-  --c-glow: rgba(255, 107, 157, 0.55);
+  --c-glow: rgba(180, 130, 50, 0.60);
   --radius-pill: 50px;
   --font: 'Georgia', 'Times New Roman', serif;
   --transition: cubic-bezier(0.4, 0, 0.2, 1);
@@ -45,7 +45,7 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(-45deg, #120825, #1e0d35, #2a0a3e, #1a0f40, #200830);
+  background: linear-gradient(-45deg, #0e0904, #1a0c04, #231205, #1c0f06, #160b04);
   background-size: 500% 500%;
   animation: gradientShift 18s ease infinite;
   will-change: background-position;
@@ -205,12 +205,12 @@ html, body {
    YES BUTTON
    ============================================================ */
 .btn--yes {
-  background: linear-gradient(135deg, #ff4d6d 0%, #ff6b9d 100%);
+  background: linear-gradient(135deg, #a86e10 0%, #c9921a 100%);
   color: #fff;
   box-shadow:
-    0 4px 22px rgba(255, 77, 109, 0.45),
+    0 4px 22px rgba(180, 120, 20, 0.50),
     inset 0 1px 0 rgba(255,255,255,0.22);
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,220,100,0.22);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transform-origin: center center;
@@ -218,7 +218,7 @@ html, body {
 
 .btn--yes:hover {
   box-shadow:
-    0 8px 36px rgba(255, 77, 109, 0.65),
+    0 8px 36px rgba(180, 120, 20, 0.70),
     inset 0 1px 0 rgba(255,255,255,0.30);
   transform: scale(1.06) !important;
 }
@@ -285,9 +285,9 @@ html, body {
   color: #fff;
   text-align: center;
   text-shadow:
-    0 0 20px rgba(255, 107, 157, 0.9),
-    0 0 50px rgba(255, 107, 157, 0.55),
-    0 0 100px rgba(255, 107, 157, 0.3);
+    0 0 20px rgba(201, 146, 26, 0.9),
+    0 0 50px rgba(201, 146, 26, 0.55),
+    0 0 100px rgba(201, 146, 26, 0.3);
   animation: finalFloat 3.5s ease-in-out infinite;
   will-change: transform;
 }
@@ -327,10 +327,10 @@ html, body {
 }
 
 .page-link--proposal {
-  color: rgba(255, 183, 204, 0.45);
+  color: rgba(220, 175, 95, 0.45);
 }
 .page-link--proposal:hover {
-  color: rgba(255, 183, 204, 0.90);
+  color: rgba(220, 175, 95, 0.90);
 }
 
 /* ============================================================
@@ -363,13 +363,13 @@ html, body {
 @keyframes heartPulseGlow {
   0%, 100% {
     filter:
-      drop-shadow(0 0 10px rgba(255, 107, 157, 0.80))
-      drop-shadow(0 0 24px rgba(255, 107, 157, 0.40));
+      drop-shadow(0 0 10px rgba(201, 146, 26, 0.80))
+      drop-shadow(0 0 24px rgba(180, 120, 20, 0.40));
   }
   50% {
     filter:
-      drop-shadow(0 0 20px rgba(255, 107, 157, 1.00))
-      drop-shadow(0 0 42px rgba(255, 107, 157, 0.65));
+      drop-shadow(0 0 20px rgba(201, 146, 26, 1.00))
+      drop-shadow(0 0 42px rgba(180, 120, 20, 0.65));
   }
 }
 
@@ -381,7 +381,7 @@ html, body {
   height: 130px;
   clip-path: path('M 65,28 C 65,12 50,4 40,4 C 24,4 8,17 8,34 C 8,55 30,74 65,100 C 100,74 122,55 122,34 C 122,17 106,4 90,4 C 80,4 65,12 65,28 Z');
   overflow: hidden;
-  background: #1e0d35; /* dark background for letterbox areas */
+  background: #1a0c04; /* dark background for letterbox areas */
   will-change: transform;
 }
 
@@ -396,11 +396,11 @@ html, body {
 .photo-label {
   font-size: 0.68rem;
   letter-spacing: 0.11em;
-  color: rgba(255, 183, 204, 0.55);
+  color: rgba(235, 200, 130, 0.55);
   font-style: italic;
   text-align: center;
   margin: 0;
-  text-shadow: 0 0 10px rgba(255, 107, 157, 0.5);
+  text-shadow: 0 0 10px rgba(201, 146, 26, 0.5);
 }
 
 /* Tablet */
@@ -468,6 +468,6 @@ html, body {
   .photo-wrap.visible {
     animation: none;
     opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.80));
+    filter: drop-shadow(0 0 10px rgba(201, 146, 26, 0.80));
   }
 }
