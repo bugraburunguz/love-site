@@ -500,8 +500,7 @@
 
   // Auto-play on load; fall back to first-gesture unlock if browser blocks it
   (function autoStart() {
-    audio.volume = 0;
-    audio.play().then(function () {
+    function fadeIn() {
       setPlaying(true);
       var vol = 0;
       (function fadeVol() {
@@ -509,24 +508,23 @@
         audio.volume = vol;
         if (vol < 0.65) requestAnimationFrame(fadeVol);
       })();
-    }).catch(function () {
+    }
+    audio.volume = 0;
+    audio.play().then(fadeIn).catch(function () {
+      var player = document.getElementById('audioPlayer');
+      if (player) player.classList.add('waiting');
       var unlock = function () {
-        audio.play().then(function () {
-          setPlaying(true);
-          var vol = 0;
-          (function fadeVol() {
-            vol = Math.min(0.65, vol + 0.65 / 90);
-            audio.volume = vol;
-            if (vol < 0.65) requestAnimationFrame(fadeVol);
-          })();
-        }).catch(function () {});
+        if (player) player.classList.remove('waiting');
+        audio.play().then(fadeIn).catch(function () {});
         document.removeEventListener('click',      unlock);
         document.removeEventListener('touchstart', unlock);
-        document.removeEventListener('scroll',     unlock);
+        document.removeEventListener('touchend',   unlock);
+        document.removeEventListener('keydown',    unlock);
       };
       document.addEventListener('click',      unlock, { once: true });
-      document.addEventListener('touchstart', unlock, { once: true });
-      document.addEventListener('scroll',     unlock, { once: true, passive: true });
+      document.addEventListener('touchstart', unlock, { once: true, passive: true });
+      document.addEventListener('touchend',   unlock, { once: true, passive: true });
+      document.addEventListener('keydown',    unlock, { once: true });
     });
   })();
 

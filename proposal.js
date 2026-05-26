@@ -956,20 +956,20 @@ async function init(){
       sessionStorage.removeItem('ihtilal_playing');
     }
     bgm.volume=0;
-    bgm.play().catch(()=>{
+    const fadeVol=()=>{ let v=0; (function s(){ v=Math.min(0.65,v+0.65/90); bgm.volume=v; if(v<0.65) requestAnimationFrame(s); })(); };
+    bgm.play().then(fadeVol).catch(()=>{
       const unlock=()=>{
-        bgm.play().catch(()=>{});
+        bgm.play().then(fadeVol).catch(()=>{});
         document.removeEventListener('click',unlock);
         document.removeEventListener('touchstart',unlock);
-        document.removeEventListener('scroll',unlock);
+        document.removeEventListener('touchend',unlock);
+        document.removeEventListener('keydown',unlock);
       };
       document.addEventListener('click',unlock,{once:true});
-      document.addEventListener('touchstart',unlock,{once:true});
-      document.addEventListener('scroll',unlock,{once:true,passive:true});
+      document.addEventListener('touchstart',unlock,{once:true,passive:true});
+      document.addEventListener('touchend',unlock,{once:true,passive:true});
+      document.addEventListener('keydown',unlock,{once:true});
     });
-    let vol=0;
-    const fadeVol=()=>{ vol=Math.min(0.65,vol+0.65/90); bgm.volume=vol; if(vol<0.65) requestAnimationFrame(fadeVol); };
-    requestAnimationFrame(fadeVol);
   })();
 
   bgCvs=document.getElementById('bgCanvas');
