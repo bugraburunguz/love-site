@@ -2,6 +2,7 @@ package com.lovesite.storage;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.net.URI;
 import java.util.List;
 
 /**
@@ -22,5 +23,16 @@ public record StorageProperties(
     public StorageProperties {
         if (region == null || region.isBlank()) region = "auto";
         if (allowedOrigins == null) allowedOrigins = List.of();
+    }
+
+    /**
+     * Origin the browser talks to for presigned URLs: the bucket's virtual-hosted host, or the endpoint itself for
+     * path-style access. Empty when no endpoint is configured.
+     */
+    public String bucketOrigin() {
+        if (endpoint == null || endpoint.isBlank()) return "";
+        URI uri = URI.create(endpoint);
+        String host = pathStyle || bucket == null || bucket.isBlank() ? uri.getHost() : bucket + "." + uri.getHost();
+        return uri.getScheme() + "://" + host + (uri.getPort() > 0 ? ":" + uri.getPort() : "");
     }
 }

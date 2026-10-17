@@ -63,8 +63,8 @@
   /* Film grain laid over the picture area (never baked into video pixels) */
   --grain-opacity: 0.16;
 
-  /* Textures (tiny inline SVGs, no extra requests) */
-  --tex-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .25  0 0 0 0 .18  0 0 0 0 .1  0 0 0 .9 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  --tex-paper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='p' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.04 .6' numOctaves='3' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .32  0 0 0 0 .18  0 0 0 .35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
-  --tex-leather: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='l' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='turbulence' baseFrequency='.55' numOctaves='3' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23l)'/></svg>");
+  /* Textures: real files under src/assets (inlining is off so the CSP never needs data: URLs) */
+  --tex-grain: url('../assets/tex-grain.svg');
+  --tex-paper: url('../assets/tex-paper.svg');
+  --tex-leather: url('../assets/tex-leather.svg');
 }

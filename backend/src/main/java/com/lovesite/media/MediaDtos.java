@@ -12,7 +12,8 @@ public final class MediaDtos {
     }
 
     /** One file the client wants to upload. Validation happens per file, not on the bean. */
-    public record UploadFile(String clientId, String filename, String contentType, Long sizeBytes, String sha256) {
+    public record UploadFile(String clientId, String filename, String contentType, Long sizeBytes, String sha256,
+                             Long lastModified) {
     }
 
     public record UploadRequest(List<UploadFile> files) {
@@ -57,13 +58,15 @@ public final class MediaDtos {
      * media worker in a later phase and are null until then.
      */
     public record MediaResponse(UUID id, MediaKind type, MediaStatus status, String originalFilename,
-                                String contentType, long sizeBytes, Instant createdAt, String caption, String url,
+                                String contentType, long sizeBytes, Instant createdAt, Instant clientModifiedAt, String caption,
+                                String url,
                                 String displayUrl, String thumbUrl, String loopUrl, String posterUrl,
                                 Integer width, Integer height) {
 
         static MediaResponse from(Media media, String url) {
             return new MediaResponse(media.getId(), media.getType(), media.getStatus(), media.getOriginalFilename(),
-                    media.getContentType(), media.getSizeBytes(), media.getCreatedAt(), media.getCaption(), url,
+                    media.getContentType(), media.getSizeBytes(), media.getCreatedAt(), media.getClientModifiedAt(),
+                    media.getCaption(), url,
                     null, null, null, null, null, null);
         }
     }

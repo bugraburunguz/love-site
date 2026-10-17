@@ -12,6 +12,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.lovesite.system.ApiException;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -99,10 +101,12 @@ public class MediaService {
             }
 
             var type = resolved.get();
+            Instant modifiedAt = clientModifiedAt(file.lastModified());
             if (row == null) {
-                row = new Media(UUID.randomUUID(), albumId, userId, type.kind(), filename, type.contentType(), size, sha256);
+                row = new Media(UUID.randomUUID(), albumId, userId, type.kind(), filename, type.contentType(), size, sha256,
+                        modifiedAt);
             } else {
-                row.reissue(type.kind(), filename, type.contentType(), size);
+                row.reissue(type.kind(), filename, type.contentType(), size, modifiedAt);
             }
             row = media.saveAndFlush(row);
             createdInThisBatch.add(row.getId());
@@ -117,6 +121,13 @@ public class MediaService {
             log.error("Could not prepare upload for client file {}", clientId, e);
             return UploadItem.error(clientId, "Yükleme hazırlanamadı");
         }
+    }
+
+    /** File.lastModified from the client; anything missing, non-positive or in the future is ignored. */
+    static Instant clientModifiedAt(Long epochMillis) {
+        if (epochMillis == null || epochMillis <= 0) return null;
+        Instant instant = Instant.ofEpochMilli(epochMillis);
+        return instant.isAfter(Instant.now().plus(1, ChronoUnit.DAYS)) ? null : instant;
     }
 
     /** Live (not deleted) media with this hash in the album, if any. */

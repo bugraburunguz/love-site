@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MediaDto } from '../api/albums'
 import { resolveDisplay } from '../media/display'
 
@@ -10,11 +10,13 @@ const CONCURRENCY = 4
  * items are probed; the caller raises the limit as the reader approaches later pages. Items that already carry
  * width/height from the server (Phase 3) are settled without any request.
  *
+ * Photos whose ratio is already known (album cache, API dimensions) are settled immediately.
  * Returns the ids that are settled: measured, failed, or not measurable (placeholders).
  */
 export function useAspectProbe(
   items: readonly MediaDto[],
   limit: number,
+  known: Readonly<Record<string, number>>,
   onAspect: (mediaId: string, aspect: number) => void,
 ): ReadonlySet<string> {
   const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set())
@@ -23,6 +25,8 @@ export function useAspectProbe(
   const active = useRef(0)
   const onAspectRef = useRef(onAspect)
   onAspectRef.current = onAspect
+  const knownRef = useRef(known)
+  knownRef.current = known
 
   useEffect(() => {
     const settle = (id: string) => setSettled((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
@@ -70,12 +74,17 @@ export function useAspectProbe(
     }
 
     for (const media of items.slice(0, limit)) {
-      if (started.current.has(media.id)) continue
+      if (started.current.has(media.id) || knownRef.current[media.id]) continue
       started.current.add(media.id)
       queue.current.push(media)
     }
     pump()
   }, [items, limit])
 
-  return settled
+  // known ratios count as settled without being measured
+  return useMemo(() => {
+    const all = new Set(settled)
+    for (const media of items) if (known[media.id]) all.add(media.id)
+    return all
+  }, [settled, items, known])
 }

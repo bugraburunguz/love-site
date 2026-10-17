@@ -48,6 +48,9 @@ public class Media {
     @Column(length = 280)
     private String caption;
 
+    @Column(name = "client_modified_at")
+    private Instant clientModifiedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -58,7 +61,7 @@ public class Media {
     }
 
     public Media(UUID id, UUID albumId, UUID uploadedBy, MediaKind type, String originalFilename,
-                 String contentType, long sizeBytes, String sha256) {
+                 String contentType, long sizeBytes, String sha256, Instant clientModifiedAt) {
         this.id = id;
         this.albumId = albumId;
         this.uploadedBy = uploadedBy;
@@ -69,10 +72,12 @@ public class Media {
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;
         this.sha256 = sha256;
+        this.clientModifiedAt = clientModifiedAt;
     }
 
     /** A retry of a still-pending upload: same row and key, fresh metadata. */
-    public void reissue(MediaKind type, String originalFilename, String contentType, long sizeBytes) {
+    public void reissue(MediaKind type, String originalFilename, String contentType, long sizeBytes, Instant clientModifiedAt) {
+        this.clientModifiedAt = clientModifiedAt;
         this.type = type;
         this.originalFilename = originalFilename;
         this.contentType = contentType;
@@ -140,6 +145,10 @@ public class Media {
 
     public String getSha256() {
         return sha256;
+    }
+
+    public Instant getClientModifiedAt() {
+        return clientModifiedAt;
     }
 
     public Instant getCreatedAt() {

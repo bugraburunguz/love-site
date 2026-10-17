@@ -110,3 +110,34 @@ rights to use.
   provides it, otherwise the original if the browser can show it, otherwise the "banyo ediliyor" placeholder.
 - Videos are muted and loop, play only while on screen and never more than 6 at once (`media/playback.ts`).
 - Screenshots of every screen (desktop and mobile) are in `docs/screenshots/`.
+
+## Page layout rules
+
+`autoLayout` (frontend/src/layout) places 2-4 photos per page (a lone photo only in a one-photo album) and fills pages
+evenly, so the two pages of a spread never differ by more than one. Photo widths follow the page: ~520 for one, ~400 for two,
+300-340 for three or four (+-8%; shrunk only when a crowded page of tall photos would otherwise cover pictures). Every frame,
+rotated and including its caption strip, stays at least 40 units inside the page and above the page-number strip; an item may
+hide at most 15% of another picture and never a caption; tape sits on a polaroid's top edge and never touches a picture;
+stickers go only into empty space. Unknown aspect ratios default to 9:16; real ratios come from the API (later) or are measured
+in the browser, cached per album in memory, and applied in one batch. `cd frontend && npm test` checks these rules for 1-40
+photos of mixed ratios across 50 seeds.
+
+## Security headers
+
+Spring Security sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` (HTTPS requests only),
+`Referrer-Policy: no-referrer` and a Content-Security-Policy whose bucket origin is derived from `S3_ENDPOINT`
+(`https://<bucket>.<host>` for virtual-hosted buckets, the endpoint itself when `S3_PATH_STYLE=true`):
+
+```
+default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: <bucket>; media-src 'self' blob: <bucket>;
+connect-src 'self' <bucket>; font-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+```
+
+`'wasm-unsafe-eval'` is needed because uploads hash files with hash-wasm (WebAssembly); it does not allow `eval()`.
+No inline styles or scripts are needed (textures are real files, not data: URLs).
+
+## Photo dates
+
+Uploads send `File.lastModified`; the server stores it as `media.client_modified_at` (ignored if missing, non-positive or in
+the future). The album shows that date, falling back to the upload time. Phase 3 will prefer the EXIF date and use this as
+the fallback.

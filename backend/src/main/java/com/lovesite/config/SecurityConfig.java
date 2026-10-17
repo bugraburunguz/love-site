@@ -1,5 +1,6 @@
 package com.lovesite.config;
 
+import com.lovesite.storage.StorageProperties;
 import com.lovesite.user.AppUserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,6 +24,8 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.HeaderWriter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -31,8 +34,15 @@ import java.io.IOException;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, StorageProperties storage) throws Exception {
         http
+                .headers(headers -> headers
+                        // written by hand so the value is exactly "max-age=31536000; includeSubDomains" (Spring's own
+                        // writer puts a space before the semicolon); only sent on HTTPS requests
+                        .httpStrictTransportSecurity(hsts -> hsts.disable())
+                        .addHeaderWriter(new StrictTransportSecurityWriter())
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER))
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(contentSecurityPolicy(storage.bucketOrigin()))))
                 // SPA: the token lives in the XSRF-TOKEN cookie and the frontend echoes it in X-XSRF-TOKEN.
                 // The plain (non-XOR) handler accepts the raw cookie value, and CsrfCookieFilter forces
                 // the deferred token to load so the cookie is written even on responses that never read it.
@@ -53,6 +63,27 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Everything comes from this origin, plus the bucket for presigned uploads and downloads. No inline style or script
+     * is needed: React sets styles through the CSSOM (not allowed to be blocked by style-src) and every texture is a
+     * real file, so neither 'unsafe-inline' nor data: is required.
+     *
+     * script-src adds 'wasm-unsafe-eval' only because the upload screen hashes files with hash-wasm (WebAssembly);
+     * without it every upload fails. It permits WebAssembly compilation, not eval() of strings.
+     */
+    static String contentSecurityPolicy(String bucketOrigin) {
+        String bucket = bucketOrigin.isEmpty() ? "" : " " + bucketOrigin;
+        return "default-src 'self'; "
+                + "script-src 'self' 'wasm-unsafe-eval'; "
+                + "img-src 'self' blob:" + bucket + "; "
+                + "media-src 'self' blob:" + bucket + "; "
+                + "connect-src 'self'" + bucket + "; "
+                + "font-src 'self'; "
+                + "style-src 'self'; "
+                + "frame-ancestors 'none'; "
+                + "base-uri 'self'; form-action 'self'; object-src 'none'";
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -68,6 +99,15 @@ public class SecurityConfig {
     @Bean
     AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    private static final class StrictTransportSecurityWriter implements HeaderWriter {
+        @Override
+        public void writeHeaders(HttpServletRequest request, HttpServletResponse response) {
+            if (request.isSecure() && !response.containsHeader("Strict-Transport-Security")) {
+                response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            }
+        }
     }
 
     private static final class CsrfCookieFilter extends OncePerRequestFilter {

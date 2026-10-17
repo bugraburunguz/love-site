@@ -5,6 +5,11 @@ import { sha256File } from './sha256'
 
 const CONCURRENCY = 3
 
+/** crypto.randomUUID only exists in secure contexts (https or localhost); fall back for plain-http dev access. */
+function newId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export type UploadStatus = 'queued' | 'hashing' | 'uploading' | 'verifying' | 'done' | 'duplicate' | 'error'
 
 export interface UploadEntry {
@@ -49,7 +54,7 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
 
         update(id, { status: 'uploading', progress: 0, error: undefined })
         const { items } = await requestUploads(albumId, [
-          { clientId: id, filename: file.name, contentType: file.type, sizeBytes: file.size, sha256 },
+          { clientId: id, filename: file.name, contentType: file.type, sizeBytes: file.size, sha256, lastModified: file.lastModified },
         ])
         const result = items[0]
         if (result.result === 'DUPLICATE') {
@@ -87,7 +92,7 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
 
   const add = useCallback(
     (files: File[]) => {
-      const added = files.map<UploadEntry>((file) => ({ id: crypto.randomUUID(), file, status: 'queued', progress: 0 }))
+      const added = files.map<UploadEntry>((file) => ({ id: newId(), file, status: 'queued', progress: 0 }))
       entriesRef.current = [...entriesRef.current, ...added]
       setEntries(entriesRef.current)
       pump()

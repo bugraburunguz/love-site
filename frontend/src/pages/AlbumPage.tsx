@@ -8,17 +8,26 @@ import Lightbox from '../components/Lightbox'
 import Book from '../components/book/Book'
 import { coverColor } from '../components/leather'
 import UploadPanel from '../components/UploadPanel'
+import { useAspectProbe } from '../hooks/useAspectProbe'
 import { autoLayout } from '../layout/autoLayout'
 import type { PageLayout } from '../layout/types'
-import { useAspectProbe } from '../hooks/useAspectProbe'
+import { cachedAspects, rememberAspects } from '../media/aspectCache'
 import { useUploadQueue } from '../upload/useUploadQueue'
 import './album.css'
 
+/** Re-layouts caused by late-arriving aspect ratios are grouped into one update per this many ms. */
+const RELAYOUT_DELAY = 250
+
 export default function AlbumPage() {
   const { id = '' } = useParams()
+  // key: a different album is a fresh page, with its own aspect cache and state
+  return <AlbumView key={id} id={id} />
+}
+
+function AlbumView({ id }: { id: string }) {
   const [album, setAlbum] = useState<Album | null | undefined>(undefined)
   const [media, setMedia] = useState<MediaDto[] | null>(null)
-  const [aspects, setAspects] = useState<Record<string, number>>({})
+  const [measured, setMeasured] = useState<Record<string, number>>(() => cachedAspects(id))
   const [openId, setOpenId] = useState<string | null>(null)
   const [toDelete, setToDelete] = useState<MediaDto | null>(null)
   const [probeLimit, setProbeLimit] = useState(12)
@@ -41,26 +50,54 @@ export default function AlbumPage() {
     refresh()
   }, [id, refresh])
 
-  const onAspect = useCallback((mediaId: string, ratio: number) => {
-    setAspects((prev) => (Math.abs((prev[mediaId] ?? 0) - ratio) < 0.005 ? prev : { ...prev, [mediaId]: ratio }))
-  }, [])
+  // Aspect ratios arrive one by one; they are collected and applied together so the layout is recomputed once.
+  const latest = useRef<Record<string, number>>(cachedAspects(id))
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const settledOnce = useRef(false)
+  const flush = useCallback(() => {
+    timer.current = undefined
+    rememberAspects(id, latest.current)
+    setMeasured({ ...latest.current })
+  }, [id])
+  const onAspect = useCallback(
+    (mediaId: string, ratio: number) => {
+      if (Math.abs((latest.current[mediaId] ?? 0) - ratio) < 0.005) return
+      latest.current[mediaId] = ratio
+      // before the book is first shown there is nothing on screen to protect: apply immediately
+      if (!settledOnce.current) flush()
+      else timer.current ??= setTimeout(flush, RELAYOUT_DELAY)
+    },
+    [flush],
+  )
+  useEffect(() => () => clearTimeout(timer.current), [])
 
   const items = useMemo(() => media ?? [], [media])
   const mediaById = useMemo(() => new Map(items.map((m) => [m.id, m])), [items])
+
+  // Ratio per photo: measured in the browser, or sent by the API once the media worker exists.
+  const aspects = useMemo(() => {
+    const result: Record<string, number> = {}
+    for (const m of items) if (m.width && m.height) result[m.id] = m.width / m.height
+    return { ...result, ...measured }
+  }, [items, measured])
+
   // Layout is generated from data only; Phase 5 will feed stored layouts into the same Book.
   const pages: PageLayout[] = useMemo(
     () => (items.length ? autoLayout(items, id, aspects) : [{ pageIndex: 0, items: [] }]),
     [items, id, aspects],
   )
 
-  // Photos are measured before they are drawn so frames never change height after first paint.
-  const settled = useAspectProbe(items, probeLimit, onAspect)
+  // Photos are measured before they are drawn, so frames never change size after first paint.
+  const settled = useAspectProbe(items, probeLimit, aspects, onAspect)
   const firstSpread = items.slice(0, 10)
   const ready = patience || firstSpread.every((m) => settled.has(m.id))
   useEffect(() => {
+    if (ready && media !== null) settledOnce.current = true
+  }, [ready, media])
+  useEffect(() => {
     if (media === null) return
-    const timer = setTimeout(() => setPatience(true), 4000)
-    return () => clearTimeout(timer)
+    const timeout = setTimeout(() => setPatience(true), 4000)
+    return () => clearTimeout(timeout)
   }, [media])
 
   // How many photos precede the end of the pages the reader is about to see
@@ -92,8 +129,8 @@ export default function AlbumPage() {
       await deleteMedia(toDelete.id)
       setOpenId((current) => {
         if (current !== toDelete.id) return current
-        const next = items[items.findIndex((m) => m.id === current) + 1] ?? items[items.findIndex((m) => m.id === current) - 1]
-        return next?.id ?? null
+        const at = items.findIndex((m) => m.id === current)
+        return (items[at + 1] ?? items[at - 1])?.id ?? null
       })
       refresh()
     } catch (e) {

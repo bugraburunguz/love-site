@@ -496,4 +496,47 @@ class MediaUploadIntegrationTest {
             storage.delete(key);
         }
     }
+
+    @Test
+    void clientModifiedDateIsStoredAndSanitised() throws Exception {
+        String album = createAlbum();
+        long taken = java.time.Instant.parse("2023-07-14T10:15:30Z").toEpochMilli();
+        long future = System.currentTimeMillis() + 10L * 24 * 3600 * 1000;
+        String body = "[{\"clientId\":\"a\",\"filename\":\"a.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":5,\"lastModified\":" + taken + "},"
+                + "{\"clientId\":\"b\",\"filename\":\"b.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":5,\"lastModified\":" + future + "},"
+                + "{\"clientId\":\"c\",\"filename\":\"c.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":5,\"lastModified\":0},"
+                + "{\"clientId\":\"d\",\"filename\":\"d.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":5}]";
+        String res = uploads(album, body);
+        for (int i = 0; i < 4; i++) {
+            String mediaId = JsonPath.read(res, "$.items[" + i + "].mediaId");
+            put(JsonPath.read(res, "$.items[" + i + "].uploadUrl"), "image/jpeg", ("x" + i + "yz!").getBytes());
+            complete(mediaId, 200);
+        }
+        String list = mvc.perform(get("/api/albums/" + album + "/media").with(USER)).andReturn().getResponse().getContentAsString();
+        assertThat(JsonPath.<java.util.List<String>>read(list, "$[?(@.originalFilename=='a.jpg')].clientModifiedAt")).containsExactly("2023-07-14T10:15:30Z");
+        assertThat(JsonPath.<java.util.List<Object>>read(list, "$[?(@.originalFilename=='b.jpg')].clientModifiedAt")).containsOnlyNulls();
+        assertThat(JsonPath.<java.util.List<Object>>read(list, "$[?(@.originalFilename=='c.jpg')].clientModifiedAt")).containsOnlyNulls();
+        assertThat(JsonPath.<java.util.List<Object>>read(list, "$[?(@.originalFilename=='d.jpg')].clientModifiedAt")).containsOnlyNulls();
+    }
+
+    @Test
+    void securityHeadersAreSentWithABucketAwareContentSecurityPolicy() throws Exception {
+        var response = mvc.perform(get("/").secure(true)).andReturn().getResponse();
+        assertThat(response.getHeader("Strict-Transport-Security")).isEqualTo("max-age=31536000; includeSubDomains");
+        assertThat(response.getHeader("Referrer-Policy")).isEqualTo("no-referrer");
+
+        String csp = response.getHeader("Content-Security-Policy");
+        String bucket = MediaUploadIntegrationTest.s3Url(); // path-style in tests: the endpoint origin itself
+        assertThat(csp).contains("default-src 'self'", "frame-ancestors 'none'", "font-src 'self'", "style-src 'self'");
+        assertThat(csp).contains("img-src 'self' blob: " + bucket);
+        assertThat(csp).contains("media-src 'self' blob: " + bucket);
+        assertThat(csp).contains("connect-src 'self' " + bucket);
+        assertThat(csp).contains("script-src 'self' 'wasm-unsafe-eval'");
+        assertThat(csp.replace("'wasm-unsafe-eval'", "")).doesNotContain("unsafe-inline").doesNotContain("unsafe-eval").doesNotContain("data:");
+
+        // HSTS is only meaningful (and only sent) over HTTPS
+        assertThat(mvc.perform(get("/")).andReturn().getResponse().getHeader("Strict-Transport-Security")).isNull();
+        // API responses carry the same headers
+        assertThat(mvc.perform(get("/api/albums").with(USER)).andReturn().getResponse().getHeader("Content-Security-Policy")).isEqualTo(csp);
+    }
 }

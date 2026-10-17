@@ -23,6 +23,11 @@ interface Props {
 
 const MAX_TILT = 4
 
+/** The photo's own date when the device told us, otherwise when it was uploaded. */
+export function shownDate(media: MediaDto): string {
+  return media.clientModifiedAt || media.createdAt
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -134,8 +139,8 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
         </div>
         <figcaption className="polaroid__caption" style={{ height: width * FRAME_BOTTOM }}>
           {captionSlot ?? (media.caption ? <span className="polaroid__text">{media.caption}</span> : null)}
-          <time className="polaroid__date" dateTime={media.createdAt} style={{ fontSize: width * 0.05 }}>
-            {formatDate(media.createdAt)}
+          <time className="polaroid__date" dateTime={shownDate(media)} style={{ fontSize: width * 0.05 }}>
+            {formatDate(shownDate(media))}
           </time>
         </figcaption>
       </div>

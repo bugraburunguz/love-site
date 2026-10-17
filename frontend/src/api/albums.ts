@@ -15,6 +15,8 @@ export interface MediaDto {
   contentType: string
   sizeBytes: number
   createdAt: string
+  /** when the file was last modified on the uploader's device (epoch based), if the client sent it */
+  clientModifiedAt?: string | null
   caption: string | null
   /** original file */
   url: string | null
@@ -33,6 +35,8 @@ export interface UploadFileRequest {
   contentType: string
   sizeBytes: number
   sha256?: string
+  /** File.lastModified (epoch ms) */
+  lastModified?: number
 }
 
 export interface UploadItemResult {

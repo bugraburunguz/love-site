@@ -26,6 +26,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   const pointer = useRef<{ x: number; y: number } | null>(null)
   const [draft, setDraft] = useState(media?.caption ?? '')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     setDraft(media?.caption ?? '')
@@ -38,7 +39,8 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        if (menuOpen) setMenuOpen(false)
+        else onClose()
         return
       }
       if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
@@ -48,6 +50,13 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [menuOpen])
 
   if (!media) return null
 
@@ -92,6 +101,35 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="lightbox__bar">
+        {/* deleting is deliberately tucked away: it lives behind this small menu and still asks for confirmation */}
+        <div className="lightbox__menu" onPointerDown={(e) => e.stopPropagation()}>
+          <Clay
+            shape="round"
+            size="sm"
+            tone="cream"
+            aria-label="Diğer işlemler"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            ⋯
+          </Clay>
+          {menuOpen && (
+            <div className="lightbox__dropdown" role="menu">
+              <Clay
+                size="sm"
+                tone="rose"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onDelete(media)
+                }}
+              >
+                Sil
+              </Clay>
+            </div>
+          )}
+        </div>
         <Clay shape="round" size="sm" tone="cream" onClick={onClose} aria-label="Kapat" autoFocus>
           ✕
         </Clay>
@@ -132,7 +170,6 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
       <div className="lightbox__footer">
         <span>{index + 1} / {items.length}</span>
         {saveError && <span role="alert" className="lightbox__error">{saveError}</span>}
-        <Clay size="sm" tone="rose" onClick={() => onDelete(media)}>Sil</Clay>
       </div>
     </div>
   )
