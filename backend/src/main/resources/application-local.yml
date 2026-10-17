@@ -21,3 +21,12 @@ app:
       email: ${USER2_EMAIL:user2@local.test}
       name: ${USER2_NAME:User Two}
       password: ${USER2_PASSWORD:local-dev-password-2}
+  storage:
+    # Local MinIO: docker run -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    bucket: ${S3_BUCKET:lovesite}
+    access-key-id: ${S3_ACCESS_KEY_ID:minioadmin}
+    secret-access-key: ${S3_SECRET_ACCESS_KEY:minioadmin}
+    region: ${S3_REGION:us-east-1}
+    path-style: ${S3_PATH_STYLE:true}
+    allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}

@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
-import HomePage from './pages/HomePage'
+import AlbumPage from './pages/AlbumPage'
+import AlbumsPage from './pages/AlbumsPage'
 import LoginPage from './pages/LoginPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
@@ -18,7 +19,15 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <HomePage />
+            <AlbumsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/albums/:id"
+        element={
+          <RequireAuth>
+            <AlbumPage />
           </RequireAuth>
         }
       />

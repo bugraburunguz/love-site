@@ -11,11 +11,12 @@ RUN npm run build
 # ---- 2. Backend build (React build is bundled as static resources) ----
 FROM maven:3.9-eclipse-temurin-21 AS backend
 WORKDIR /backend
-COPY backend/pom.xml ./
-RUN mvn -B -q dependency:go-offline
+COPY backend/pom.xml backend/mvnw ./
+COPY backend/.mvn ./.mvn
+RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 COPY backend/src ./src
 COPY --from=frontend /frontend/dist ./src/main/resources/static
-RUN mvn -B -q -DskipTests package
+RUN ./mvnw -B -q -DskipTests package
 
 # ---- 3. Runtime: JRE + media tools for the upcoming media phase ----
 FROM eclipse-temurin:21-jre

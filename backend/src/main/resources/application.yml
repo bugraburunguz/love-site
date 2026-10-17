@@ -1,5 +1,7 @@
 server:
   port: ${PORT:8080}
+  error:
+    include-message: always
   forward-headers-strategy: framework
   servlet:
     session:
@@ -54,3 +56,18 @@ app:
       email: ${USER2_EMAIL:}
       name: ${USER2_NAME:}
       password: ${USER2_PASSWORD:}
+  storage:
+    endpoint: ${S3_ENDPOINT:}
+    bucket: ${S3_BUCKET:}
+    access-key-id: ${S3_ACCESS_KEY_ID:}
+    secret-access-key: ${S3_SECRET_ACCESS_KEY:}
+    region: ${S3_REGION:auto}
+    path-style: ${S3_PATH_STYLE:false}
+    configure-cors: true
+    allowed-origins: ${APP_ALLOWED_ORIGINS:}
+  media:
+    max-image-size: 30MB
+    max-video-size: 300MB
+    max-batch-size: 50
+    upload-url-ttl: 15m
+    pending-ttl: 24h
