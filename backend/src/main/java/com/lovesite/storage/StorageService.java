@@ -144,6 +144,12 @@ public class StorageService {
         getUrlCache.invalidate(key);
     }
 
+    /** Plain signed request used at startup to tell bad credentials apart from a CORS-specific failure. */
+    public void headBucket() {
+        client.headBucket(software.amazon.awssdk.services.s3.model.HeadBucketRequest.builder()
+                .bucket(properties.bucket()).build());
+    }
+
     /** Replaces the bucket CORS configuration so browsers can PUT/GET directly from the given origins. */
     public void putBucketCors(List<String> origins) {
         var rule = CORSRule.builder()

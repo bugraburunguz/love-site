@@ -34,6 +34,12 @@ public class BucketCorsInitializer implements ApplicationRunner {
             return;
         }
         try {
+            storage.headBucket();
+            log.info("Bucket reachable with the configured credentials");
+        } catch (Exception e) {
+            log.error("Bucket is NOT reachable (HeadBucket failed), check S3_* variables: {}", e.toString());
+        }
+        try {
             storage.putBucketCors(properties.allowedOrigins());
             log.info("Bucket CORS configured for origins {}", properties.allowedOrigins());
         } catch (Exception e) {
