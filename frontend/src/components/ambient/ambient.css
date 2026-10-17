@@ -1,9 +1,8 @@
-/* one canvas over the book; it never takes pointer events */
-.ambient {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+/* the ambient canvas of one page: inside the page (which clips it), above the paper and the photos, never takes the pointer */
+.page__ambient {
+  position: absolute;
+  top: 0;
+  left: 0;
   pointer-events: none;
-  z-index: calc(var(--z-controls) - 1);
+  z-index: 3;
 }

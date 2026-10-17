@@ -4,8 +4,8 @@ import {
   changeAlbumTheme, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
 import {
-  addSticker, changePageLook, changeTemplate, createPage, deletePage, featureMedia, initializePages, moveItem, placeMedia, removeItem,
-  reorderPages, type PageDto, type PageItemDto, type PageTemplate,
+  addSticker, applyPageTheme, changePageLook, changePageTheme, changeTemplate, createPage, deletePage, featureMedia, initializePages,
+  moveItem, placeMedia, removeItem, reorderPages, type PageDto, type PageItemDto, type PageTemplate,
 } from '../api/pages'
 import AlbumMusic from '../components/AlbumMusic'
 import AlbumSettings from '../components/AlbumSettings'
@@ -36,8 +36,9 @@ import { cachedAspects, rememberAspects } from '../media/aspectCache'
 import { useReducedMotion, useHoverCapable } from '../hooks/useReducedMotion'
 import { themeDecor } from '../themes/decor'
 import { themeVars } from '../themes/cssVars'
+import { resolvePageTheme, scopeIndexes, themesInUse, type ThemeScope } from '../themes/pageTheme'
 import { getTheme } from '../themes/registry'
-import { ThemeContext, useThemeFonts } from '../themes/ThemeContext'
+import { loadThemeFonts, ThemeContext, useThemeFonts } from '../themes/ThemeContext'
 import { useUploadQueue } from '../upload/useUploadQueue'
 import './album.css'
 
@@ -54,6 +55,7 @@ export default function AlbumPage() {
 type Confirm =
   | { kind: 'unfreeze'; page: PageDto; template: PageTemplate }
   | { kind: 'deletePage'; page: PageDto }
+  | { kind: 'themeRest'; pages: PageDto[]; themeId: string | null }
   | null
 
 const mediaItems = (page: PageDto): PageItemDto[] =>
@@ -76,6 +78,7 @@ function AlbumView({ id }: { id: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusPageId, setFocusPageId] = useState<string | null>(null)
   const [visibleStart, setVisibleStart] = useState(0)
+  const [bookCols, setBookCols] = useState(2)
   const [trayOpen, setTrayOpen] = useState(false)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [search, setSearch] = useSearchParams()
@@ -91,9 +94,13 @@ function AlbumView({ id }: { id: string }) {
 
   const theme = useMemo(() => getTheme(previewThemeId ?? album?.themeId), [previewThemeId, album?.themeId])
   useThemeFonts(theme)
-  const decor = useMemo(() => themeDecor(theme), [theme])
   const pagesState = usePages(id)
   const { view, run: runPages, refresh: refreshPages } = pagesState
+  // pages with a theme of their own: their hand fonts are loaded too (a spread may need two)
+  const pageThemeKey = (view?.pages ?? []).map((p) => p.themeId ?? '').join(',')
+  useEffect(() => {
+    for (const t of themesInUse(pageThemeKey.split(','), theme)) void loadThemeFonts(t)
+  }, [pageThemeKey, theme])
 
   const refresh = useCallback(() => {
     listMedia(id)
@@ -212,6 +219,13 @@ function AlbumView({ id }: { id: string }) {
     }
     return placed
   }, [pages, mediaById])
+  // media id -> theme of the page it sits on (the lightbox and the exports show a photo in its page's theme)
+  const pageThemeByMedia = useMemo(() => {
+    const result = new Map<string, string | null>()
+    for (const page of pages) for (const item of mediaItems(page)) result.set(item.mediaId as string, page.themeId ?? null)
+    return result
+  }, [pages])
+  const themeOfMedia = useCallback((mediaId: string) => resolvePageTheme(pageThemeByMedia.get(mediaId), theme), [pageThemeByMedia, theme])
   const trayMedia = useMemo(() => (view?.tray ?? []).map((tid) => mediaById.get(tid)).filter((m): m is MediaDto => !!m), [view, mediaById])
 
   // Ratio per photo: measured in the browser, or sent by the API once the media worker exists.
@@ -224,11 +238,13 @@ function AlbumView({ id }: { id: string }) {
   // Layouts are computed per page from data only (plus the screen's text metrics, which the Book supplies).
   // Computing a page is the expensive part, so every page keeps its result until it changes (pages the user did not
   // touch keep their identity when another page is edited).
+  // the automatic decoration (fasteners, stickers) of a page comes from that page's theme
   const layoutCache = useRef(new WeakMap<PageDto, { metrics: Metrics; aspects: object; decor: object; layout: PageLayout }>())
   const layout = useCallback(
     (metrics: Metrics): PageLayout[] =>
       pages.length
         ? pages.map((p) => {
+            const decor = themeDecor(resolvePageTheme(p.themeId, theme))
             const hit = layoutCache.current.get(p)
             if (hit && hit.metrics === metrics && hit.aspects === aspects && hit.decor === decor) return hit.layout
             const computed = layoutPage(p, aspects, metrics, decor)
@@ -236,7 +252,7 @@ function AlbumView({ id }: { id: string }) {
             return computed
           })
         : [{ pageIndex: 0, items: [] }],
-    [pages, aspects, decor],
+    [pages, aspects, theme],
   )
   const onLayouts = useCallback((computed: PageLayout[]) => {
     layouts.current = computed
@@ -259,6 +275,7 @@ function AlbumView({ id }: { id: string }) {
   const onPosition = useCallback(
     (start: number, cols: number) => {
       setVisibleStart(start)
+      setBookCols(cols)
       const count = pages.slice(0, start + cols * 3).reduce((sum, p) => sum + mediaItems(p).length, 0)
       setProbeLimit((limit) => Math.max(limit, count))
     },
@@ -418,6 +435,23 @@ function AlbumView({ id }: { id: string }) {
     setSelectedId(stickers.reduce((a, b) => ((b.zIndex ?? 0) > (a.zIndex ?? 0) ? b : a)).id)
   }, [view])
 
+  /** Page theme from the page panel: the spread (default), only this page, or this page and every later one (asks first). */
+  function changeTheme(themeId: string | null, scope: ThemeScope) {
+    const index = focusIndex
+    const targets = scopeIndexes(pages.length, index, scope).map((i) => pages[i])
+    if (targets.length === 0) return
+    if (scope === 'rest' && targets.length > 1) {
+      setConfirm({ kind: 'themeRest', pages: targets, themeId })
+      return
+    }
+    void applyTheme(targets, themeId)
+  }
+
+  function applyTheme(targets: PageDto[], themeId: string | null) {
+    if (targets.length === 1) return runPages(() => changePageTheme(targets[0].id, targets[0].version, themeId))
+    return runPages(() => applyPageTheme(id, targets.map((p) => ({ id: p.id, version: p.version })), themeId))
+  }
+
   function addStickerToPage(variant: string) {
     const page = pages[focusIndex]
     if (!page) return
@@ -465,7 +499,7 @@ function AlbumView({ id }: { id: string }) {
 
   const effects = effectsAllowed({ reduced, hoverCapable, editing, lightboxOpen, ambientOn, hidden: false })
   const cursor = theme.cursor && effects.cursor && assetUrl(theme.id, theme.cursor.file)
-  const rootClass = `album-screen${cursor ? ' album-screen--cursor' : ''}${theme.hover.wiggle && effects.wiggle ? ' themed-wiggle' : ''}`
+  const rootClass = `album-screen${cursor ? ' album-screen--cursor' : ''}`
   const rootStyle = {
     ...themeVars(theme),
     ...(cursor && theme.cursor ? { '--theme-cursor': `url("${cursor}") ${theme.cursor.hotspot[0]} ${theme.cursor.hotspot[1]}, auto` } : {}),
@@ -572,7 +606,7 @@ function AlbumView({ id }: { id: string }) {
             onTemplate={changePageTemplate}
           />
           <div className="item-bar">
-            <Clay size="sm" tone="cream" disabled={!currentPage} onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>Renk, doku, çıkartma</Clay>
+            <Clay size="sm" tone="cream" disabled={!currentPage} onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>Tema, renk, doku, çıkartma</Clay>
             {trayMedia.length > 0 && !trayOpen && (
               <Clay size="sm" tone="cream" onClick={() => { setTrayOpen(true); setPanelOpen(false) }}>Tepsi ({trayMedia.length})</Clay>
             )}
@@ -583,6 +617,8 @@ function AlbumView({ id }: { id: string }) {
       {editing && panelOpen && currentPage && (
         <PagePanel
           page={currentPage}
+          single={bookCols === 1}
+          onTheme={changeTheme}
           onLook={(look) => void runPages(() => changePageLook(currentPage.id, currentPage.version, look))}
           onSticker={addStickerToPage}
           onClose={() => setPanelOpen(false)}
@@ -604,6 +640,7 @@ function AlbumView({ id }: { id: string }) {
           onDelete={setToDelete}
           onRetry={retryProcessing}
           onAspect={onAspect}
+          themeOf={themeOfMedia}
         />
       )}
 
@@ -626,6 +663,17 @@ function AlbumView({ id }: { id: string }) {
           onConfirm={async () => {
             const { page, template } = confirm
             await runPages(() => changeTemplate(page.id, template, page.version))
+          }}
+        />
+      )}
+      {confirm?.kind === 'themeRest' && (
+        <ConfirmDialog
+          title="Tema sonraki sayfalara da uygulansın mı?"
+          message={`Bu sayfa ve sonraki ${confirm.pages.length - 1} sayfa (albümün sonuna kadar) seçtiğin temayı alacak.`}
+          confirmLabel="Uygula"
+          onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            await applyTheme(confirm.pages, confirm.themeId)
           }}
         />
       )}

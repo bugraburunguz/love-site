@@ -130,7 +130,7 @@ function item(partial: Partial<PageItemDto> & { id: string }): PageItemDto {
 }
 
 describe('stored pages -> layout', () => {
-  const page = (template: PageDto['template'], items: PageItemDto[]): PageDto => ({ id: 'pg', albumId: 'al', pageIndex: 3, template, version: 1, swatch: null, paper: null, items })
+  const page = (template: PageDto['template'], items: PageItemDto[]): PageDto => ({ id: 'pg', albumId: 'al', pageIndex: 3, template, version: 1, swatch: null, paper: null, themeId: null, items })
 
   it('AUTO follows the stored slot order, not the order of the array', () => {
     const layout = layoutPage(page('AUTO', [item({ id: 'b', slotIndex: 1 }), item({ id: 'a', slotIndex: 0 })]), {}, DESKTOP_METRICS)

@@ -30,4 +30,6 @@ export type PageLayout = {
   /** the page's own colour / paper slot (null = the theme default) */
   swatch?: string | null
   paper?: string | null
+  /** the page's own theme (null / absent = the album's theme) */
+  themeId?: string | null
 }

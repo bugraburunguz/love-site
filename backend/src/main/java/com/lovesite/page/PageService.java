@@ -34,8 +34,9 @@ public class PageService {
                        Double rotation, Integer zIndex, String variant, int version) {
     }
 
+    /** themeId null = the page follows the album's theme. */
     public record PageView(UUID id, UUID albumId, int pageIndex, String template, int version, String swatch, String paper,
-                           List<Item> items) {
+                           String themeId, List<Item> items) {
     }
 
     /** Pages in order plus the tray: live media of the album that sit on no page. */
@@ -55,9 +56,11 @@ public class PageService {
     }
 
     private final JdbcTemplate jdbc;
+    private final com.lovesite.album.ThemeProperties themes;
 
-    public PageService(JdbcTemplate jdbc) {
+    public PageService(JdbcTemplate jdbc, com.lovesite.album.ThemeProperties themes) {
         this.jdbc = jdbc;
+        this.themes = themes;
     }
 
     // ------------------------------------------------------------------ reads
@@ -80,12 +83,12 @@ public class PageService {
             items.computeIfAbsent(rs.getObject(12, UUID.class), k -> new ArrayList<>()).add(itemRow(rs));
         }, albumId, spaceId);
         Map<UUID, String[]> looks = new LinkedHashMap<>();
-        jdbc.query("SELECT id, swatch, paper FROM page WHERE album_id = ? AND space_id = ?",
-                rs -> { looks.put(rs.getObject(1, UUID.class), new String[] {rs.getString(2), rs.getString(3)}); }, albumId, spaceId);
+        jdbc.query("SELECT id, swatch, paper, theme_id FROM page WHERE album_id = ? AND space_id = ?",
+                rs -> { looks.put(rs.getObject(1, UUID.class), new String[] {rs.getString(2), rs.getString(3), rs.getString(4)}); }, albumId, spaceId);
         List<PageView> pages = rows.stream()
                 .map(r -> {
-                    String[] look = looks.getOrDefault(r.id(), new String[2]);
-                    return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1],
+                    String[] look = looks.getOrDefault(r.id(), new String[3]);
+                    return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1], look[2],
                             items.getOrDefault(r.id(), List.of()));
                 })
                 .toList();
@@ -98,9 +101,9 @@ public class PageService {
     private PageView pageView(UUID pageId) {
         PageRow r = jdbc.queryForObject("SELECT id, album_id, space_id, page_index, template, version FROM page WHERE id = ?",
                 (rs, i) -> pageRow(rs), pageId);
-        String[] look = jdbc.queryForObject("SELECT swatch, paper FROM page WHERE id = ?",
-                (rs, i) -> new String[] {rs.getString(1), rs.getString(2)}, pageId);
-        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1], items(pageId));
+        String[] look = jdbc.queryForObject("SELECT swatch, paper, theme_id FROM page WHERE id = ?",
+                (rs, i) -> new String[] {rs.getString(1), rs.getString(2), rs.getString(3)}, pageId);
+        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1], look[2], items(pageId));
     }
 
     private static PageRow pageRow(java.sql.ResultSet rs) throws java.sql.SQLException {
@@ -342,19 +345,33 @@ public class PageService {
         return requested;
     }
 
+    /** A theme id the backend accepts, or null (= follow the album's theme). */
+    private String validPageTheme(String themeId) {
+        if (themeId == null) return null;
+        if (!themes.isAllowed(themeId)) throw ApiException.badRequest("Geçersiz tema");
+        return themeId;
+    }
+
+    /**
+     * `themeGiven` tells an explicit `"themeId": null` (back to the album theme) apart from a request that does not touch
+     * the theme at all.
+     */
     @Transactional
     public PagesView patchPage(CurrentUser me, UUID pageId, String requestedTemplate, Integer version, List<ItemGeometry> frozen,
-                               String swatch, String paper) {
+                               String swatch, String paper, boolean themeGiven, String themeId) {
         PageRow page = lockedPage(me, pageId);
         checkPageVersion(page, version, true);
 
-        String[] look = jdbc.queryForObject("SELECT swatch, paper FROM page WHERE id = ?",
-                (rs, i) -> new String[] {rs.getString(1), rs.getString(2)}, page.id());
+        String[] look = jdbc.queryForObject("SELECT swatch, paper, theme_id FROM page WHERE id = ?",
+                (rs, i) -> new String[] {rs.getString(1), rs.getString(2), rs.getString(3)}, page.id());
         String newSwatch = slot(swatch, SWATCHES, look[0], "sayfa rengi");
         String newPaper = slot(paper, PAPERS, look[1], "kağıt dokusu");
-        boolean lookChanged = !java.util.Objects.equals(newSwatch, look[0]) || !java.util.Objects.equals(newPaper, look[1]);
+        String newTheme = themeGiven ? validPageTheme(themeId) : look[2];
+        boolean lookChanged = !java.util.Objects.equals(newSwatch, look[0]) || !java.util.Objects.equals(newPaper, look[1])
+                || !java.util.Objects.equals(newTheme, look[2]);
         if (lookChanged) {
-            jdbc.update("UPDATE page SET swatch = ?, paper = ?, version = version + 1, updated_at = now() WHERE id = ?", newSwatch, newPaper, page.id());
+            jdbc.update("UPDATE page SET swatch = ?, paper = ?, theme_id = ?, version = version + 1, updated_at = now() WHERE id = ?",
+                    newSwatch, newPaper, newTheme, page.id());
         }
 
         String target = requestedTemplate == null ? page.template() : normalizeTemplate(requestedTemplate);
@@ -401,6 +418,44 @@ public class PageService {
             jdbc.update("UPDATE page_item SET slot_index = ?, x = NULL, y = NULL, width = NULL, rotation = NULL, z_index = NULL, version = version + 1 WHERE id = ?",
                     s, keep.get(s).id());
         }
+    }
+
+    /** One page of a bulk request and the version the client saw (null = do not check). */
+    public record PageVersion(UUID id, Integer version) {
+    }
+
+    /**
+     * Applies (or, with null, removes) a page theme on several pages of one album in one transaction. Every page must belong
+     * to this album of the caller's space, otherwise the whole request is a 404 and nothing changes; a stale version is a 409
+     * with the current pages, also without any change.
+     */
+    @Transactional
+    public PagesView applyTheme(CurrentUser me, UUID albumId, List<PageVersion> requested, String themeId) {
+        UUID spaceId = me.requireSpace();
+        requireAlbum(spaceId, albumId, true);
+        String theme = validPageTheme(themeId);
+        if (requested == null || requested.isEmpty()) throw ApiException.badRequest("Sayfa listesi boş");
+        if (requested.size() > 5000) throw ApiException.badRequest("Çok fazla sayfa");
+        Map<UUID, Integer> versions = new LinkedHashMap<>();
+        for (PageVersion p : requested) {
+            if (p == null || p.id() == null) throw ApiException.badRequest("Geçersiz sayfa");
+            versions.put(p.id(), p.version());
+        }
+        Map<UUID, Integer> current = new LinkedHashMap<>();
+        jdbc.query("SELECT id, version FROM page WHERE album_id = ? AND space_id = ?",
+                rs -> { current.put(rs.getObject(1, UUID.class), rs.getInt(2)); }, albumId, spaceId);
+        for (Map.Entry<UUID, Integer> e : versions.entrySet()) {
+            Integer now = current.get(e.getKey());
+            if (now == null) throw ApiException.notFound("Sayfa bulunamadı");
+            if (e.getValue() != null && !e.getValue().equals(now)) {
+                throw ApiException.conflict("Sayfa başka bir yerde değişti").with("current", build(spaceId, albumId));
+            }
+        }
+        for (UUID id : versions.keySet()) {
+            jdbc.update("UPDATE page SET theme_id = ?, version = version + 1, updated_at = now() WHERE id = ? AND space_id = ? "
+                    + "AND theme_id IS DISTINCT FROM ?", theme, id, spaceId, theme);
+        }
+        return build(spaceId, albumId);
     }
 
     @Transactional

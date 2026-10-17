@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -32,7 +35,11 @@ public class PageController {
     public record ReorderRequest(List<UUID> pageIds) {
     }
 
-    public record PatchPageRequest(String template, Integer version, List<ItemGeometry> items, String swatch, String paper) {
+    public record PatchPageRequest(String template, Integer version, List<ItemGeometry> items, String swatch, String paper, String themeId) {
+    }
+
+    /** pages: ids with the version the client saw; themeId null = back to the album's theme */
+    public record PageThemeRequest(List<UUID> pageIds, List<PageService.PageVersion> pages, String themeId) {
     }
 
     public record PatchItemRequest(Double x, Double y, Double width, Double rotation, Integer zIndex, Integer version) {
@@ -46,9 +53,11 @@ public class PageController {
     }
 
     private final PageService pages;
+    private final JsonMapper json;
 
-    public PageController(PageService pages) {
+    public PageController(PageService pages, JsonMapper json) {
         this.pages = pages;
+        this.json = json;
     }
 
     @GetMapping("/api/albums/{albumId}/pages")
@@ -72,9 +81,19 @@ public class PageController {
         return pages.reorder(me, albumId, request.pageIds());
     }
 
+    /** Read as a tree first: an explicit `"themeId": null` (back to the album theme) differs from leaving the theme alone. */
     @PatchMapping("/api/pages/{id}")
-    public PagesView patchPage(CurrentUser me, @PathVariable UUID id, @RequestBody PatchPageRequest request) {
-        return pages.patchPage(me, id, request.template(), request.version(), request.items(), request.swatch(), request.paper());
+    public PagesView patchPage(CurrentUser me, @PathVariable UUID id, @RequestBody ObjectNode body) {
+        PatchPageRequest request = json.treeToValue(body, PatchPageRequest.class);
+        return pages.patchPage(me, id, request.template(), request.version(), request.items(), request.swatch(), request.paper(),
+                body.has("themeId"), request.themeId());
+    }
+
+    @PostMapping("/api/albums/{albumId}/pages/theme")
+    public PagesView applyTheme(CurrentUser me, @PathVariable UUID albumId, @RequestBody PageThemeRequest request) {
+        List<PageService.PageVersion> list = request.pages() != null ? request.pages()
+                : request.pageIds() == null ? List.of() : request.pageIds().stream().map(p -> new PageService.PageVersion(p, null)).toList();
+        return pages.applyTheme(me, albumId, list, request.themeId());
     }
 
     @DeleteMapping("/api/pages/{id}")

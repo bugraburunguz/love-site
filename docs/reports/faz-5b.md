@@ -58,3 +58,13 @@
 - Büyülü `quill-inkwell` ve `old-key` sticker'ları diğerlerine göre daha basit çizildi; sonradan değiştirmek tek dosyayı değiştirmek kadar kolay (`themes/<id>/assets/stickers/<id>.svg`).
 - Creepster / Mountains of Christmas'ta Türkçe özel harfler yedek fonta düşer.
 - Tema değişiminde geçiş yalnızca sayfa/kapak arka plan renklerinde yumuşak; fontlar ve süsler anında değişir.
+
+## Ek: Sayfa bazında tema (Faz 7 öncesi)
+- `page.theme_id` (nullable, `V11__page_theme.sql`). Null → albüm teması; albüm teması değişince null sayfalar yeni temayı alır, kendi teması olan sayfalar değişmez. `swatch`/`paper` semantik slot olarak kalır.
+- `PATCH /api/pages/{id}` `themeId` alır (açıkça `null` → albüm temasına döner; alan hiç yoksa tema değişmez). `POST /api/albums/{id}/pages/theme` `{pages:[{id,version}] | pageIds:[...], themeId|null}`: tek transaction; listede başka alanın/albümün sayfası varsa tüm istek 404, eski sürüm varsa 409 (+ `current`), her iki durumda hiçbir sayfa değişmez.
+- Albüm temasına ait: kapak/raf, cilt, kontrol vurguları ve `+`, başlık fontu, müzik kutusu ve albüm müziği. Sayfa temasına ait: swatch + paper, frameSkin, fasteners, otomatik sticker'lar, `hand` fontu, `mediaFilter`, ambient (artık her sayfanın KENDİ canvas'ında, sayfanın `overflow: hidden` alanına kırpılmış), hover (glow, burst, wiggle), sticker çekmecesinin ilk sekmesi (sonra albüm teması, sonra diğerleri).
+- Düzenleme panelinde "Sayfa teması" sekmesi: her tema için küçük sayfa örneği + "Albüm teması"; kapsam: **Bu yayına uygula** (varsayılan; mobilde "Bu ve karşı sayfa"), Sadece bu sayfa, Bu sayfa ve sonrakiler (onay ister).
+- Fontlar: albümde kullanılan tüm sayfa temalarının fontları dinamik yüklenir (bir yayında iki `hand` fontu olabilir).
+
+### Faz 7 için not
+Export render'ları (POLAROID, STORY, POST, CAROUSEL, REELS, STICKER_PACK) her medya için **o medyanın bulunduğu sayfanın temasını** kullanır (sayfa teması yoksa albüm teması); CAROUSEL her sayfayı kendi temasıyla render eder. Tepside (sayfada olmayan) medya albüm temasını kullanır.

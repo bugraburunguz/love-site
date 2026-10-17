@@ -34,7 +34,7 @@ export function layoutFreePage(page: PageDto): PageLayout {
  */
 export function layoutPage(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics = DESKTOP_METRICS, decor?: Decor): PageLayout {
   const layout = layoutPageItems(page, aspects, metrics, decor)
-  return { ...layout, pageId: page.id, template: page.template, swatch: page.swatch, paper: page.paper }
+  return { ...layout, pageId: page.id, template: page.template, swatch: page.swatch, paper: page.paper, themeId: page.themeId ?? null }
 }
 
 function layoutPageItems(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics, decor?: Decor): PageLayout {

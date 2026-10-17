@@ -4,6 +4,9 @@ import { useElementSize } from '../hooks/useElementSize'
 import {
   DEFAULT_ASPECT, FRAME_SIDE, UNIT_METRICS, captionFontSize, clampAspect, polaroidSize, type Metrics,
 } from '../layout/geometry'
+import { pageThemeVars } from '../themes/cssVars'
+import { ThemeContext, useTheme } from '../themes/ThemeContext'
+import type { ThemeDef } from '../themes/types'
 import Clay from './Clay'
 import LivingPhoto from './LivingPhoto'
 import './lightbox.css'
@@ -18,12 +21,17 @@ interface Props {
   onDelete: (media: MediaDto) => void
   onRetry: (media: MediaDto) => void | Promise<void>
   onAspect: (mediaId: string, aspect: number) => void
+  /** theme of the page a photo is on (its frame, filter and hand font follow that page); the album theme otherwise */
+  themeOf?: (mediaId: string) => ThemeDef | undefined
+  /** extra entries of the ⋯ menu (download / share) */
+  menuExtra?: (media: MediaDto, close: () => void) => React.ReactNode
 }
 
 const SWIPE = 60
 
-export default function Lightbox({ items, index, aspects, onIndex, onClose, onCaption, onDelete, onRetry, onAspect }: Props) {
+export default function Lightbox({ items, index, aspects, onIndex, onClose, onCaption, onDelete, onRetry, onAspect, themeOf, menuExtra }: Props) {
   const media = items[index]
+  const albumTheme = useTheme()
   const stageRef = useRef<HTMLDivElement>(null)
   const { width: stageW, height: stageH } = useElementSize(stageRef)
   const pointer = useRef<{ x: number; y: number } | null>(null)
@@ -125,6 +133,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
           </Clay>
           {menuOpen && (
             <div className="lightbox__dropdown" role="menu">
+              {menuExtra?.(media, () => setMenuOpen(false))}
               <Clay
                 size="sm"
                 tone="rose"
@@ -149,7 +158,8 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
           ‹
         </Clay>
         {stageW > 0 && (
-          <div className="lightbox__photo" key={media.id}>
+          <ThemeContext.Provider value={themeOf?.(media.id) ?? albumTheme}>
+          <div className="lightbox__photo" key={media.id} style={pageThemeVars(themeOf?.(media.id) ?? albumTheme)}>
             <LivingPhoto
               media={media}
               width={frameWidth}
@@ -179,6 +189,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
               }
             />
           </div>
+          </ThemeContext.Provider>
         )}
         <Clay shape="round" className="lightbox__nav lightbox__nav--next" onClick={next} disabled={index === items.length - 1} aria-label="Sonraki fotoğraf">
           ›

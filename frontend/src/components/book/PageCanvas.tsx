@@ -2,9 +2,11 @@ import { lazy, Suspense, useRef } from 'react'
 import type { MediaDto } from '../../api/albums'
 import { PAGE_H, PAGE_W, type Metrics } from '../../layout/geometry'
 import type { PageItem, PageLayout } from '../../layout/types'
-import { pageVars } from '../../themes/cssVars'
-import { useTheme } from '../../themes/ThemeContext'
-import { useBurst } from '../Ambient'
+import { useHoverCapable, useReducedMotion } from '../../hooks/useReducedMotion'
+import { pageThemeVars, pageVars } from '../../themes/cssVars'
+import { resolvePageTheme } from '../../themes/pageTheme'
+import { ThemeContext, useTheme } from '../../themes/ThemeContext'
+import { PageAmbient, useAmbientState, type PageAmbientHandle } from '../Ambient'
 import LivingPhoto from '../LivingPhoto'
 import { ThemeSticker, ThemeTape } from '../ornaments/ThemeOrnaments'
 import type { PageEditor } from './editor'
@@ -34,6 +36,8 @@ interface Props {
   editor?: PageEditor
   /** handwriting under the page content (the last page of a theme that has an end note) */
   endNote?: string
+  /** share of the theme's ambient particles this page gets (a page of a two-page spread is half the screen) */
+  ambientShare?: number
 }
 
 function EditableItem({
@@ -70,9 +74,23 @@ function EditableItem({
  */
 export default function PageCanvas({
   layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onRetry, onAspect, editor, endNote,
+  ambientShare = 1,
 }: Props) {
-  const theme = useTheme()
-  const burst = useBurst()
+  // everything on the page follows the page's theme; the album theme stays outside (cover, binding, controls)
+  const albumTheme = useTheme()
+  const theme = resolvePageTheme(layout?.themeId, albumTheme)
+  const ambientRef = useRef<PageAmbientHandle>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
+  const { burst: burstAllowed } = useAmbientState()
+  const reduced = useReducedMotion()
+  const hoverCapable = useHoverCapable()
+  const burst = interactive && burstAllowed && theme.hover.burst
+    ? (x: number, y: number) => {
+        const rect = pageRef.current?.getBoundingClientRect()
+        if (rect) ambientRef.current?.burst(x - rect.left, y - rect.top)
+      }
+    : undefined
+  const wiggle = theme.hover.wiggle && hoverCapable && !reduced && editor === undefined
   const items = layout ? [...layout.items].sort((a, b) => a.zIndex - b.zIndex) : []
   const editing = editor !== undefined && layout?.pageId !== undefined
   const slotOf = (id: string) => {
@@ -82,9 +100,12 @@ export default function PageCanvas({
   }
   const free = layout?.template === 'FREE'
   return (
+    <ThemeContext.Provider value={theme}>
     <div
-      className={`page page--${side}${editing ? ' page--editing' : ''}`}
-      style={{ width: PAGE_W * scale, height: PAGE_H * scale, ...pageVars(theme, layout?.swatch, layout?.paper) }}
+      ref={pageRef}
+      className={`page page--${side}${editing ? ' page--editing' : ''}${wiggle ? ' themed-wiggle' : ''}`}
+      data-page-theme={theme.id}
+      style={{ width: PAGE_W * scale, height: PAGE_H * scale, ...pageThemeVars(theme), ...pageVars(theme, layout?.swatch, layout?.paper) }}
     >
       <div
         className="page__inner"
@@ -168,6 +189,11 @@ export default function PageCanvas({
         {endNote && <div className="page__endnote">{endNote}</div>}
         {pageNumber !== undefined && <div className="page__number">{pageNumber}</div>}
       </div>
+      {interactive && layout && (
+        <PageAmbient theme={theme} width={PAGE_W * scale} height={PAGE_H * scale} share={ambientShare}
+          seed={layout.pageId ?? String(layout.pageIndex)} handle={ambientRef} />
+      )}
     </div>
+    </ThemeContext.Provider>
   )
 }

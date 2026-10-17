@@ -133,7 +133,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
     }
   }
 
-  const common = { mediaById, aspects, scale, metrics, onOpen, onRetry, onAspect }
+  const common = { mediaById, aspects, scale, metrics, onOpen, onRetry, onAspect, ambientShare: cols === 2 ? 0.5 : 1 }
   const sheet = (index: number, side: 'left' | 'right' | 'single', interactive = true): ReactNode => {
     const pageLayout = index >= 0 && index < pages.length ? pages[index] : null
     return (

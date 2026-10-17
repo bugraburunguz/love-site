@@ -24,6 +24,8 @@ export interface PageDto {
   version: number
   swatch: string | null
   paper: string | null
+  /** the page's own theme; null = the album's theme (and it follows when the album theme changes) */
+  themeId: string | null
   items: PageItemDto[]
 }
 
@@ -62,6 +64,12 @@ export const changeTemplate = (pageId: string, template: PageTemplate, version: 
 /** swatch / paper: a slot, or 'DEFAULT' to go back to the theme's choice */
 export const changePageLook = (pageId: string, version: number, look: { swatch?: string; paper?: string }) =>
   api<PagesView>(`/api/pages/${pageId}`, { method: 'PATCH', body: { version, ...look } })
+/** themeId null = back to the album's theme */
+export const changePageTheme = (pageId: string, version: number, themeId: string | null) =>
+  api<PagesView>(`/api/pages/${pageId}`, { method: 'PATCH', body: { version, themeId } })
+/** One transaction for several pages (with the versions this device saw). */
+export const applyPageTheme = (albumId: string, pages: { id: string; version: number }[], themeId: string | null) =>
+  api<PagesView>(`/api/albums/${albumId}/pages/theme`, { method: 'POST', body: { pages, themeId } })
 export const addSticker = (pageId: string, variant: string, geometry: Geometry) =>
   api<PagesView>('/api/page-items', { method: 'POST', body: { pageId, kind: 'STICKER', variant, ...geometry } })
 export const deletePage = (pageId: string, version: number) =>

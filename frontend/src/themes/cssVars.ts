@@ -6,14 +6,14 @@ type Vars = Record<string, string>
 
 const asStyle = (vars: Vars) => vars as CSSProperties
 
-/** Theme-wide CSS variables: fonts, accent colours, photo filter, polaroid frame skin, cursor, glow. */
-export function themeVars(theme: ThemeDef): CSSProperties {
-  const f = theme.mediaFilter
-  const skin = theme.frameSkin
+/**
+ * What belongs to the ALBUM theme and never changes per page: title fonts, accents of the controls and the "+" button,
+ * the cover / binding.
+ */
+function albumThemeVars(theme: ThemeDef): Vars {
   const vars: Vars = {
     '--font-title': theme.fonts.display,
     '--font-display': theme.fonts.headings ?? theme.fonts.display,
-    '--font-hand': theme.fonts.hand ?? "'Caveat', 'Comic Sans MS', cursive",
     '--blush': theme.accents.blush,
     '--blush-light': theme.accents.blushLight,
     '--rose-dust': theme.accents.rose,
@@ -22,18 +22,41 @@ export function themeVars(theme: ThemeDef): CSSProperties {
     '--gold-light': theme.accents.goldLight,
     '--theme-plus': theme.accents.plus,
     '--theme-focus': theme.accents.focus,
-    '--media-filter': `sepia(${f.sepia}) saturate(${f.saturate}) contrast(${f.contrast}) brightness(${f.brightness})`,
-    '--frame-paper': skin.paper,
-    '--frame-edge': skin.edge,
-    '--frame-texture': cssUrl(theme.id, skin.texture),
-    '--frame-corner': cssUrl(theme.id, skin.corner),
-    '--theme-glow': theme.hover.glow,
     '--cover-color': theme.cover.color,
     '--cover-ink': theme.cover.ink,
     '--cover-stitch': theme.cover.stitch,
   }
   if (theme.cover.texture) vars['--tex-leather'] = cssUrl(theme.id, theme.cover.texture)
-  return asStyle(vars)
+  return vars
+}
+
+/** What a PAGE theme decides: the caption hand font, the photo filter, the polaroid frame skin and the hover glow. */
+function pageThemeOnlyVars(theme: ThemeDef): Vars {
+  const skin = theme.frameSkin
+  return {
+    '--font-hand': theme.fonts.hand ?? "'Caveat', 'Comic Sans MS', cursive",
+    '--media-filter': mediaFilterCss(theme),
+    '--frame-paper': skin.paper,
+    '--frame-edge': skin.edge,
+    '--frame-texture': cssUrl(theme.id, skin.texture),
+    '--frame-corner': cssUrl(theme.id, skin.corner),
+    '--theme-glow': theme.hover.glow,
+  }
+}
+
+export function mediaFilterCss(theme: ThemeDef): string {
+  const f = theme.mediaFilter
+  return `sepia(${f.sepia}) saturate(${f.saturate}) contrast(${f.contrast}) brightness(${f.brightness})`
+}
+
+/** Theme-wide CSS variables (album + page parts): fonts, accent colours, photo filter, polaroid frame skin, glow. */
+export function themeVars(theme: ThemeDef): CSSProperties {
+  return asStyle({ ...albumThemeVars(theme), ...pageThemeOnlyVars(theme) })
+}
+
+/** The page-theme part only; set on a page whose theme differs from the album's (and on everything drawn for exports). */
+export function pageThemeVars(theme: ThemeDef): CSSProperties {
+  return asStyle(pageThemeOnlyVars(theme))
 }
 
 export function swatchSlot(slot: string | null | undefined): SwatchSlot {
