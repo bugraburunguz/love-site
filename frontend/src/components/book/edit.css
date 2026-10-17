@@ -1,0 +1,329 @@
+/* ---- overlay of one photo while editing ---- */
+.item-edit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 4px;
+}
+
+.item-edit--selected {
+  outline: 10px solid var(--rose-deep, #b0586b);
+  outline-offset: 8px;
+  cursor: grabbing;
+}
+
+.page-item--dragging {
+  transition: none !important;
+  filter: drop-shadow(0 18px 24px rgba(40, 20, 10, 0.45));
+}
+
+.item-edit__stem {
+  position: absolute;
+  left: 50%;
+  background: var(--rose-deep, #b0586b);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.item-edit__handle {
+  position: absolute;
+  z-index: 6;
+  border-radius: 50%;
+  background: #fff8ec;
+  border: 5px solid var(--rose-deep, #b0586b);
+  box-shadow: 0 6px 14px rgba(40, 20, 10, 0.35);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.item-edit__handle--rotate {
+  left: 50%;
+  cursor: grab;
+}
+
+.item-edit__handle--rotate::after {
+  content: '↻';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--rose-deep, #b0586b);
+  line-height: 1;
+}
+
+.item-edit__handle--scale {
+  cursor: nwse-resize;
+}
+
+.item-edit__handle--scale::after {
+  content: '⤡';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--rose-deep, #b0586b);
+}
+
+/* ---- editing chrome around the book ---- */
+.edit-tools {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--paper-edge);
+  background: rgba(255, 248, 232, 0.92);
+  z-index: var(--z-controls);
+}
+
+.item-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  height: 44px;
+  align-items: center;
+  scrollbar-width: none;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0 var(--space-2);
+}
+
+.item-bar > * {
+  flex: none;
+}
+
+.item-bar__label {
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-right: var(--space-2);
+}
+
+.page-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.page-bar__strip {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 2px 10px;
+  scrollbar-width: thin;
+}
+
+.page-bar__thumb {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 90px;
+  padding: 3px;
+  border: 2px solid var(--paper-edge);
+  border-radius: 4px;
+  background: #f6ead0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 2px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.page-bar__thumb--current {
+  border-color: var(--rose-deep, #b0586b);
+  box-shadow: 0 0 0 2px var(--rose-deep, #b0586b);
+}
+
+.page-bar__thumb--ghost {
+  position: fixed;
+  z-index: 10000;
+  opacity: 0.9;
+  pointer-events: none;
+  box-shadow: 0 10px 20px rgba(40, 20, 10, 0.4);
+}
+
+.page-bar__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  pointer-events: none;
+  background: #e5d6b6;
+}
+
+.page-bar__thumb--single {
+  grid-template-columns: 1fr;
+}
+
+.page-bar__number {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  transform: translateX(-50%);
+  min-width: 20px;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 16px;
+  border-radius: 8px;
+  background: var(--ink-soft, #6d5a48);
+  color: #fff8ec;
+  text-align: center;
+}
+
+.page-bar__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 11px;
+  line-height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--rose-deep, #b0586b);
+  color: #fff8ec;
+}
+
+.page-bar__add {
+  flex: none;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px dashed var(--paper-edge);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.page-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.page-bar__templates {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.tray {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(320px, 86vw);
+  z-index: calc(var(--z-controls) + 2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: #f9efd9;
+  box-shadow: -10px 0 24px rgba(40, 20, 10, 0.3);
+}
+
+.tray__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tray__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.tray__item {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 2px solid var(--paper-edge);
+  border-radius: 4px;
+  background: #e5d6b6;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tray__item--selected {
+  border-color: var(--rose-deep, #b0586b);
+  box-shadow: 0 0 0 2px var(--rose-deep, #b0586b);
+}
+
+.tray__item--ghost {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.tray__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.tray-toggle {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 170px);
+  z-index: var(--z-controls);
+}
+
+.notice {
+  position: fixed;
+  left: 50%;
+  top: max(10px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: calc(var(--z-controls) + 5);
+  max-width: min(92vw, 520px);
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: #4a2e2b;
+  color: #fff8ec;
+  box-shadow: 0 8px 20px rgba(40, 20, 10, 0.4);
+  text-align: center;
+}
+
+.upload-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-setup li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.upload-setup__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page--editing .page-item {
+  transition: none;
+}

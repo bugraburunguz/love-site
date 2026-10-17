@@ -3,16 +3,26 @@ import { Link, useParams } from 'react-router-dom'
 import {
   deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
+import {
+  changeTemplate, createPage, deletePage, featureMedia, initializePages, moveItem, placeMedia, removeItem, reorderPages,
+  type PageDto, type PageItemDto, type PageTemplate,
+} from '../api/pages'
 import Clay from '../components/Clay'
 import '../components/clay.css'
 import { ConfirmDialog } from '../components/Dialog'
 import Lightbox from '../components/Lightbox'
 import Book from '../components/book/Book'
+import type { DropTarget, PageEditor } from '../components/book/editor'
+import PageBar from '../components/edit/PageBar'
+import Tray from '../components/edit/Tray'
+import UploadSetupDialog from '../components/edit/UploadSetupDialog'
 import { coverColor } from '../components/leather'
 import UploadPanel from '../components/UploadPanel'
 import { useAspectProbe } from '../hooks/useAspectProbe'
-import { autoLayout, pageSizes } from '../layout/autoLayout'
+import { usePages } from '../hooks/usePages'
+import { initialDistribution } from '../layout/autoLayout'
 import type { Metrics } from '../layout/geometry'
+import { freezePayload, layoutPage } from '../layout/pageLayout'
 import type { PageLayout } from '../layout/types'
 import { cachedAspects, rememberAspects } from '../media/aspectCache'
 import { useUploadQueue } from '../upload/useUploadQueue'
@@ -20,12 +30,21 @@ import './album.css'
 
 /** Re-layouts caused by late-arriving aspect ratios are grouped into one update per this many ms. */
 const RELAYOUT_DELAY = 250
+const MAX_AUTO = 4
 
 export default function AlbumPage() {
   const { id = '' } = useParams()
   // key: a different album is a fresh page, with its own aspect cache and state
   return <AlbumView key={id} id={id} />
 }
+
+type Confirm =
+  | { kind: 'unfreeze'; page: PageDto; template: PageTemplate }
+  | { kind: 'deletePage'; page: PageDto }
+  | null
+
+const mediaItems = (page: PageDto): PageItemDto[] =>
+  page.items.filter((i) => i.kind === 'MEDIA' && i.mediaId).sort((a, b) => (a.slotIndex ?? a.zIndex ?? 0) - (b.slotIndex ?? b.zIndex ?? 0))
 
 function AlbumView({ id }: { id: string }) {
   const [album, setAlbum] = useState<Album | null | undefined>(undefined)
@@ -36,7 +55,21 @@ function AlbumView({ id }: { id: string }) {
   const [probeLimit, setProbeLimit] = useState(12)
   const [patience, setPatience] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pickedFiles, setPickedFiles] = useState<File[] | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  // editing
+  const [editing, setEditing] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [focusPageId, setFocusPageId] = useState<string | null>(null)
+  const [visibleStart, setVisibleStart] = useState(0)
+  const [trayOpen, setTrayOpen] = useState(false)
+  const [confirm, setConfirm] = useState<Confirm>(null)
+  const [goTo, setGoTo] = useState<{ index: number; nonce: number }>({ index: 0, nonce: 0 })
+  const layouts = useRef<PageLayout[]>([])
+
+  const pagesState = usePages(id)
+  const { view, run: runPages, refresh: refreshPages } = pagesState
 
   const refresh = useCallback(() => {
     listMedia(id)
@@ -44,7 +77,12 @@ function AlbumView({ id }: { id: string }) {
       .catch((e: Error) => setError(e.message))
   }, [id])
 
-  const { entries, add, retry, clearFinished } = useUploadQueue(id, refresh)
+  const refreshAll = useCallback(() => {
+    refresh()
+    void refreshPages()
+  }, [refresh, refreshPages])
+
+  const { entries, add, retry, clearFinished } = useUploadQueue(id, refreshAll)
 
   // While some items are still being processed, ask for just those every 5 s (not the whole list); stop when done.
   const pendingKey = useMemo(
@@ -88,6 +126,20 @@ function AlbumView({ id }: { id: string }) {
     refresh()
   }, [id, refresh])
 
+  // Another device may have changed the pages: look again whenever this tab comes back (no realtime channel).
+  useEffect(() => {
+    const again = () => {
+      if (document.hidden) return
+      refreshAll()
+    }
+    document.addEventListener('visibilitychange', again)
+    window.addEventListener('focus', again)
+    return () => {
+      document.removeEventListener('visibilitychange', again)
+      window.removeEventListener('focus', again)
+    }
+  }, [refreshAll])
+
   // Aspect ratios arrive one by one; they are collected and applied together so the layout is recomputed once.
   const latest = useRef<Record<string, number>>(cachedAspects(id))
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -109,24 +161,62 @@ function AlbumView({ id }: { id: string }) {
   )
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  const items = useMemo(() => media ?? [], [media])
-  const mediaById = useMemo(() => new Map(items.map((m) => [m.id, m])), [items])
+  const all = useMemo(() => media ?? [], [media])
+  const mediaById = useMemo(() => new Map(all.map((m) => [m.id, m])), [all])
+  const pages = useMemo(() => view?.pages ?? [], [view])
+
+  // The one-time import: an album without stored pages gets the distribution the old automatic layout would have made.
+  const initialized = useRef(false)
+  useEffect(() => {
+    if (initialized.current || !view || media === null) return
+    if (view.pages.length > 0 || media.length === 0) return
+    initialized.current = true
+    const groups = initialDistribution(media, id)
+    initializePages(id, groups.map((g) => ({ template: 'AUTO' as const, mediaIds: g.map((m) => m.id) })))
+      .then(pagesState.apply)
+      .catch((e: Error) => setError(e.message))
+  }, [view, media, id, pagesState.apply])
+
+  // Photos in page order (the lightbox walks through them), then the ones on no page.
+  const items = useMemo(() => {
+    const placed: MediaDto[] = []
+    for (const page of pages) {
+      for (const item of mediaItems(page)) {
+        const m = mediaById.get(item.mediaId as string)
+        if (m) placed.push(m)
+      }
+    }
+    return placed
+  }, [pages, mediaById])
+  const trayMedia = useMemo(() => (view?.tray ?? []).map((tid) => mediaById.get(tid)).filter((m): m is MediaDto => !!m), [view, mediaById])
 
   // Ratio per photo: measured in the browser, or sent by the API once the media worker exists.
   const aspects = useMemo(() => {
     const result: Record<string, number> = {}
-    for (const m of items) if (m.width && m.height) result[m.id] = m.width / m.height
+    for (const m of all) if (m.width && m.height) result[m.id] = m.width / m.height
     return { ...result, ...measured }
-  }, [items, measured])
+  }, [all, measured])
 
-  // Layout is generated from data only (plus the screen's text metrics, which the Book supplies);
-  // Phase 5 will feed stored layouts into the same Book.
+  // Layouts are computed per page from data only (plus the screen's text metrics, which the Book supplies).
+  // Computing a page is the expensive part, so every page keeps its result until it changes (pages the user did not
+  // touch keep their identity when another page is edited).
+  const layoutCache = useRef(new WeakMap<PageDto, { metrics: Metrics; aspects: object; layout: PageLayout }>())
   const layout = useCallback(
     (metrics: Metrics): PageLayout[] =>
-      items.length ? autoLayout(items, id, aspects, metrics) : [{ pageIndex: 0, items: [] }],
-    [items, id, aspects],
+      pages.length
+        ? pages.map((p) => {
+            const hit = layoutCache.current.get(p)
+            if (hit && hit.metrics === metrics && hit.aspects === aspects) return hit.layout
+            const computed = layoutPage(p, aspects, metrics)
+            layoutCache.current.set(p, { metrics, aspects, layout: computed })
+            return computed
+          })
+        : [{ pageIndex: 0, items: [] }],
+    [pages, aspects],
   )
-  const sizes = useMemo(() => pageSizes(items.length, id), [items.length, id])
+  const onLayouts = useCallback((computed: PageLayout[]) => {
+    layouts.current = computed
+  }, [])
 
   // Photos are measured before they are drawn, so frames never change size after first paint.
   const settled = useAspectProbe(items, probeLimit, aspects, onAspect)
@@ -144,10 +234,11 @@ function AlbumView({ id }: { id: string }) {
   // How many photos precede the end of the pages the reader is about to see
   const onPosition = useCallback(
     (start: number, cols: number) => {
-      const count = sizes.slice(0, start + cols * 3).reduce((sum, n) => sum + n, 0)
+      setVisibleStart(start)
+      const count = pages.slice(0, start + cols * 3).reduce((sum, p) => sum + mediaItems(p).length, 0)
       setProbeLimit((limit) => Math.max(limit, count))
     },
-    [sizes],
+    [pages],
   )
 
   const openIndex = openId ? items.findIndex((m) => m.id === openId) : -1
@@ -155,7 +246,7 @@ function AlbumView({ id }: { id: string }) {
   function onFiles(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     e.target.value = '' // allow picking the same files again
-    if (files.length > 0) add(files)
+    if (files.length > 0) setPickedFiles(files)
   }
 
   async function saveCaption(mediaId: string, caption: string) {
@@ -172,11 +263,133 @@ function AlbumView({ id }: { id: string }) {
         const at = items.findIndex((m) => m.id === current)
         return (items[at + 1] ?? items[at - 1])?.id ?? null
       })
-      refresh()
+      setSelectedId(null)
+      refreshAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Silinemedi')
     }
   }
+
+  // ---- editing --------------------------------------------------------------------------------------------------
+
+  const findItem = useCallback(
+    (itemId: string): { page: PageDto; item: PageItemDto } | null => {
+      for (const page of pages) {
+        const item = page.items.find((i) => i.id === itemId)
+        if (item) return { page, item }
+      }
+      return null
+    },
+    [pages],
+  )
+
+  const focusIndex = useMemo(() => {
+    const at = pages.findIndex((p) => p.id === focusPageId)
+    return Math.min(Math.max(at >= 0 ? at : visibleStart, 0), Math.max(pages.length - 1, 0))
+  }, [pages, focusPageId, visibleStart])
+
+  const handleDrop = useCallback(
+    (itemId: string, target: DropTarget) => {
+      const from = findItem(itemId)
+      if (!from) return
+      if (target.kind === 'item') {
+        const dest = findItem(target.itemId)
+        if (!dest) return
+        void runPages(() => moveItem(itemId, dest.page.id, dest.item.slotIndex ?? undefined))
+      } else if (target.kind === 'thumb') {
+        if (target.pageId === from.page.id) return
+        void runPages(() => moveItem(itemId, target.pageId))
+      } else {
+        if (target.pageId === from.page.id) return
+        const dest = pages.find((p) => p.id === target.pageId)
+        const geometry = dest?.template === 'FREE' ? { x: Math.round(target.fx * 1000), y: Math.round(target.fy * 1400) } : undefined
+        void runPages(() => moveItem(itemId, target.pageId, undefined, geometry))
+      }
+    },
+    [findItem, pages, runPages],
+  )
+
+  const editor = useMemo<PageEditor | undefined>(
+    () =>
+      editing
+        ? {
+            selectedId,
+            onSelect: setSelectedId,
+            onFocusPage: setFocusPageId,
+            onGeometry: pagesState.setGeometry,
+            onDrop: handleDrop,
+          }
+        : undefined,
+    [editing, selectedId, pagesState.setGeometry, handleDrop],
+  )
+
+  function toggleEditing() {
+    setEditing((on) => !on)
+    setSelectedId(null)
+    setTrayOpen(false)
+  }
+
+  const selected = selectedId ? findItem(selectedId) : null
+  const selectedMedia = selected?.item.mediaId ? mediaById.get(selected.item.mediaId) : undefined
+
+  function changePageTemplate(page: PageDto, template: PageTemplate) {
+    if (page.template === 'FREE') {
+      setConfirm({ kind: 'unfreeze', page, template })
+      return
+    }
+    if (template === 'FREE') {
+      // freeze exactly what is drawn right now
+      const drawn = layouts.current.find((l) => l.pageId === page.id)
+      if (!drawn) return
+      void runPages(() => changeTemplate(page.id, 'FREE', page.version, freezePayload(drawn)))
+      return
+    }
+    void runPages(() => changeTemplate(page.id, template, page.version))
+  }
+
+  const neighbour = (page: PageDto, delta: -1 | 1) => pages[pages.findIndex((p) => p.id === page.id) + delta]
+  const canMoveTo = (dest?: PageDto) => !!dest && (dest.template !== 'AUTO' || mediaItems(dest).length < MAX_AUTO)
+
+  function bringTo(front: boolean) {
+    if (!selected) return
+    const zs = selected.page.items.map((i) => i.zIndex ?? 0)
+    const z = front ? Math.max(...zs) + 1 : Math.max(0, Math.min(...zs) - 1)
+    pagesState.setGeometry(selected.item.id, { zIndex: z }, true)
+  }
+
+  const trayTarget = pages[focusIndex]
+  function addFromTray(mediaId: string) {
+    if (!trayTarget) return
+    void runPages(() => placeMedia(trayTarget.id, mediaId))
+  }
+  function dropFromTray(mediaId: string, x: number, y: number) {
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (!(el instanceof HTMLElement)) continue
+      if (el.dataset.thumbPageId) return void runPages(() => placeMedia(el.dataset.thumbPageId as string, mediaId))
+      if (el.dataset.itemId && el.dataset.pageId) {
+        const slot = Number(el.dataset.slot)
+        const pageId = el.dataset.pageId
+        return void runPages(() => placeMedia(pageId, mediaId, Number.isFinite(slot) && el.dataset.slot !== '' ? slot : undefined))
+      }
+      if (el.dataset.pageSurface) {
+        const rect = el.getBoundingClientRect()
+        const pageId = el.dataset.pageSurface
+        const dest = pages.find((p) => p.id === pageId)
+        const geometry = dest?.template === 'FREE'
+          ? { x: Math.round(((x - rect.left) / rect.width) * 1000), y: Math.round(((y - rect.top) / rect.height) * 1400) }
+          : undefined
+        return void runPages(() => placeMedia(pageId, mediaId, undefined, geometry))
+      }
+    }
+  }
+
+  // the short "updated" notice disappears by itself
+  const { notice, clearNotice } = pagesState
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(clearNotice, 4500)
+    return () => clearTimeout(t)
+  }, [notice, clearNotice])
 
   if (album === null) {
     return (
@@ -187,6 +400,8 @@ function AlbumView({ id }: { id: string }) {
     )
   }
 
+  const shownError = error ?? pagesState.error
+
   return (
     <main className="album-screen">
       <header className="album-screen__header">
@@ -194,12 +409,20 @@ function AlbumView({ id }: { id: string }) {
           ‹ Albümler
         </Link>
         <h1 className="album-screen__title">{album?.title ?? ''}</h1>
-        <span className="album-screen__spacer" />
+        <Clay shape="round" size="sm" tone={editing ? 'rose' : 'cream'} onClick={toggleEditing}
+          aria-label={editing ? 'Düzenlemeyi bitir' : 'Albümü düzenle'} aria-pressed={editing}>
+          {editing ? '✓' : '✎'}
+        </Clay>
       </header>
 
-      {error && <p role="alert" className="album-screen__error">{error}</p>}
+      {shownError && (
+        <p role="alert" className="album-screen__error" onClick={() => { setError(null); pagesState.clearError() }}>
+          {shownError}
+        </p>
+      )}
+      {notice && <div className="notice" role="status">{notice}</div>}
 
-      {media === null || !ready ? (
+      {media === null || view === null || !ready ? (
         <p className="album-screen__loading">Albüm açılıyor…</p>
       ) : (
         <Book
@@ -207,16 +430,69 @@ function AlbumView({ id }: { id: string }) {
           mediaById={mediaById}
           aspects={aspects}
           coverColor={coverColor(id)}
-          emptyHint={items.length === 0}
-          keyboard={openIndex < 0 && !toDelete}
+          emptyHint={all.length === 0}
+          keyboard={openIndex < 0 && !toDelete && !confirm && !pickedFiles}
           onOpen={(m) => setOpenId(m.id)}
           onRetry={retryProcessing}
           onAspect={onAspect}
           onPosition={onPosition}
+          editor={editor}
+          goTo={goTo}
+          onLayouts={onLayouts}
         />
       )}
 
-      {openIndex >= 0 && (
+      {editing && view && (
+        <div className="edit-tools">
+          {/* always rendered: a bar that appears and disappears would resize the book and re-layout every page */}
+          {!(selected && selectedMedia) && (
+            <div className="item-bar"><span className="item-bar__label">Düzenlemek için bir fotoğrafa dokun</span></div>
+          )}
+          {selected && selectedMedia && (
+            <div className="item-bar" role="toolbar" aria-label="Seçili fotoğraf">
+              <span className="item-bar__label">Seçili fotoğraf</span>
+              <Clay size="sm" tone="cream" onClick={() => void runPages(() => featureMedia(selectedMedia.id))}>Öne çıkar</Clay>
+              <Clay size="sm" tone="cream" disabled={!canMoveTo(neighbour(selected.page, -1))}
+                onClick={() => void runPages(() => moveItem(selected.item.id, neighbour(selected.page, -1)!.id))}>
+                ‹ Önceki sayfaya
+              </Clay>
+              <Clay size="sm" tone="cream" disabled={!canMoveTo(neighbour(selected.page, 1))}
+                onClick={() => void runPages(() => moveItem(selected.item.id, neighbour(selected.page, 1)!.id))}>
+                Sonraki sayfaya ›
+              </Clay>
+              {selected.page.template === 'FREE' && (
+                <>
+                  <Clay size="sm" tone="cream" onClick={() => bringTo(true)}>Öne getir</Clay>
+                  <Clay size="sm" tone="cream" onClick={() => bringTo(false)}>Arkaya gönder</Clay>
+                </>
+              )}
+              <Clay size="sm" tone="cream" onClick={() => void runPages(() => removeItem(selected.item.id))}>Sayfadan kaldır</Clay>
+              <Clay size="sm" tone="rose" onClick={() => setToDelete(selectedMedia)}>Sil</Clay>
+            </div>
+          )}
+          <PageBar
+            pages={pages}
+            mediaById={mediaById}
+            current={focusIndex}
+            onGo={(index) => { setFocusPageId(pages[index]?.id ?? null); setGoTo((g) => ({ index, nonce: g.nonce + 1 })) }}
+            onReorder={(ids) => void runPages(() => reorderPages(id, ids))}
+            onAdd={(after) => void runPages(() => createPage(id, after, 'AUTO'))}
+            onDelete={(page) => setConfirm({ kind: 'deletePage', page })}
+            onTemplate={changePageTemplate}
+          />
+          {trayMedia.length > 0 && !trayOpen && (
+            <div className="item-bar">
+              <Clay size="sm" tone="cream" onClick={() => setTrayOpen(true)}>Tepsi ({trayMedia.length})</Clay>
+            </div>
+          )}
+        </div>
+      )}
+
+      {editing && trayOpen && trayMedia.length > 0 && (
+        <Tray media={trayMedia} targetLabel={`${focusIndex + 1}.`} onAdd={addFromTray} onDrop={dropFromTray} onClose={() => setTrayOpen(false)} />
+      )}
+
+      {openIndex >= 0 && !editing && (
         <Lightbox
           items={items}
           index={openIndex}
@@ -240,12 +516,51 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
 
+      {confirm?.kind === 'unfreeze' && (
+        <ConfirmDialog
+          title="Serbest düzen silinsin mi?"
+          message="Fotoğrafların elle verdiğin konumları silinir; fotoğraflar sırayla otomatik yerleşir."
+          confirmLabel="Otomatiğe geç"
+          onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            const { page, template } = confirm
+            await runPages(() => changeTemplate(page.id, template, page.version))
+          }}
+        />
+      )}
+      {confirm?.kind === 'deletePage' && (
+        <ConfirmDialog
+          title="Sayfa silinsin mi?"
+          message="Sayfadaki fotoğraflar silinmez; tepsiye geri döner ve istediğin sayfaya yeniden koyabilirsin."
+          confirmLabel="Sayfayı sil"
+          onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            const { page } = confirm
+            await runPages(() => deletePage(page.id, page.version))
+          }}
+        />
+      )}
+
+      {pickedFiles && (
+        <UploadSetupDialog
+          files={pickedFiles}
+          onCancel={() => setPickedFiles(null)}
+          onStart={(files, single) => {
+            setPickedFiles(null)
+            add(files, single)
+          }}
+        />
+      )}
+
       <UploadPanel entries={entries} onRetry={retry} onClear={clearFinished} />
 
       <input ref={fileInput} type="file" multiple accept="image/*,video/*" onChange={onFiles} hidden />
-      <Clay shape="seal" className="album-screen__add" onClick={() => fileInput.current?.click()} aria-label="Dosya ekle">
-        +
-      </Clay>
+      {/* hidden while editing: it would sit on top of the editing tools, and uploading is done outside the editor */}
+      {!editing && (
+        <Clay shape="seal" className="album-screen__add" onClick={() => fileInput.current?.click()} aria-label="Dosya ekle">
+          +
+        </Clay>
+      )}
     </main>
   )
 }

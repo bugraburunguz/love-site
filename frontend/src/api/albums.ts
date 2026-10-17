@@ -39,6 +39,8 @@ export interface UploadFileRequest {
   sha256?: string
   /** File.lastModified (epoch ms) */
   lastModified?: number
+  /** the file gets a page of its own */
+  featured?: boolean
 }
 
 export interface UploadItemResult {

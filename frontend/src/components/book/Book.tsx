@@ -9,6 +9,7 @@ import { PAGE_H, PAGE_W, toMetrics, type Metrics } from '../../layout/geometry'
 import type { PageLayout } from '../../layout/types'
 import Clay from '../Clay'
 import PageCanvas from './PageCanvas'
+import type { PageEditor } from './editor'
 import './book.css'
 
 interface Props {
@@ -26,6 +27,12 @@ interface Props {
   onAspect: (mediaId: string, aspect: number) => void
   /** called with the first visible page index and the number of pages shown at once */
   onPosition?: (start: number, cols: number) => void
+  /** while editing: photos have handles, swiping is off (the arrow buttons turn the pages) */
+  editor?: PageEditor
+  /** jump to a page (bump `nonce` to jump again to the same page) */
+  goTo?: { index: number; nonce: number }
+  /** the layouts as computed for this screen (the editor freezes exactly these positions) */
+  onLayouts?: (pages: PageLayout[]) => void
 }
 
 type Flip = { dir: 'next' | 'prev'; from: number }
@@ -36,7 +43,7 @@ const SWIPE_DISTANCE = 50
  * The open book. It owns the single page scale (fits one or two pages into the available area),
  * the current spread, and the CSS 3D page turn. Pages themselves are drawn by PageCanvas.
  */
-export default function Book({ layout, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onRetry, onAspect, onPosition }: Props) {
+export default function Book({ layout, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onRetry, onAspect, onPosition, editor, goTo, onLayouts }: Props) {
   const areaRef = useRef<HTMLDivElement>(null)
   const { width, height } = useElementSize(areaRef)
   const reduced = useReducedMotion()
@@ -51,12 +58,20 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
   const metrics = useMemo(() => toMetrics(scale, width < 700), [scale, width])
   const pages = useMemo(() => layout(metrics), [layout, metrics])
 
+  useEffect(() => {
+    onLayouts?.(pages)
+  }, [pages, onLayouts])
+
   const total = Math.max(pages.length, 1)
   const [current, setCurrent] = useState(0)
   const [flip, setFlip] = useState<Flip | null>(null)
   const swipe = useRef<{ x: number; y: number; moved: boolean } | null>(null)
 
   // First visible page: even on spreads, clamped when pages disappear.
+  useEffect(() => {
+    if (goTo) setCurrent(Math.max(0, goTo.index))
+  }, [goTo])
+
   const clamped = Math.min(current, total - 1)
   const start = cols === 2 ? clamped - (clamped % 2) : clamped
 
@@ -93,6 +108,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
   }, [go, keyboard])
 
   const onPointerDown = (e: PointerEvent) => {
+    if (editor) return // dragging photos must not turn pages
     swipe.current = { x: e.clientX, y: e.clientY, moved: false }
   }
   const onPointerUp = (e: PointerEvent) => {
@@ -124,7 +140,8 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
         layout={pageLayout}
         side={side}
         pageNumber={pageLayout || (pages.length === 0 && index === 0) ? index + 1 : undefined}
-        interactive={interactive}
+        interactive={interactive && !editor}
+        editor={interactive ? editor : undefined}
         emptyHint={emptyHint && index === 0}
         {...common}
       />

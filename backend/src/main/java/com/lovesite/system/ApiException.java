@@ -20,8 +20,21 @@ public class ApiException extends RuntimeException {
         this.code = code;
     }
 
+    private java.util.Map<String, Object> properties = java.util.Map.of();
+
     public HttpStatus status() {
         return status;
+    }
+
+    /** Extra ProblemDetail members, e.g. the current state of a record after a 409. */
+    public java.util.Map<String, Object> properties() {
+        return properties;
+    }
+
+    public ApiException with(String key, Object value) {
+        properties = new java.util.LinkedHashMap<>(properties);
+        properties.put(key, value);
+        return this;
     }
 
     /** Machine-readable reason the frontend can branch on (rendered as the ProblemDetail property "code"). */

@@ -2,11 +2,14 @@ export class ApiError extends Error {
   status: number
   /** machine-readable reason from the backend, e.g. QUOTA_EXCEEDED */
   code?: string
+  /** the whole problem document (e.g. `current` after a 409) */
+  problem?: Record<string, unknown>
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, problem?: Record<string, unknown>) {
     super(message)
     this.status = status
     this.code = code
+    this.problem = problem
   }
 }
 
@@ -37,14 +40,16 @@ export async function api<T>(path: string, options: { method?: string; body?: un
     // Errors are RFC 9457 problem details; `detail` is a user-facing Turkish message.
     let message = `İstek başarısız (${res.status})`
     let code: string | undefined
+    let body: Record<string, unknown> | undefined
     try {
       const problem = await res.json()
+      body = problem
       if (typeof problem.detail === 'string' && problem.detail) message = problem.detail
       if (typeof problem.code === 'string') code = problem.code
     } catch {
       /* empty or non-JSON error body (e.g. a bare 401) */
     }
-    throw new ApiError(res.status, message, code)
+    throw new ApiError(res.status, message, code, body)
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T)
 }

@@ -278,3 +278,22 @@ with one worker the spaces take turns; with several workers an idle space is pre
 when data exists (name/limit from `INITIAL_SPACE_*`, `USER1` owner, `USER2` member, falling back to the two oldest accounts),
 attaches every album and media row, marks `ADMIN_EMAIL` as admin and then makes `space_id` NOT NULL. Existing storage keys are not
 touched. On a fresh install the startup seeder creates the initial space instead.
+
+## Persistent pages (Phase 5a)
+
+`page` (album, `page_index`, template `AUTO` / `FEATURED` / `FREE`, `version`) and `page_item` (kind, media, `slot_index` for AUTO /
+FEATURED, `x y width rotation z_index` for FREE, `version`). A media item sits on at most one page (unique `page_item.media_id`);
+live media on no page is the **tray**. AUTO and FEATURED pages store only the order, the frontend computes the positions at render time
+(`layoutAutoPage` / `layoutFeaturedPage`, deterministic per page id + media id); FREE pages store the positions (page units, 1000 x 1400).
+
+- All page writes lock the album row first (`SELECT ... FOR UPDATE`), so concurrent uploads / edits of one album are serialised.
+  `version` on pages and items protects users from overwriting each other: a stale write answers **409** with the current page in
+  `current`; the frontend reloads that page and shows "Sayfa başka bir yerde değişti, güncellendi".
+- `GET /api/albums/{id}/pages`, `POST .../pages/initialize` (one-time import of the distribution the old layout made; no-op when pages exist),
+  `POST .../pages`, `POST .../pages/reorder`, `PATCH/DELETE /api/pages/{id}`, `PATCH /api/page-items/{id}`,
+  `POST /api/page-items/{id}/move`, `POST/DELETE /api/page-items`, `POST /api/media/{id}/feature`. Same IDOR rule as everywhere.
+- A completed upload goes to the last page when it is AUTO with fewer than 4 photos, otherwise to a new AUTO page; "Tek sayfa" uploads
+  (`featured: true` in the upload request) get a new FEATURED page. Albums without pages are left alone until the first open initializes them.
+- Editor: pencil button -> edit mode (hover/lightbox/ambient off). FREE pages: drag, rotate handle, scale handle (interact.js, touch works).
+  AUTO pages: drag a photo onto another photo (reorder) or page. Page bar (reorder by dragging, add, delete, template), item bar, tray.
+  To add an editing feature, extend `PageEditor` (`components/book/editor.ts`).

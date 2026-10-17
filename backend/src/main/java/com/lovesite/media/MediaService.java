@@ -6,6 +6,7 @@ import com.lovesite.media.MediaDtos.UploadFile;
 import com.lovesite.media.MediaDtos.UploadItem;
 import com.lovesite.media.MediaDtos.UploadResponse;
 import com.lovesite.media.processing.MediaProcessingQueue;
+import com.lovesite.page.PageService;
 import com.lovesite.space.QuotaService;
 import com.lovesite.storage.StorageService;
 import com.lovesite.system.ApiException;
@@ -48,9 +49,12 @@ public class MediaService {
     private final ObjectProvider<MediaProcessingQueue> queue;
     private final QuotaService quota;
     private final TransactionTemplate tx;
+    private final PageService pages;
 
     public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties,
-                        ObjectProvider<MediaProcessingQueue> queue, QuotaService quota, TransactionTemplate tx) {
+                        ObjectProvider<MediaProcessingQueue> queue, QuotaService quota, TransactionTemplate tx,
+                        PageService pages) {
+        this.pages = pages;
         this.queue = queue;
         this.media = media;
         this.albums = albums;
@@ -179,6 +183,7 @@ public class MediaService {
                 } else {
                     row.reissue(type.kind(), filenameFinal, type.contentType(), size, modifiedAt);
                 }
+                row.setFeatured(Boolean.TRUE.equals(file.featured()));
                 row = media.saveAndFlush(row);
                 createdInThisBatch.add(row.getId());
 
@@ -257,6 +262,11 @@ public class MediaService {
 
         m.markUploaded(actualSize);
         m = media.save(m);
+        try {
+            pages.autoPlace(m.getSpaceId(), m.getAlbumId(), m.getId(), m.isFeatured());
+        } catch (RuntimeException e) {
+            log.warn("Could not place media {} on a page, it stays in the tray: {}", m.getId(), e.toString());
+        }
         queue.ifAvailable(MediaProcessingQueue::kick);
         return toResponse(m);
     }
@@ -277,6 +287,7 @@ public class MediaService {
         Media m = find(me, mediaId);
         m.softDelete();
         media.save(m);
+        pages.removeMedia(m.getSpaceId(), m.getId());
     }
 
     private Media find(CurrentUser me, UUID mediaId) {

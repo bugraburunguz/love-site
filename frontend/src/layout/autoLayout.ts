@@ -238,8 +238,101 @@ function placeSticker(all: Placement[], tapes: TapePlacement[], rng: Rng): TapeP
 const STICKERS = ['heart', 'star', 'sparkle'] as const
 const TAPES = ['rose', 'cream', 'gold', 'sage'] as const
 
+type MediaRef = { id: string; /** layout item id; defaults to `${id}:photo` */ itemId?: string }
+
+/**
+ * Builds one page from the given media (1-4). `pageSeed` drives the page-level choices (arrangement, sticker) and
+ * `mediaSeed` the per-photo ones (tilt, size, tape); they are separate so legacy album-wide layouts keep their results.
+ */
+function buildPage(
+  media: ReadonlyArray<MediaRef>,
+  pageSeed: string,
+  mediaSeed: string,
+  aspects: Readonly<Record<string, number>>,
+  metrics: Metrics,
+  pageIndex: number,
+): PageLayout {
+  const size = media.length
+  const rng = createRng(pageSeed)
+  const specs: Spec[] = media.map((m) => {
+    // randomness per media id: a photo keeps its tilt, tape and size wherever it lands
+    const own = createRng(`${mediaSeed}:${m.id}`)
+    return {
+      id: m.id,
+      aspect: clampAspect(aspects[m.id]),
+      rotation: own.range(-7, 7),
+      baseWidth: targetWidth(size, own),
+      tape: own.next() < 0.4,
+    }
+  })
+
+  const placements = placePage(specs, rng, metrics)
+  const items = decorate(placements, media, mediaSeed, rng, metrics, pageIndex)
+  return { pageIndex, items }
+}
+
+/** Photos as page items plus the deterministic tape and (sometimes) one sticker. */
+function decorate(
+  placements: Placement[],
+  media: ReadonlyArray<MediaRef>,
+  mediaSeed: string,
+  rng: Rng,
+  metrics: Metrics,
+  pageIndex: number,
+): PageItem[] {
+  const items: PageItem[] = placements.map((p, i) => ({
+    id: media.find((m) => m.id === p.spec.id)?.itemId ?? `${p.spec.id}:photo`,
+    kind: 'MEDIA',
+    mediaId: p.spec.id,
+    x: p.x,
+    y: p.y,
+    width: p.width,
+    rotation: p.spec.rotation,
+    zIndex: 10 + i,
+  }))
+
+  const tapes: TapePlacement[] = []
+  placements.forEach((p, i) => {
+    if (!p.spec.tape) return
+    const tape = placeTape(p, placements, createRng(`${mediaSeed}:${p.spec.id}:tape`), metrics)
+    if (!tape) return
+    tapes.push(tape)
+    items.push({
+      id: `${p.spec.id}:tape`,
+      kind: 'TAPE',
+      x: tape.x,
+      y: tape.y,
+      width: tape.width,
+      rotation: tape.rotation,
+      zIndex: 200 + i,
+      variant: createRng(`${mediaSeed}:${p.spec.id}:tapecolour`).pick(TAPES),
+    })
+  })
+
+  if (rng.next() < 0.6) {
+    const sticker = placeSticker(placements, tapes, rng)
+    if (sticker) {
+      items.push({
+        id: `page${pageIndex}:sticker`,
+        kind: 'STICKER',
+        x: sticker.x,
+        y: sticker.y,
+        width: sticker.width,
+        rotation: sticker.rotation,
+        zIndex: 300,
+        variant: rng.pick(STICKERS),
+      })
+    }
+  }
+  return items
+}
+
 /**
  * Pure and deterministic: the same media list, seed and aspect ratios always give the same pages.
+ *
+ * Only used to decide the FIRST distribution of an album that has no stored pages yet (it is sent to the server once);
+ * afterwards the database decides which media is on which page and `layoutAutoPage` / `layoutFeaturedPage` only place
+ * the photos of one page.
  *
  * `metrics` (page scale on this screen, narrow or not) decides how tall the caption strip must be for readable text.
  * `aspects` maps media id -> width / height (learned when images load, or from the API); unknown photos are
@@ -257,71 +350,71 @@ export function autoLayout(
 ): PageLayout[] {
   const pages: PageLayout[] = []
   let cursor = 0
-
   pageSizes(media.length, seed).forEach((size, pageIndex) => {
-    const rng = createRng(`${seed}:page:${pageIndex}`)
-    const specs: Spec[] = []
-    for (let i = 0; i < size; i++) {
-      const m = media[cursor++]
-      // randomness per media id: a photo keeps its tilt, tape and size wherever it lands
-      const own = createRng(`${seed}:${m.id}`)
-      specs.push({
-        id: m.id,
-        aspect: clampAspect(aspects[m.id]),
-        rotation: own.range(-7, 7),
-        baseWidth: targetWidth(size, own),
-        tape: own.next() < 0.4,
-      })
-    }
-
-    const placements = placePage(specs, rng, metrics)
-    const items: PageItem[] = placements.map((p, i) => ({
-      id: `${p.spec.id}:photo`,
-      kind: 'MEDIA',
-      mediaId: p.spec.id,
-      x: p.x,
-      y: p.y,
-      width: p.width,
-      rotation: p.spec.rotation,
-      zIndex: 10 + i,
-    }))
-
-    const tapes: TapePlacement[] = []
-    placements.forEach((p, i) => {
-      if (!p.spec.tape) return
-      const tape = placeTape(p, placements, createRng(`${seed}:${p.spec.id}:tape`), metrics)
-      if (!tape) return
-      tapes.push(tape)
-      items.push({
-        id: `${p.spec.id}:tape`,
-        kind: 'TAPE',
-        x: tape.x,
-        y: tape.y,
-        width: tape.width,
-        rotation: tape.rotation,
-        zIndex: 200 + i,
-        variant: createRng(`${seed}:${p.spec.id}:tapecolour`).pick(TAPES),
-      })
-    })
-
-    if (rng.next() < 0.6) {
-      const sticker = placeSticker(placements, tapes, rng)
-      if (sticker) {
-        items.push({
-          id: `page${pageIndex}:sticker`,
-          kind: 'STICKER',
-          x: sticker.x,
-          y: sticker.y,
-          width: sticker.width,
-          rotation: sticker.rotation,
-          zIndex: 300,
-          variant: rng.pick(STICKERS),
-        })
-      }
-    }
-
-    pages.push({ pageIndex, items })
+    const slice = media.slice(cursor, cursor + size)
+    cursor += size
+    pages.push(buildPage(slice, `${seed}:page:${pageIndex}`, seed, aspects, metrics, pageIndex))
   })
-
   return pages
+}
+
+/** Splits an album's media (in order) into the pages `autoLayout` would make; the payload of the one-time initialization. */
+export function initialDistribution<T extends { id: string }>(media: ReadonlyArray<T>, seed: string): T[][] {
+  const result: T[][] = []
+  let cursor = 0
+  for (const size of pageSizes(media.length, seed)) {
+    result.push(media.slice(cursor, cursor + size))
+    cursor += size
+  }
+  return result
+}
+
+/** AUTO template: 1-4 photos in slot order, positions computed here, deterministic per page id and media id. */
+export function layoutAutoPage(
+  media: ReadonlyArray<MediaRef>,
+  pageId: string,
+  aspects: Readonly<Record<string, number>>,
+  metrics: Metrics = DESKTOP_METRICS,
+  pageIndex = 0,
+): PageLayout {
+  return buildPage(media.slice(0, MAX_PER_PAGE), `${pageId}:page`, pageId, aspects, metrics, pageIndex)
+}
+
+/**
+ * FEATURED template: one photo as large as the page area allows, centred, with a slight tilt; tape and sticker rules
+ * are the same as on AUTO pages.
+ */
+export function layoutFeaturedPage(
+  media: MediaRef | undefined,
+  pageId: string,
+  aspects: Readonly<Record<string, number>>,
+  metrics: Metrics = DESKTOP_METRICS,
+  pageIndex = 0,
+): PageLayout {
+  if (!media) return { pageIndex, items: [] }
+  const own = createRng(`${pageId}:${media.id}`)
+  const aspect = clampAspect(aspects[media.id])
+  const rotation = own.range(-2.5, 2.5)
+  const spec: Spec = { id: media.id, aspect, baseWidth: 0, rotation, tape: own.next() < 0.5 }
+  const bounds = boundsFor(spec)
+  const centre = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+
+  const fits = (width: number) =>
+    boxInside(polaroidShapes({ ...centre, width, rotation }, aspect, metrics).box, bounds)
+  let lo = 120
+  let hi = BOUNDS.maxX - BOUNDS.minX
+  if (fits(hi)) lo = hi
+  else for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (fits(mid)) lo = mid
+    else hi = mid
+  }
+  const width = lo
+  spec.baseWidth = width
+  const placement: Placement = {
+    spec, x: centre.x, y: centre.y, width,
+    shapes: polaroidShapes({ ...centre, width, rotation }, aspect, metrics),
+  }
+  const rng = createRng(`${pageId}:page`)
+  return { pageIndex, items: decorate([placement], [media], pageId, rng, metrics, pageIndex) }
 }

@@ -13,7 +13,7 @@ public final class MediaDtos {
 
     /** One file the client wants to upload. Validation happens per file, not on the bean. */
     public record UploadFile(String clientId, String filename, String contentType, Long sizeBytes, String sha256,
-                             Long lastModified) {
+                             Long lastModified, Boolean featured) {
     }
 
     public record UploadRequest(List<UploadFile> files) {

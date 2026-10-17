@@ -93,6 +93,10 @@ public class Media {
     private String posterKey;
 
     /** total size of thumb/display/loop/poster objects; counts against the space quota */
+    /** chosen at upload time: the item gets a page of its own (FEATURED) once the upload completes */
+    @Column(nullable = false)
+    private boolean featured;
+
     @Column(name = "variants_bytes")
     private Long variantsBytes;
 
@@ -189,6 +193,14 @@ public class Media {
 
     public UUID getSpaceId() {
         return spaceId;
+    }
+
+    public boolean isFeatured() {
+        return featured;
+    }
+
+    public void setFeatured(boolean featured) {
+        this.featured = featured;
     }
 
     public Long getVariantsBytes() {

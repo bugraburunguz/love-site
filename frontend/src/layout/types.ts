@@ -19,4 +19,10 @@ export type PageItem = {
   variant?: string
 }
 
-export type PageLayout = { pageIndex: number; items: PageItem[] }
+export type PageLayout = {
+  pageIndex: number
+  items: PageItem[]
+  /** set for stored pages: the editor needs to know which page and template it is drawing */
+  pageId?: string
+  template?: 'AUTO' | 'FEATURED' | 'FREE'
+}

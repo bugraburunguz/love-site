@@ -35,7 +35,7 @@ export default function UploadPanel({ entries, onRetry, onClear }: Props) {
         {entries.map((e) => (
           <li key={e.id} className={`upload-item upload-item--${e.status}`}>
             <div className="upload-item__row">
-              <span className="upload-item__name">{e.file.name}</span>
+              <span className="upload-item__name">{e.file.name}{e.featured ? ' · tek sayfa' : ''}</span>
               <span className="upload-item__status">{LABELS[e.status]}</span>
             </div>
             {(e.status === 'hashing' || e.status === 'uploading') && (
