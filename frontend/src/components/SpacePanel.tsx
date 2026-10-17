@@ -3,14 +3,15 @@ import { createPartnerInvite, formatBytes, getSpace, type CreatedInvite, type Sp
 import Clay from './Clay'
 import '../pages/space.css'
 
-export function inviteUrl(path: string): string {
-  return `${window.location.origin}${path}`
+/** the server sends an absolute url when APP_PUBLIC_URL is set; otherwise the link is built from where the owner is browsing */
+export function inviteUrl(invite: Pick<CreatedInvite, 'path' | 'url'>): string {
+  return invite.url ?? `${window.location.origin}${invite.path}`
 }
 
 /** Copyable link plus the expiry note; shared by the partner invitation and the admin screen. */
 export function InviteLink({ invite }: { invite: CreatedInvite }) {
   const [copied, setCopied] = useState(false)
-  const url = inviteUrl(invite.path)
+  const url = inviteUrl(invite)
   async function copy() {
     try {
       await navigator.clipboard.writeText(url)

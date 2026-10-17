@@ -78,6 +78,19 @@ public class MediaProcessingService {
     }
 
     /**
+     * Puts every live, already-processed item back in the queue (admin action, e.g. after a restore from backup where only
+     * the originals came back, or after a pipeline improvement such as Motion Photo support). They are claimed under the
+     * normal fair-queue rule, so one space's backlog never starves another's.
+     */
+    public int reprocessAll() {
+        Integer n = tx.execute(status -> jdbc.update(
+                "UPDATE media SET status = 'UPLOADED', attempts = 0, last_error = NULL, next_attempt_at = NULL, processing_started_at = NULL "
+                        + "WHERE deleted_at IS NULL AND status IN ('READY', 'FAILED') "
+                        + "AND album_id IN (SELECT id FROM album WHERE deleted_at IS NULL)"));
+        return n == null ? 0 : n;
+    }
+
+    /**
      * A job that has been PROCESSING for too long (the process died or restarted) goes back to the queue; it counts as a
      * failed attempt so a file that crashes the worker cannot loop forever.
      */

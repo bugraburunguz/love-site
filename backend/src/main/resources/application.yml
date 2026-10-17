@@ -49,6 +49,10 @@ management:
           include: readinessState
 
 app:
+  # the app's public address, e.g. https://example.com (no path). Invite links, the default bucket CORS origin and the
+  # optional redirect from *.up.railway.app derive from it.
+  public-url: ${APP_PUBLIC_URL:}
+  redirect-to-public-url: ${REDIRECT_TO_PUBLIC_URL:false}
   # platform admin (can create spaces and invites, sees usage numbers, never content)
   admin-email: ${ADMIN_EMAIL:}
   # theme ids the API accepts (a theme itself is frontend data: frontend/src/themes/<id>)
@@ -82,7 +86,19 @@ app:
     connect-timeout: 3s
     read-timeout: 10s
     max-attempts: 3
-    allowed-origins: ${APP_ALLOWED_ORIGINS:}
+    # defaults to the origin of APP_PUBLIC_URL
+    allowed-origins: ${APP_ALLOWED_ORIGINS:${APP_PUBLIC_URL:}}
+  # second S3-compatible bucket for the nightly backup (originals, album songs, daily database dump); all four of
+  # endpoint / bucket / access-key-id / secret-access-key must be set, otherwise backup is off
+  backup:
+    endpoint: ${BACKUP_S3_ENDPOINT:}
+    bucket: ${BACKUP_S3_BUCKET:}
+    access-key-id: ${BACKUP_S3_ACCESS_KEY_ID:}
+    secret-access-key: ${BACKUP_S3_SECRET_ACCESS_KEY:}
+    region: ${BACKUP_S3_REGION:auto}
+    path-style: ${BACKUP_S3_PATH_STYLE:false}
+    purged-retention: 30d
+    db-keep-days: 14
   processing:
     # the queue lives in this process: a poller claims one UPLOADED row at a time (FOR UPDATE SKIP LOCKED)
     auto-poll: true

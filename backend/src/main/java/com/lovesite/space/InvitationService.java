@@ -35,7 +35,8 @@ public class InvitationService {
 
     static final String GENERIC_INVALID = "Davet geçersiz ya da süresi dolmuş";
 
-    public record Created(UUID spaceId, String token, String path, Instant expiresAt) {
+    public record Created(UUID spaceId, String token, String path, String url, Instant expiresAt) {
+        // url is absolute when APP_PUBLIC_URL is configured, otherwise null and the client builds it from its own origin
     }
 
     public record Preview(String spaceName, String role, Instant expiresAt) {
@@ -51,10 +52,13 @@ public class InvitationService {
     private final AppUserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService throttle;
+    private final com.lovesite.config.PublicUrlProperties publicUrl;
     private final SecureRandom random = new SecureRandom();
 
     public InvitationService(JdbcTemplate jdbc, TransactionTemplate tx, SpaceService spaces, SpaceProperties properties,
-                             AppUserRepository users, PasswordEncoder passwordEncoder, LoginAttemptService throttle) {
+                             AppUserRepository users, PasswordEncoder passwordEncoder, LoginAttemptService throttle,
+                             com.lovesite.config.PublicUrlProperties publicUrl) {
+        this.publicUrl = publicUrl;
         this.jdbc = jdbc;
         this.tx = tx;
         this.spaces = spaces;
@@ -108,7 +112,8 @@ public class InvitationService {
         Instant expiresAt = Instant.now().plus(properties.inviteTtl());
         jdbc.update("INSERT INTO invitation (token_hash, space_id, role, created_by, expires_at) VALUES (?, ?, ?, ?, ?)",
                 hash(token), spaceId, role, createdBy, Timestamp.from(expiresAt));
-        return new Created(spaceId, token, "/invite/" + token, expiresAt);
+        String path = "/invite/" + token;
+        return new Created(spaceId, token, path, publicUrl.configured() ? publicUrl.publicUrl() + path : null, expiresAt);
     }
 
     // ---- redeeming (public)

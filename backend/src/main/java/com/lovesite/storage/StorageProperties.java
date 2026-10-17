@@ -26,7 +26,11 @@ public record StorageProperties(
 
     public StorageProperties {
         if (region == null || region.isBlank()) region = "auto";
-        if (allowedOrigins == null) allowedOrigins = List.of();
+        // each entry is reduced to scheme://host[:port]: a pasted APP_PUBLIC_URL with a trailing slash must still match the Origin header
+        allowedOrigins = allowedOrigins == null ? List.of() : allowedOrigins.stream()
+                .map(o -> o.trim().replaceAll("/+$", ""))
+                .filter(o -> !o.isEmpty())
+                .toList();
         // Never rely on the SDK defaults (they are long: 2 s connect, 30 s read, plus retries).
         if (connectTimeout == null) connectTimeout = Duration.ofSeconds(3);
         if (readTimeout == null) readTimeout = Duration.ofSeconds(10);

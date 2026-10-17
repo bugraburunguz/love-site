@@ -136,6 +136,11 @@ public class StorageService {
                 software.amazon.awssdk.core.sync.ResponseTransformer.toFile(target));
     }
 
+    /** Opens an object as a stream (the caller closes it); the backup copies originals with this, never into memory. */
+    public software.amazon.awssdk.core.ResponseInputStream<software.amazon.awssdk.services.s3.model.GetObjectResponse> openStream(String key) {
+        return client.getObject(GetObjectRequest.builder().bucket(properties.bucket()).key(key).build());
+    }
+
     /** Uploads a local file with an explicit content type and Cache-Control (generated variants are immutable). */
     public void upload(String key, java.nio.file.Path file, String contentType, String cacheControl) {
         client.putObject(PutObjectRequest.builder().bucket(properties.bucket()).key(key).contentType(contentType)

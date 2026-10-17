@@ -38,7 +38,14 @@ public final class ProcessRunner {
 
     /** Never throws for a non-zero exit code; the caller decides. */
     public static Result run(List<String> command, Duration timeout) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command).start();
+        return run(command, java.util.Map.of(), timeout);
+    }
+
+    /** `env` is added to the inherited environment (used to hand a password to a tool without putting it on the command line). */
+    public static Result run(List<String> command, java.util.Map<String, String> env, Duration timeout) throws IOException, InterruptedException {
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.environment().putAll(env);
+        Process process = builder.start();
         process.getOutputStream().close(); // nothing is ever written to stdin
         Collector stdout = new Collector(process.getInputStream(), MAX_STDOUT, false);
         Collector stderr = new Collector(process.getErrorStream(), STDERR_TAIL, true);

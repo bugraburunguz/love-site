@@ -34,9 +34,12 @@ public class AlbumService {
     private final QuotaService quota;
     private final TransactionTemplate tx;
     private final MediaProperties mediaProperties;
+    private final com.lovesite.backup.PurgeLog purgeLog;
 
     public AlbumService(AlbumRepository albums, ThemeProperties themes, StorageService storage, QuotaService quota,
-                        TransactionTemplate tx, MediaProperties mediaProperties) {
+                        TransactionTemplate tx, MediaProperties mediaProperties,
+                        com.lovesite.backup.PurgeLog purgeLog) {
+        this.purgeLog = purgeLog;
         this.albums = albums;
         this.themes = themes;
         this.storage = storage;
@@ -168,6 +171,7 @@ public class AlbumService {
             return previous;
         });
         deleteQuietly(oldKey);
+        purgeLog.record(oldKey);
         return get(me, albumId);
     }
 
@@ -186,6 +190,7 @@ public class AlbumService {
             return old;
         });
         if (keys != null) keys.forEach(this::deleteQuietly);
+        if (keys != null && !keys.isEmpty()) purgeLog.record(keys.get(0)); // the confirmed song, if any, is the first entry
         return get(me, albumId);
     }
 

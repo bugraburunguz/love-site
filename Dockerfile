@@ -20,9 +20,15 @@ RUN ./mvnw -B -q -DskipTests package
 
 # ---- 3. Runtime: JRE + media tools for the processing pipeline ----
 FROM eclipse-temurin:21-jre
+# pg_dump must be at least as new as the Postgres server it dumps (the nightly database backup). The distro package is
+# older than the server Railway runs, so the client comes from the PostgreSQL apt repository. Bump PG_CLIENT_MAJOR together
+# with the database version.
+ARG PG_CLIENT_MAJOR=17
 # libheif-plugin-libde265 is the HEVC decoder libvips needs for iPhone HEIC photos (only "recommended", so it must be named).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libvips-tools libheif1 libheif-plugin-libde265 \
+    && apt-get install -y --no-install-recommends ffmpeg libvips-tools libheif1 libheif-plugin-libde265 ca-certificates postgresql-common \
+    && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+    && apt-get install -y --no-install-recommends postgresql-client-${PG_CLIENT_MAJOR} \
     && rm -rf /var/lib/apt/lists/*
 # Fail the build (not the first upload) when a tool the pipeline relies on is missing.
 RUN set -e; \
@@ -36,6 +42,9 @@ RUN set -e; \
     vipsheader --version > /dev/null                   || fail "vipsheader missing"; \
     vips -l | grep -q heifload                         || fail "vips has no heifload"; \
     find /usr/lib -name 'libheif-libde265.so' | grep -q . || fail "libheif has no HEVC decoder plugin (iPhone HEIC would fail)"
+# Print the client version in the build log and fail when it is not the major we asked for.
+RUN pg_dump --version | tee /dev/stderr | grep -q "pg_dump (PostgreSQL) ${PG_CLIENT_MAJOR}\." \
+    || { echo "BUILD CHECK FAILED: pg_dump is not version ${PG_CLIENT_MAJOR}"; exit 1; }
 RUN useradd --system --create-home app
 USER app
 WORKDIR /app

@@ -98,6 +98,8 @@ export interface CreatedInvite {
   spaceId: string
   token: string
   path: string
+  /** absolute link when the server knows APP_PUBLIC_URL, otherwise null */
+  url: string | null
   expiresAt: string
 }
 
@@ -120,6 +122,26 @@ export const adminUpdateSpace = (id: string, patch: { name?: string; limitGb?: n
   api<AdminSpace>(`/api/admin/spaces/${id}`, { method: 'PATCH', body: patch })
 export const adminReissueOwnerInvite = (id: string) =>
   api<CreatedInvite>(`/api/admin/spaces/${id}/invites`, { method: 'POST' })
+
+export interface BackupRun {
+  kind: 'MEDIA' | 'DB'
+  status: 'RUNNING' | 'OK' | 'FAILED'
+  startedAt: string
+  finishedAt: string | null
+  objectCount: number | null
+  totalBytes: number | null
+  copiedCount: number | null
+  message: string | null
+}
+export interface BackupStatus {
+  enabled: boolean
+  media: BackupRun | null
+  db: BackupRun | null
+}
+
+export const adminBackupStatus = () => api<BackupStatus>('/api/admin/backup')
+export const adminRunBackup = () => api<{ started: boolean }>('/api/admin/backup/run', { method: 'POST' })
+export const adminReprocessAll = () => api<{ queued: number }>('/api/admin/reprocess-all', { method: 'POST' })
 
 export interface InvitePreview {
   spaceName: string

@@ -58,6 +58,10 @@ public final class TestInfrastructure {
         r.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         r.add("spring.datasource.username", POSTGRES::getUsername);
         r.add("spring.datasource.password", POSTGRES::getPassword);
+        // every distinct test configuration keeps its own cached Spring context (and pool) alive for the whole run:
+        // small pools keep the total below Postgres max_connections
+        r.add("spring.datasource.hikari.maximum-pool-size", () -> "3");
+        r.add("spring.datasource.hikari.minimum-idle", () -> "0");
         r.add("app.seed.user1.email", () -> "a@test.io");
         r.add("app.seed.user1.name", () -> "A");
         r.add("app.seed.user1.password", () -> "pw1");
