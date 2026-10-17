@@ -3,8 +3,8 @@
 # ---- 1. Frontend build ----
 FROM node:22-slim AS frontend
 WORKDIR /frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 

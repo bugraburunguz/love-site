@@ -11,7 +11,7 @@ import java.io.IOException;
 
 /**
  * Serves the React build from classpath:/static and falls back to index.html for any GET
- * that is not a real file, so React Router routes survive a refresh. /api and /actuator
+ * without a file extension that is not a real file, so React Router routes survive a refresh. /api and /actuator
  * are never rewritten.
  */
 @Configuration
@@ -30,6 +30,11 @@ public class SpaWebConfig implements WebMvcConfigurer {
                             return requested;
                         }
                         if (resourcePath.startsWith("api/") || resourcePath.startsWith("actuator")) {
+                            return null;
+                        }
+                        // A missing file (last segment has an extension) is a real 404, not a client route.
+                        String lastSegment = resourcePath.substring(resourcePath.lastIndexOf('/') + 1);
+                        if (lastSegment.contains(".")) {
                             return null;
                         }
                         Resource index = new ClassPathResource("static/index.html");
