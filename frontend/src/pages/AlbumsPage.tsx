@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
+import SpacePanel from '../components/SpacePanel'
 import { createAlbum, deleteAlbum, listAlbums, listMedia, renameAlbum, type Album } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
@@ -116,6 +117,11 @@ export default function AlbumsPage() {
         <h1>Albümlerimiz</h1>
         <div className="shelf__user">
           <span>{user?.displayName}</span>
+          {user?.admin && (
+            <Link to="/admin" className="clay clay--pill clay--sm clay--cream">
+              Yönetim
+            </Link>
+          )}
           <Clay size="sm" tone="cream" onClick={() => void logout()}>
             Çıkış
           </Clay>
@@ -123,6 +129,8 @@ export default function AlbumsPage() {
       </header>
 
       {error && <p role="alert" className="shelf__error">{error}</p>}
+
+      <SpacePanel />
 
       {albums === null ? (
         <p className="shelf__loading">Raf hazırlanıyor…</p>
@@ -180,7 +188,7 @@ export default function AlbumsPage() {
       {dialog?.kind === 'delete' && (
         <ConfirmDialog
           title="Albüm silinsin mi?"
-          message={`"${dialog.album.title}" albümü raftan kalkacak.`}
+          message={`"${dialog.album.title}" albümü raftan kalkacak. İçindekilerle birlikte 30 gün sonra kalıcı olarak silinir.`}
           confirmLabel="Sil"
           onClose={close}
           onConfirm={async () => {

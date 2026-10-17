@@ -169,7 +169,8 @@ class MediaUploadIntegrationTest {
 
         // The key never contains the filename.
         String key = jdbc.queryForObject("select original_key from media where id = ?::uuid", String.class, mediaId);
-        assertThat(key).isEqualTo("albums/" + album + "/media/" + mediaId + "/original");
+        String spaceId = jdbc.queryForObject("select space_id from media where id = ?::uuid", String.class, mediaId);
+        assertThat(key).isEqualTo("spaces/" + spaceId + "/albums/" + album + "/media/" + mediaId + "/original");
 
         // The album lists the item as UPLOADED (waiting for the processing queue): no variant URLs yet, and the
         // original file is never exposed to the client.
@@ -328,7 +329,7 @@ class MediaUploadIntegrationTest {
         String existingId = JsonPath.read(first, "$.items[0].mediaId");
 
         // Simulate the race window: the pre-insert lookup misses, the insert then hits the unique index.
-        doReturn(Optional.empty()).doCallRealMethod().when(mediaService).findBySha256(any(), any());
+        doReturn(Optional.empty()).doCallRealMethod().when(mediaService).findBySha256(any(), any(), any());
         String res = uploads(album, "[" + file("c2", "b.jpg", "image/jpeg", 10, sha('a')) + "]");
 
         assertThat(JsonPath.<String>read(res, "$.items[0].result")).isEqualTo("DUPLICATE");

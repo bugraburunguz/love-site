@@ -2,10 +2,9 @@ package com.lovesite.album;
 
 import com.lovesite.album.AlbumDtos.AlbumRequest;
 import com.lovesite.album.AlbumDtos.AlbumResponse;
-import com.lovesite.user.CurrentUserService;
+import com.lovesite.user.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,32 +23,30 @@ import java.util.UUID;
 public class AlbumController {
 
     private final AlbumService albumService;
-    private final CurrentUserService currentUser;
 
-    public AlbumController(AlbumService albumService, CurrentUserService currentUser) {
+    public AlbumController(AlbumService albumService) {
         this.albumService = albumService;
-        this.currentUser = currentUser;
     }
 
     @GetMapping
-    public List<AlbumResponse> list() {
-        return albumService.list();
+    public List<AlbumResponse> list(CurrentUser me) {
+        return albumService.list(me);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AlbumResponse create(@Valid @RequestBody AlbumRequest request, Authentication authentication) {
-        return albumService.create(request.title(), currentUser.require(authentication).getId());
+    public AlbumResponse create(CurrentUser me, @Valid @RequestBody AlbumRequest request) {
+        return albumService.create(me, request.title());
     }
 
     @PatchMapping("/{id}")
-    public AlbumResponse rename(@PathVariable UUID id, @Valid @RequestBody AlbumRequest request) {
-        return albumService.rename(id, request.title());
+    public AlbumResponse rename(CurrentUser me, @PathVariable UUID id, @Valid @RequestBody AlbumRequest request) {
+        return albumService.rename(me, id, request.title());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id) {
-        albumService.delete(id);
+    public void delete(CurrentUser me, @PathVariable UUID id) {
+        albumService.delete(me, id);
     }
 }

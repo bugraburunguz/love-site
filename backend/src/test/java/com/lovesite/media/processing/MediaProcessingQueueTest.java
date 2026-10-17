@@ -79,6 +79,7 @@ class MediaProcessingQueueTest {
     @TempDir Path dir;
     final HttpClient http = HttpClient.newHttpClient();
     UUID userId;
+    UUID spaceId;
     UUID albumId;
 
     @BeforeEach
@@ -86,7 +87,8 @@ class MediaProcessingQueueTest {
         // other test classes share the database: park their queued rows so only this test's jobs are claimable
         jdbc.update("UPDATE media SET deleted_at = now() WHERE status IN ('UPLOADED', 'PROCESSING') AND deleted_at IS NULL");
         userId = users.findByEmailIgnoreCase("a@test.io").orElseThrow().getId();
-        albumId = albums.save(new Album("Queue test", userId)).getId();
+        spaceId = jdbc.queryForObject("select space_id from space_member where user_id = ?", UUID.class, userId);
+        albumId = albums.save(new Album(spaceId, "Queue test", userId)).getId();
     }
 
     // ---------------------------------------------------------------- helpers
@@ -95,7 +97,7 @@ class MediaProcessingQueueTest {
     Media upload(MediaKind kind, Path file, String contentType) throws Exception {
         UUID id = UUID.randomUUID();
         byte[] bytes = Files.readAllBytes(file);
-        Media m = new Media(id, albumId, userId, kind, file.getFileName().toString(), contentType, bytes.length, null, null);
+        Media m = new Media(id, spaceId, albumId, userId, kind, file.getFileName().toString(), contentType, bytes.length, null, null);
         storage.putObject(m.getOriginalKey(), contentType, bytes);
         m.markUploaded(bytes.length);
         return mediaRepository.save(m);
@@ -171,9 +173,9 @@ class MediaProcessingQueueTest {
 
     @Test
     void anItemStuckInProcessingIsPutBackAndTooManyStallsFailIt() {
-        Media first = new Media(UUID.randomUUID(), albumId, userId, MediaKind.IMAGE, "s1.jpg", "image/jpeg", 1, null, null);
-        Media second = new Media(UUID.randomUUID(), albumId, userId, MediaKind.IMAGE, "s2.jpg", "image/jpeg", 1, null, null);
-        Media fresh = new Media(UUID.randomUUID(), albumId, userId, MediaKind.IMAGE, "s3.jpg", "image/jpeg", 1, null, null);
+        Media first = new Media(UUID.randomUUID(), spaceId, albumId, userId, MediaKind.IMAGE, "s1.jpg", "image/jpeg", 1, null, null);
+        Media second = new Media(UUID.randomUUID(), spaceId, albumId, userId, MediaKind.IMAGE, "s2.jpg", "image/jpeg", 1, null, null);
+        Media fresh = new Media(UUID.randomUUID(), spaceId, albumId, userId, MediaKind.IMAGE, "s3.jpg", "image/jpeg", 1, null, null);
         for (Media m : List.of(first, second, fresh)) {
             m.markUploaded(1);
             mediaRepository.save(m);
@@ -255,7 +257,7 @@ class MediaProcessingQueueTest {
         assertThat(r.get("width")).isEqualTo(1200);
         assertThat(r.get("height")).isEqualTo(1600);
         assertThat(((Timestamp) r.get("taken_at")).toInstant()).isEqualTo(Instant.parse("2023-07-14T08:15:30Z"));
-        String prefix = "albums/" + albumId + "/media/" + m.getId() + "/v1/";
+        String prefix = "spaces/" + spaceId + "/albums/" + albumId + "/media/" + m.getId() + "/v1/";
         assertThat(r.get("thumb_key")).isEqualTo(prefix + "thumb.webp");
         assertThat(r.get("display_key")).isEqualTo(prefix + "display.webp");
         assertThat(r.get("loop_key")).isNull();
@@ -301,7 +303,7 @@ class MediaProcessingQueueTest {
         assertThat(r.get("height")).isEqualTo(640);
         assertThat((Long) r.get("duration_ms")).isBetween(3900L, 4100L);
         assertThat(r.get("thumb_key")).isNull();
-        String prefix = "albums/" + albumId + "/media/" + m.getId() + "/v1/";
+        String prefix = "spaces/" + spaceId + "/albums/" + albumId + "/media/" + m.getId() + "/v1/";
         assertThat(storage.head(prefix + "loop.mp4").orElseThrow().contentType()).isEqualTo("video/mp4");
         assertThat(storage.head(prefix + "poster.webp").orElseThrow().contentType()).isEqualTo("image/webp");
 
@@ -400,5 +402,30 @@ class MediaProcessingQueueTest {
         assertThat(queue.pollOnce()).isEqualTo(1);
         assertThat(queue.drain(60_000)).isTrue();
         assertThat(statusOf(m.getId())).isEqualTo("READY");
+    }
+
+    @Test
+    void mediaUploadedBeforeTenancyKeepsItsOldKeyLayoutAndVariantsStayNextToIt() throws Exception {
+        Path photo = ToolFixtures.jpeg(dir, "old.jpg", 800, 600);
+        Media m = upload(MediaKind.IMAGE, photo, "image/jpeg");
+        // move the original to the pre-tenancy location, as it is for everything uploaded before spaces existed
+        String legacyKey = "albums/" + albumId + "/media/" + m.getId() + "/original";
+        storage.putObject(legacyKey, "image/jpeg", Files.readAllBytes(photo));
+        jdbc.update("update media set original_key = ? where id = ?", legacyKey, m.getId());
+
+        assertThat(queue.drain(60_000)).isTrue();
+
+        Map<String, Object> r = row(m.getId());
+        assertThat(r.get("status")).isEqualTo("READY");
+        String prefix = "albums/" + albumId + "/media/" + m.getId() + "/v1/";
+        assertThat(r.get("thumb_key")).isEqualTo(prefix + "thumb.webp");
+        assertThat(r.get("display_key")).isEqualTo(prefix + "display.webp");
+        assertThat(exists(prefix + "thumb.webp")).isTrue();
+        // the size of the variants is recorded and counts against the space quota
+        long thumb = storage.head(prefix + "thumb.webp").orElseThrow().contentLength();
+        long display = storage.head(prefix + "display.webp").orElseThrow().contentLength();
+        assertThat(((Number) r.get("variants_bytes")).longValue()).isEqualTo(thumb + display);
+        assertThat(jdbc.queryForObject("select sum(size_bytes + coalesce(variants_bytes, 0)) from media where id = ?", Long.class, m.getId()))
+                .isEqualTo(Files.size(photo) + thumb + display);
     }
 }

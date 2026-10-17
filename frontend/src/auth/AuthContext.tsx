@@ -5,6 +5,10 @@ export interface User {
   id: string
   email: string
   displayName: string
+  admin: boolean
+  spaceId: string | null
+  spaceName: string | null
+  role: 'OWNER' | 'MEMBER' | null
 }
 
 interface AuthState {
@@ -12,6 +16,8 @@ interface AuthState {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  /** replaces the signed-in user, e.g. after an invitation was accepted (the backend already opened the session) */
+  setUser: (user: User | null) => void
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -40,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthState {

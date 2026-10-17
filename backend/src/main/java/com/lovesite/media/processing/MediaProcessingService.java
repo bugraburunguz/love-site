@@ -52,19 +52,28 @@ public class MediaProcessingService {
     }
 
     /**
-     * Takes the oldest due UPLOADED item: SELECT ... FOR UPDATE SKIP LOCKED, then PROCESSING with a start time, all in
+     * Takes the next due UPLOADED item: SELECT ... FOR UPDATE SKIP LOCKED, then PROCESSING with a start time, all in
      * one short transaction. Two workers can never receive the same row.
+     *
+     * Fair between spaces: the space that has nothing in progress goes first, then the space served least recently
+     * (never served = first), and inside that space the oldest job. One couple importing hundreds of videos therefore
+     * cannot starve everybody else; with a single worker the spaces simply alternate.
      */
     public Optional<UUID> claimNext() {
         return tx.execute(status -> {
-            List<UUID> ids = jdbc.query(
-                    "SELECT id FROM media WHERE status = 'UPLOADED' AND deleted_at IS NULL "
-                            + "AND (next_attempt_at IS NULL OR next_attempt_at <= now()) "
-                            + "ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED",
-                    (rs, i) -> rs.getObject(1, UUID.class));
-            if (ids.isEmpty()) return Optional.<UUID>empty();
-            jdbc.update("UPDATE media SET status = 'PROCESSING', processing_started_at = now() WHERE id = ?", ids.get(0));
-            return Optional.of(ids.get(0));
+            List<UUID[]> rows = jdbc.query(
+                    "SELECT m.id, m.space_id FROM media m JOIN space s ON s.id = m.space_id "
+                            + "WHERE m.status = 'UPLOADED' AND m.deleted_at IS NULL "
+                            + "AND (m.next_attempt_at IS NULL OR m.next_attempt_at <= now()) "
+                            + "ORDER BY (EXISTS (SELECT 1 FROM media p WHERE p.space_id = m.space_id AND p.status = 'PROCESSING')), "
+                            + "s.last_served_at ASC NULLS FIRST, m.created_at "
+                            + "LIMIT 1 FOR UPDATE OF m SKIP LOCKED",
+                    (rs, i) -> new UUID[]{rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)});
+            if (rows.isEmpty()) return Optional.<UUID>empty();
+            UUID id = rows.get(0)[0];
+            jdbc.update("UPDATE media SET status = 'PROCESSING', processing_started_at = now() WHERE id = ?", id);
+            jdbc.update("UPDATE space SET last_served_at = now() WHERE id = ?", rows.get(0)[1]);
+            return Optional.of(id);
         });
     }
 
@@ -99,11 +108,13 @@ public class MediaProcessingService {
             ProcessedMedia result = item.getType() == MediaKind.IMAGE ? photos.process(original, tmp) : videos.process(original, tmp);
 
             int version = item.getProcessingVersion() + 1;
-            String prefix = "albums/" + item.getAlbumId() + "/media/" + item.getId() + "/v" + version + "/";
+            // variants live next to the original, whatever layout its key has (old "albums/..." or "spaces/...")
+            String prefix = variantPrefix(item.getOriginalKey(), version);
             String thumbKey = put(prefix + "thumb.webp", result.thumb(), "image/webp", uploaded);
             String displayKey = put(prefix + "display.webp", result.display(), "image/webp", uploaded);
             String loopKey = put(prefix + "loop.mp4", result.loop(), "video/mp4", uploaded);
             String posterKey = put(prefix + "poster.webp", result.poster(), "image/webp", uploaded);
+            long variantsBytes = size(result.thumb()) + size(result.display()) + size(result.loop()) + size(result.poster());
 
             // The row only points at the new version once every object of it is in the bucket.
             List<String> oldKeys = tx.execute(status -> {
@@ -111,7 +122,7 @@ public class MediaProcessingService {
                 List<String> old = new ArrayList<>(Stream.of(row.getThumbKey(), row.getDisplayKey(), row.getLoopKey(), row.getPosterKey())
                         .filter(k -> k != null).toList());
                 row.markReady(version, result.width(), result.height(), result.durationMs(), result.takenAt(),
-                        thumbKey, displayKey, loopKey, posterKey);
+                        thumbKey, displayKey, loopKey, posterKey, variantsBytes);
                 media.save(row);
                 return old;
             });
@@ -128,6 +139,20 @@ public class MediaProcessingService {
             recordFailure(id, e);
         } finally {
             deleteRecursively(tmp);
+        }
+    }
+
+    /** ".../media/{id}/original" -> ".../media/{id}/v{version}/" */
+    static String variantPrefix(String originalKey, int version) {
+        return originalKey.substring(0, originalKey.lastIndexOf('/') + 1) + "v" + version + "/";
+    }
+
+    private static long size(Path file) {
+        if (file == null) return 0;
+        try {
+            return Files.size(file);
+        } catch (IOException e) {
+            return 0;
         }
     }
 

@@ -52,7 +52,9 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/me").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // invitation lookup/accept are public (the token is the credential); everything else under /api needs a session
+                        .requestMatchers("/api/invites/**").permitAll()
+                        .requestMatchers("/actuator/health","/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())

@@ -233,7 +233,7 @@ function AlbumView({ id }: { id: string }) {
       {toDelete && (
         <ConfirmDialog
           title="Fotoğraf silinsin mi?"
-          message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak.`}
+          message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak ve 30 gün sonra kalıcı olarak silinir.`}
           confirmLabel="Sil"
           onClose={() => setToDelete(null)}
           onConfirm={confirmDelete}

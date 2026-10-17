@@ -13,6 +13,17 @@ See [.env.example](.env.example). Required in production: `PGHOST`, `PGPORT`, `P
 The app refuses to start if a seed or bucket variable is missing.
 Users are only created when absent; changing a password env var later does not change an existing password.
 
+### Spaces (Phase 3.5)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ADMIN_EMAIL` | empty | this account is the platform admin (`/admin`); it must already exist (e.g. `USER1_EMAIL`) |
+| `INITIAL_SPACE_NAME` | `Bizim Alanımız` | name of the first space (existing data / first install) |
+| `INITIAL_SPACE_LIMIT_GB` | `400` | its storage limit |
+
+`USER1_*` / `USER2_*` are only used for the **first** space (USER1 owner, USER2 member). Every other couple joins through
+an invitation, never through environment variables.
+
 ### Storage bucket (Railway)
 
 Create a Storage Bucket in the project and add these variables to the app service, using Railway variable references
@@ -86,7 +97,10 @@ Pending uploads older than 24 h are removed hourly. Run the backend tests (Testc
 ## Müzik kutusu (arka plan müziği)
 
 The bottom-left music box plays one song from the bucket. It only appears when the object `audio/theme` exists, and it only
-starts on a tap (never automatically). The file is not part of the repo; put it in the bucket yourself:
+starts on a tap (never automatically). Each space has its own song at `spaces/{spaceId}/audio/theme`; only the initial space
+(the one that existed before tenancy) still falls back to the old global `audio/theme`, no other space ever sees that file.
+The file is not part of the repo; put it in the bucket yourself (replace `audio/theme` below with the space key for a
+non-initial space; the space id is in the `space` table):
 
 ```bash
 # any S3 client works; with the AWS CLI (credentials = the bucket's access key, region auto)
@@ -176,7 +190,8 @@ sent to the browser; the album only uses generated variants.
   automatically after a deploy. `POST /api/media/{id}/reprocess` re-queues a `FAILED` or `READY` item with a fresh counter.
 - **External tools** (`ffmpeg`, `ffprobe`, `vips`) run with argument lists (no shell), both output streams drained, a timeout
   per process (photo 60 s, video 180 s) and the whole process tree killed on timeout. Temporary files are removed in `finally`.
-- **Variants** are written to `albums/{albumId}/media/{mediaId}/v{n}/` with
+- **Variants** are written next to the original, in `.../media/{mediaId}/v{n}/` (the directory is derived from the stored
+  `original_key`, so old `albums/...` and new `spaces/...` keys both work), with
   `Cache-Control: private, max-age=31536000, immutable`; the row points at version *n* only after every object is uploaded, then
   the previous version's objects are deleted. No EXIF/GPS/ICC in any variant.
   - Photos (format detected from content, HEIC via `heifload`): `thumb.webp` (long edge 480, Q78) and `display.webp`
@@ -203,3 +218,63 @@ tools as production plus an HEVC encoder:
 docker build -t love-site-test -f backend/test.Dockerfile backend
 docker run --rm -v "$PWD/backend:/w" -v m2cache:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock   -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -e TESTCONTAINERS_RYUK_DISABLED=true -w /w love-site-test ./mvnw test
 ```
+
+## Spaces, authorization and quota (Phase 3.5)
+
+A **space** is one couple's private area: `space` + `space_member` (a user belongs to exactly one space; roles `OWNER` /
+`MEMBER`, at most 2 members). `album.space_id` and `media.space_id` are mandatory. `app_user.is_admin` marks the platform admin.
+
+### The scoping rule
+
+> **Every query that serves a request carries the space id of the signed-in user. There is no repository method that finds
+> an album or media by id alone, and nobody ever loads a record first and checks its space afterwards.**
+
+The space id comes from `CurrentUser` (resolved once per request from the session, injected as a controller parameter), never
+from the URL or body. An id of another space therefore behaves exactly like an id that does not exist: `404` with the same body.
+Presigned URLs are only generated from records that were loaded through a scoped query. The background worker is system-level
+(it claims jobs across spaces) and works from the row it claimed. The admin sees names, member names and usage numbers; no endpoint
+exposes another space's albums or media. When adding an endpoint: take `CurrentUser me`, call a `...SpaceId...` repository method.
+
+`TenantIsolationTest` is the IDOR matrix (every id endpoint probed with another space's ids, plus lists, music, admin).
+
+### Invitations (no public signup)
+
+- Admin: `POST /api/admin/spaces {name, limitGb}` creates a space and returns an owner invitation link; `GET /api/admin/spaces`,
+  `PATCH /api/admin/spaces/{id}` (name / limit), `POST /api/admin/spaces/{id}/invites` (new owner link while the space has no owner).
+  UI: `/admin`.
+- Owner: `POST /api/space/invites` creates the partner link (UI: "Partnerini davet et" on the shelf). **A new partner link
+  replaces the previous unused one** (the old link stops working); a full space (2 members) cannot invite.
+- Link: `/invite/{token}`. `GET /api/invites/{token}` and `POST /api/invites/{token}/accept {displayName,email,password>=10}` are
+  public. The token is 32 random bytes (base64url), valid 7 days, single use; only its SHA-256 is stored. Unknown, used, expired
+  and "space full" all answer the same generic 404. Wrong guesses are throttled per client IP (5 failures -> 15 min lock; the
+  IP is the rightmost `X-Forwarded-For` entry, because Spring's forwarded-header filter would otherwise expose the spoofable
+  leftmost one). A signed-in user gets "Zaten bir alana üyesin". Accepting creates the user, joins the space and signs in.
+- There is **no password reset and no email sending**. If someone forgets their password, the admin sets a new hash by hand:
+  generate a BCrypt hash (`htpasswd -bnBC 10 "" 'NewPassword' | tr -d ':
+' | sed 's/$2y/$2a/'`) and run
+  `UPDATE app_user SET password_hash = '<hash>' WHERE email = '<email>';` in the Postgres console, then tell them the new password.
+
+### Quota and trash
+
+- Usage = `sum(size_bytes + variants_bytes)` of all media of the space that are not `REJECTED`: soft-deleted items still count until
+  they are purged, pending uploads count with their declared size. The worker stores `variants_bytes` when it finishes a version
+  (a final overflow by the generated variants is accepted).
+- `POST .../uploads` locks the space row (`SELECT ... FOR UPDATE`) and answers `QUOTA_EXCEEDED` per file (the rest of the batch
+  still goes through); `complete` re-checks the real size under the same lock and then answers `413` with `code: QUOTA_EXCEEDED`.
+  `GET /api/space` returns usage and limit; the shelf shows a bar with warnings at 90 % and 100 %.
+- Deleting an album or media only hides it. `TrashPurgeJob` runs daily at 03:30 (Europe/Istanbul) and, after
+  `app.space.trash-retention` (30 days), deletes the bucket objects (original and variants) and the rows, which finally frees the
+  space. There is no restore UI.
+
+### Fair queue
+
+`claimNext` orders candidates by (space already has a job `PROCESSING`) first false, then `space.last_served_at` (never served
+first), then the job's age, still with `FOR UPDATE SKIP LOCKED`. One couple importing hundreds of videos cannot starve the others:
+with one worker the spaces take turns; with several workers an idle space is preferred over one that is already being processed.
+
+### Migration to spaces
+
+`V6__spaces.sql` adds the tables and nullable `space_id` columns; `V7__InitialSpace` (Java migration) creates the initial space
+when data exists (name/limit from `INITIAL_SPACE_*`, `USER1` owner, `USER2` member, falling back to the two oldest accounts),
+attaches every album and media row, marks `ADMIN_EMAIL` as admin and then makes `space_id` NOT NULL. Existing storage keys are not
+touched. On a fresh install the startup seeder creates the initial space instead.

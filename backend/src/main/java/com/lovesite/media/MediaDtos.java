@@ -24,6 +24,8 @@ public final class MediaDtos {
         PRESIGNED,
         /** Same sha256 already in the album; nothing to upload. */
         DUPLICATE,
+        /** The space has no room for this file; other files of the same batch may still fit. */
+        QUOTA_EXCEEDED,
         ERROR
     }
 
@@ -40,6 +42,10 @@ public final class MediaDtos {
 
         static UploadItem duplicate(String clientId, UUID existingMediaId) {
             return new UploadItem(clientId, UploadResult.DUPLICATE, existingMediaId, null, null, null);
+        }
+
+        static UploadItem quotaExceeded(String clientId, String message) {
+            return new UploadItem(clientId, UploadResult.QUOTA_EXCEEDED, null, null, null, message);
         }
 
         static UploadItem error(String clientId, String message) {

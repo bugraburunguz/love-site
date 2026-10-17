@@ -2,17 +2,20 @@ package com.lovesite.media;
 
 import com.lovesite.album.AlbumService;
 import com.lovesite.media.MediaDtos.MediaResponse;
-import com.lovesite.media.processing.MediaProcessingQueue;
 import com.lovesite.media.MediaDtos.UploadFile;
 import com.lovesite.media.MediaDtos.UploadItem;
 import com.lovesite.media.MediaDtos.UploadResponse;
+import com.lovesite.media.processing.MediaProcessingQueue;
+import com.lovesite.space.QuotaService;
 import com.lovesite.storage.StorageService;
+import com.lovesite.system.ApiException;
+import com.lovesite.user.CurrentUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import com.lovesite.system.ApiException;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -24,6 +27,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+/**
+ * Every method takes the calling user and works on that user's space only: albums and media are looked up with the
+ * space id in the query itself, so an id from another space behaves exactly like an id that does not exist (404).
+ */
 @Service
 public class MediaService {
 
@@ -39,35 +46,41 @@ public class MediaService {
     private final StorageService storage;
     private final MediaProperties properties;
     private final ObjectProvider<MediaProcessingQueue> queue;
+    private final QuotaService quota;
+    private final TransactionTemplate tx;
 
     public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties,
-                        ObjectProvider<MediaProcessingQueue> queue) {
+                        ObjectProvider<MediaProcessingQueue> queue, QuotaService quota, TransactionTemplate tx) {
         this.queue = queue;
         this.media = media;
         this.albums = albums;
         this.storage = storage;
         this.properties = properties;
+        this.quota = quota;
+        this.tx = tx;
     }
 
-    public List<MediaResponse> list(UUID albumId) {
-        albums.require(albumId);
-        return media.findByAlbumIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtAsc(albumId, LISTED).stream()
+    public List<MediaResponse> list(CurrentUser me, UUID albumId) {
+        albums.require(me, albumId);
+        return media.findBySpaceIdAndAlbumIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtAsc(me.requireSpace(), albumId, LISTED)
+                .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     /** Current state of a few items (the album page polls only those that are still being processed). */
-    public List<MediaResponse> statusOf(List<UUID> ids) {
+    public List<MediaResponse> statusOf(CurrentUser me, List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
         if (ids.size() > properties.maxBatchSize()) {
             throw ApiException.badRequest("En fazla " + properties.maxBatchSize() + " medya sorgulanabilir");
         }
-        return media.findByIdInAndStatusInAndDeletedAtIsNull(ids, LISTED).stream().map(this::toResponse).toList();
+        return media.findBySpaceIdAndIdInAndStatusInAndDeletedAtIsNull(me.requireSpace(), ids, LISTED).stream()
+                .map(this::toResponse).toList();
     }
 
     /** FAILED or READY items go back to the queue with a fresh attempt counter. */
-    public MediaResponse reprocess(UUID mediaId) {
-        Media m = find(mediaId);
+    public MediaResponse reprocess(CurrentUser me, UUID mediaId) {
+        Media m = find(me, mediaId);
         if (m.getStatus() != MediaStatus.FAILED && m.getStatus() != MediaStatus.READY) {
             throw ApiException.conflict("Bu medya zaten işleniyor");
         }
@@ -94,24 +107,25 @@ public class MediaService {
     }
 
     /** Each file is handled on its own: a bad file yields an ERROR item and never fails the batch. */
-    public UploadResponse requestUploads(UUID albumId, UUID userId, List<UploadFile> files) {
+    public UploadResponse requestUploads(CurrentUser me, UUID albumId, List<UploadFile> files) {
         if (files == null || files.isEmpty()) {
             throw ApiException.badRequest("Dosya listesi boş");
         }
         if (files.size() > properties.maxBatchSize()) {
             throw ApiException.badRequest("Tek istekte en fazla " + properties.maxBatchSize() + " dosya yüklenebilir");
         }
-        albums.require(albumId);
+        albums.require(me, albumId);
 
         Set<UUID> createdInThisBatch = new HashSet<>();
         List<UploadItem> items = files.stream()
-                .map(file -> prepare(albumId, userId, file, createdInThisBatch))
+                .map(file -> prepare(me, albumId, file, createdInThisBatch))
                 .toList();
         return new UploadResponse(items);
     }
 
-    private UploadItem prepare(UUID albumId, UUID userId, UploadFile file, Set<UUID> createdInThisBatch) {
+    private UploadItem prepare(CurrentUser me, UUID albumId, UploadFile file, Set<UUID> createdInThisBatch) {
         String clientId = file.clientId();
+        UUID spaceId = me.requireSpace();
         try {
             String filename = file.filename() == null ? "" : file.filename().trim();
             if (filename.isEmpty()) return UploadItem.error(clientId, "Dosya adı eksik");
@@ -133,34 +147,47 @@ public class MediaService {
                 sha256 = file.sha256().trim().toLowerCase(Locale.ROOT);
             }
 
-            Media row = null;
-            if (sha256 != null) {
-                var existing = findBySha256(albumId, sha256);
-                if (existing.isPresent()) {
-                    Media found = existing.get();
-                    boolean stalePending = found.getStatus() == MediaStatus.PENDING_UPLOAD
-                            && !createdInThisBatch.contains(found.getId());
-                    if (!stalePending) return UploadItem.duplicate(clientId, found.getId());
-                    row = found; // an earlier attempt that never completed: reuse it for the retry
-                }
-            }
-
             var type = resolved.get();
             Instant modifiedAt = clientModifiedAt(file.lastModified());
-            if (row == null) {
-                row = new Media(UUID.randomUUID(), albumId, userId, type.kind(), filename, type.contentType(), size, sha256,
-                        modifiedAt);
-            } else {
-                row.reissue(type.kind(), filename, type.contentType(), size, modifiedAt);
-            }
-            row = media.saveAndFlush(row);
-            createdInThisBatch.add(row.getId());
+            String filenameFinal = filename;
+            String sha = sha256;
 
-            String url = storage.presignPut(row.getOriginalKey(), type.contentType(), properties.uploadUrlTtl());
-            return UploadItem.presigned(clientId, row.getId(), url, type.contentType());
+            // The space row lock serialises reservations of one space: two uploads can never both claim the last free bytes.
+            return tx.execute(status -> {
+                long storageLimit = quota.lockLimit(spaceId);
+
+                Media row = null;
+                if (sha != null) {
+                    var existing = findBySha256(spaceId, albumId, sha);
+                    if (existing.isPresent()) {
+                        Media found = existing.get();
+                        boolean stalePending = found.getStatus() == MediaStatus.PENDING_UPLOAD
+                                && !createdInThisBatch.contains(found.getId());
+                        if (!stalePending) return UploadItem.duplicate(clientId, found.getId());
+                        row = found; // an earlier attempt that never completed: reuse it for the retry
+                    }
+                }
+
+                long used = quota.usageExcluding(spaceId, row == null ? null : row.getId());
+                if (used + size > storageLimit) {
+                    return UploadItem.quotaExceeded(clientId, ApiException.quotaExceeded().getMessage());
+                }
+
+                if (row == null) {
+                    row = new Media(UUID.randomUUID(), spaceId, albumId, me.userId(), type.kind(), filenameFinal,
+                            type.contentType(), size, sha, modifiedAt);
+                } else {
+                    row.reissue(type.kind(), filenameFinal, type.contentType(), size, modifiedAt);
+                }
+                row = media.saveAndFlush(row);
+                createdInThisBatch.add(row.getId());
+
+                String url = storage.presignPut(row.getOriginalKey(), type.contentType(), properties.uploadUrlTtl());
+                return UploadItem.presigned(clientId, row.getId(), url, type.contentType());
+            });
         } catch (DataIntegrityViolationException e) {
             // Lost a race on (album_id, sha256): a concurrent request inserted the same file first.
-            return duplicateOf(albumId, clientId, file.sha256())
+            return duplicateOf(spaceId, albumId, clientId, file.sha256())
                     .orElseGet(() -> UploadItem.error(clientId, "Eşzamanlı yükleme çakışması, lütfen tekrar deneyin"));
         } catch (RuntimeException e) {
             log.error("Could not prepare upload for client file {}", clientId, e);
@@ -176,19 +203,19 @@ public class MediaService {
     }
 
     /** Live (not deleted) media with this hash in the album, if any. */
-    public Optional<Media> findBySha256(UUID albumId, String sha256) {
-        return media.findByAlbumIdAndSha256AndDeletedAtIsNull(albumId, sha256);
+    public Optional<Media> findBySha256(UUID spaceId, UUID albumId, String sha256) {
+        return media.findBySpaceIdAndAlbumIdAndSha256AndDeletedAtIsNull(spaceId, albumId, sha256);
     }
 
-    private Optional<UploadItem> duplicateOf(UUID albumId, String clientId, String rawSha256) {
+    private Optional<UploadItem> duplicateOf(UUID spaceId, UUID albumId, String clientId, String rawSha256) {
         if (rawSha256 == null || rawSha256.isBlank()) return Optional.empty();
-        return findBySha256(albumId, rawSha256.trim().toLowerCase(Locale.ROOT))
+        return findBySha256(spaceId, albumId, rawSha256.trim().toLowerCase(Locale.ROOT))
                 .map(existing -> UploadItem.duplicate(clientId, existing.getId()));
     }
 
     /** Verifies the stored object with HeadObject. Safe to call repeatedly. */
-    public MediaResponse complete(UUID mediaId) {
-        Media m = find(mediaId);
+    public MediaResponse complete(CurrentUser me, UUID mediaId) {
+        Media m = find(me, mediaId);
         if (m.getStatus() != MediaStatus.PENDING_UPLOAD) {
             return toResponse(m);
         }
@@ -214,29 +241,46 @@ public class MediaService {
             throw ApiException.unprocessable(problem);
         }
 
+        // The declared size was reserved at request time, but the stored object may be bigger: check again under the lock.
+        UUID spaceId = m.getSpaceId();
+        UUID id = m.getId();
+        boolean fits = Boolean.TRUE.equals(tx.execute(status -> {
+            long storageLimit = quota.lockLimit(spaceId);
+            return quota.usageExcluding(spaceId, id) + actualSize <= storageLimit;
+        }));
+        if (!fits) {
+            storage.delete(m.getOriginalKey());
+            m.reject();
+            media.save(m);
+            throw ApiException.quotaExceeded();
+        }
+
         m.markUploaded(actualSize);
         m = media.save(m);
         queue.ifAvailable(MediaProcessingQueue::kick);
         return toResponse(m);
     }
 
-    public MediaResponse updateCaption(UUID mediaId, String caption) {
-        Media m = find(mediaId);
+    public MediaResponse updateCaption(CurrentUser me, UUID mediaId, String caption) {
+        Media m = find(me, mediaId);
         String cleaned = caption == null ? "" : caption.trim();
         m.setCaption(cleaned.isEmpty() ? null : cleaned);
         m = media.save(m);
         return toResponse(m);
     }
 
-    /** Soft delete only: the object stays in the bucket (photos cannot be recovered once gone). */
-    public void delete(UUID mediaId) {
-        Media m = find(mediaId);
+    /**
+     * Soft delete: the object stays in the bucket (and in the quota) until the trash purge removes it for good, 30 days
+     * later (see TrashPurgeJob).
+     */
+    public void delete(CurrentUser me, UUID mediaId) {
+        Media m = find(me, mediaId);
         m.softDelete();
         media.save(m);
     }
 
-    private Media find(UUID mediaId) {
-        return media.findByIdAndDeletedAtIsNull(mediaId)
+    private Media find(CurrentUser me, UUID mediaId) {
+        return media.findByIdAndSpaceIdAndDeletedAtIsNull(mediaId, me.requireSpace())
                 .orElseThrow(() -> ApiException.notFound("Medya bulunamadı"));
     }
 }

@@ -17,6 +17,9 @@ public class Media {
     @Id
     private UUID id;
 
+    @Column(name = "space_id", nullable = false, updatable = false)
+    private UUID spaceId;
+
     @Column(name = "album_id", nullable = false)
     private UUID albumId;
 
@@ -89,6 +92,10 @@ public class Media {
     @Column(name = "poster_key", length = 512)
     private String posterKey;
 
+    /** total size of thumb/display/loop/poster objects; counts against the space quota */
+    @Column(name = "variants_bytes")
+    private Long variantsBytes;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -98,14 +105,16 @@ public class Media {
     protected Media() {
     }
 
-    public Media(UUID id, UUID albumId, UUID uploadedBy, MediaKind type, String originalFilename,
+    public Media(UUID id, UUID spaceId, UUID albumId, UUID uploadedBy, MediaKind type, String originalFilename,
                  String contentType, long sizeBytes, String sha256, Instant clientModifiedAt) {
         this.id = id;
+        this.spaceId = spaceId;
         this.albumId = albumId;
         this.uploadedBy = uploadedBy;
         this.type = type;
         this.status = MediaStatus.PENDING_UPLOAD;
-        this.originalKey = "albums/" + albumId + "/media/" + id + "/original";
+        // media uploaded before tenancy keep their old "albums/..." key; the worker derives variant paths from this key
+        this.originalKey = "spaces/" + spaceId + "/albums/" + albumId + "/media/" + id + "/original";
         this.originalFilename = originalFilename;
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;
@@ -139,8 +148,9 @@ public class Media {
 
     /** Result of a successful processing run. */
     public void markReady(int version, Integer width, Integer height, Long durationMs, Instant takenAt,
-                          String thumbKey, String displayKey, String loopKey, String posterKey) {
+                          String thumbKey, String displayKey, String loopKey, String posterKey, long variantsBytes) {
         this.status = MediaStatus.READY;
+        this.variantsBytes = variantsBytes;
         this.processingVersion = version;
         this.width = width;
         this.height = height;
@@ -175,6 +185,14 @@ public class Media {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getSpaceId() {
+        return spaceId;
+    }
+
+    public Long getVariantsBytes() {
+        return variantsBytes;
     }
 
     public UUID getAlbumId() {

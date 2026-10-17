@@ -43,7 +43,7 @@ export interface UploadFileRequest {
 
 export interface UploadItemResult {
   clientId: string
-  result: 'PRESIGNED' | 'DUPLICATE' | 'ERROR'
+  result: 'PRESIGNED' | 'DUPLICATE' | 'QUOTA_EXCEEDED' | 'ERROR'
   mediaId: string | null
   uploadUrl: string | null
   contentType: string | null
@@ -67,3 +67,61 @@ export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { metho
 export const requestUploads = (albumId: string, files: UploadFileRequest[]) =>
   api<{ items: UploadItemResult[] }>(`/api/albums/${albumId}/uploads`, { method: 'POST', body: { files } })
 export const completeUpload = (mediaId: string) => api<MediaDto>(`/api/media/${mediaId}/complete`, { method: 'POST' })
+
+export interface SpaceInfo {
+  id: string
+  name: string
+  role: 'OWNER' | 'MEMBER'
+  members: { displayName: string; role: string }[]
+  usedBytes: number
+  limitBytes: number
+  maxMembers: number
+  canInvite: boolean
+}
+
+export interface CreatedInvite {
+  spaceId: string
+  token: string
+  path: string
+  expiresAt: string
+}
+
+export const getSpace = () => api<SpaceInfo>('/api/space')
+export const createPartnerInvite = () => api<CreatedInvite>('/api/space/invites', { method: 'POST' })
+
+export interface AdminSpace {
+  id: string
+  name: string
+  members: { displayName: string; role: string }[]
+  usedBytes: number
+  limitBytes: number
+  createdAt: string
+}
+
+export const adminListSpaces = () => api<AdminSpace[]>('/api/admin/spaces')
+export const adminCreateSpace = (name: string, limitGb: number) =>
+  api<{ space: AdminSpace; invitation: CreatedInvite }>('/api/admin/spaces', { method: 'POST', body: { name, limitGb } })
+export const adminUpdateSpace = (id: string, patch: { name?: string; limitGb?: number }) =>
+  api<AdminSpace>(`/api/admin/spaces/${id}`, { method: 'PATCH', body: patch })
+export const adminReissueOwnerInvite = (id: string) =>
+  api<CreatedInvite>(`/api/admin/spaces/${id}/invites`, { method: 'POST' })
+
+export interface InvitePreview {
+  spaceName: string
+  role: 'OWNER' | 'MEMBER'
+  expiresAt: string
+}
+
+export const previewInvite = (token: string) => api<InvitePreview>(`/api/invites/${encodeURIComponent(token)}`)
+
+/** "12,3 GB" style size */
+export function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let i = 0
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024
+    i++
+  }
+  return `${value.toLocaleString('tr-TR', { maximumFractionDigits: i < 2 ? 0 : 1 })} ${units[i]}`
+}

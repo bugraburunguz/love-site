@@ -44,9 +44,11 @@ export default function UploadPanel({ entries, onRetry, onClear }: Props) {
             {e.status === 'error' && (
               <div className="upload-item__error" role="alert">
                 <span>{e.error}</span>
-                <Clay size="sm" onClick={() => onRetry(e.id)}>
-                  Tekrar dene
-                </Clay>
+                {!e.quota && (
+                  <Clay size="sm" onClick={() => onRetry(e.id)}>
+                    Tekrar dene
+                  </Clay>
+                )}
               </div>
             )}
           </li>

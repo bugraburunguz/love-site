@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ApiError } from '../api/client'
 import { completeUpload, requestUploads } from '../api/albums'
 import { putFile } from './putFile'
 import { sha256File } from './sha256'
@@ -20,6 +21,8 @@ export interface UploadEntry {
   progress: number
   sha256?: string
   error?: string
+  /** the space is full: retrying does not help until something is deleted */
+  quota?: boolean
 }
 
 const BUSY: UploadStatus[] = ['queued', 'hashing', 'uploading', 'verifying']
@@ -52,13 +55,17 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
           update(id, { sha256 })
         }
 
-        update(id, { status: 'uploading', progress: 0, error: undefined })
+        update(id, { status: 'uploading', progress: 0, error: undefined, quota: false })
         const { items } = await requestUploads(albumId, [
           { clientId: id, filename: file.name, contentType: file.type, sizeBytes: file.size, sha256, lastModified: file.lastModified },
         ])
         const result = items[0]
         if (result.result === 'DUPLICATE') {
           update(id, { status: 'duplicate', progress: 1 })
+          return
+        }
+        if (result.result === 'QUOTA_EXCEEDED') {
+          update(id, { status: 'error', error: result.error ?? 'Depolama alanınız dolu', quota: true })
           return
         }
         if (result.result === 'ERROR' || !result.uploadUrl || !result.mediaId || !result.contentType) {
@@ -70,7 +77,7 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
         await completeUpload(result.mediaId)
         update(id, { status: 'done', progress: 1 })
       } catch (e) {
-        update(id, { status: 'error', error: e instanceof Error ? e.message : 'Hata' })
+        update(id, { status: 'error', error: e instanceof Error ? e.message : 'Hata', quota: e instanceof ApiError && e.code === 'QUOTA_EXCEEDED' })
       }
     },
     [albumId, update],

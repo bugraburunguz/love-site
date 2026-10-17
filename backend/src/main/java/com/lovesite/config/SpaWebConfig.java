@@ -19,6 +19,17 @@ import java.time.Duration;
 @Configuration
 public class SpaWebConfig implements WebMvcConfigurer {
 
+    private final CurrentUserArgumentResolver currentUserResolver;
+
+    public SpaWebConfig(CurrentUserArgumentResolver currentUserResolver) {
+        this.currentUserResolver = currentUserResolver;
+    }
+
+    @Override
+    public void addArgumentResolvers(java.util.List<org.springframework.web.method.support.HandlerMethodArgumentResolver> resolvers) {
+        resolvers.add(currentUserResolver);
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Vite emits content-hashed file names under /assets, so they can be cached forever.

@@ -18,6 +18,9 @@ public class Album {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "space_id", nullable = false, updatable = false)
+    private UUID spaceId;
+
     @Column(nullable = false)
     private String title;
 
@@ -36,7 +39,8 @@ public class Album {
     protected Album() {
     }
 
-    public Album(String title, UUID createdBy) {
+    public Album(UUID spaceId, String title, UUID createdBy) {
+        this.spaceId = spaceId;
         this.title = title;
         this.createdBy = createdBy;
     }
@@ -53,6 +57,10 @@ public class Album {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getSpaceId() {
+        return spaceId;
     }
 
     public String getTitle() {

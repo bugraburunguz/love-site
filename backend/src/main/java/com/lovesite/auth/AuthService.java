@@ -1,7 +1,7 @@
 package com.lovesite.auth;
 
-import com.lovesite.user.AppUser;
-import com.lovesite.user.AppUserRepository;
+import com.lovesite.system.ApiException;
+import com.lovesite.user.CurrentUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,21 +14,20 @@ import org.springframework.security.web.authentication.session.SessionFixationPr
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
-import com.lovesite.system.ApiException;
 
 @Service
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final AppUserRepository users;
+    private final CurrentUserService currentUser;
     private final LoginAttemptService attempts;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final SessionFixationProtectionStrategy sessionStrategy = new SessionFixationProtectionStrategy();
 
-    public AuthService(AuthenticationManager authenticationManager, AppUserRepository users,
+    public AuthService(AuthenticationManager authenticationManager, CurrentUserService currentUser,
                        LoginAttemptService attempts) {
         this.authenticationManager = authenticationManager;
-        this.users = users;
+        this.currentUser = currentUser;
         this.attempts = attempts;
     }
 
@@ -48,17 +47,21 @@ public class AuthService {
         }
         attempts.recordSuccess(email);
 
+        establishSession(authentication, request, response);
+        return UserResponse.from(currentUser.require(authentication));
+    }
+
+    /** Puts the authentication into a fresh session (also used after an invitation was accepted). */
+    public void establishSession(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         sessionStrategy.onAuthentication(authentication, request, response);
         securityContextRepository.saveContext(context, request, response);
-
-        return UserResponse.from(find(authentication.getName()));
     }
 
     public UserResponse me(Authentication authentication) {
-        return UserResponse.from(find(authentication.getName()));
+        return UserResponse.from(currentUser.require(authentication));
     }
 
     public void logout(HttpServletRequest request) {
@@ -67,10 +70,5 @@ public class AuthService {
             session.invalidate();
         }
         SecurityContextHolder.clearContext();
-    }
-
-    private AppUser find(String email) {
-        return users.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> ApiException.unauthorized("Oturum bulunamadı"));
     }
 }

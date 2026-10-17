@@ -31,7 +31,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail handleApi(ApiException e) {
-        return ProblemDetail.forStatusAndDetail(e.status(), e.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(e.status(), e.getMessage());
+        if (e.code() != null) problem.setProperty("code", e.code());
+        return problem;
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
