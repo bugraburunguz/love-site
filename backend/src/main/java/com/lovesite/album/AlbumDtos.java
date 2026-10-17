@@ -11,7 +11,7 @@ public final class AlbumDtos {
     private AlbumDtos() {
     }
 
-    public record AlbumRequest(@NotBlank @Size(max = 200) String title) {
+    public record AlbumRequest(@NotBlank(message = "Albüm adı boş olamaz") @Size(max = 200, message = "Albüm adı en fazla 200 karakter olabilir") String title) {
     }
 
     public record AlbumResponse(UUID id, String title, Instant createdAt, Instant updatedAt) {

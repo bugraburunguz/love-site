@@ -9,13 +9,13 @@ import com.lovesite.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import com.lovesite.system.ApiException;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -49,11 +49,10 @@ public class MediaService {
     /** Each file is handled on its own: a bad file yields an ERROR item and never fails the batch. */
     public UploadResponse requestUploads(UUID albumId, UUID userId, List<UploadFile> files) {
         if (files == null || files.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No files given");
+            throw ApiException.badRequest("Dosya listesi boş");
         }
         if (files.size() > properties.maxBatchSize()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "At most " + properties.maxBatchSize() + " files per request");
+            throw ApiException.badRequest("Tek istekte en fazla " + properties.maxBatchSize() + " dosya yüklenebilir");
         }
         albums.require(albumId);
 
@@ -68,28 +67,28 @@ public class MediaService {
         String clientId = file.clientId();
         try {
             String filename = file.filename() == null ? "" : file.filename().trim();
-            if (filename.isEmpty()) return UploadItem.error(clientId, "Filename is missing");
+            if (filename.isEmpty()) return UploadItem.error(clientId, "Dosya adı eksik");
             if (filename.length() > MAX_FILENAME) filename = filename.substring(0, MAX_FILENAME);
 
             var resolved = MediaTypes.resolve(file.contentType(), filename);
-            if (resolved.isEmpty()) return UploadItem.error(clientId, "Unsupported file type");
+            if (resolved.isEmpty()) return UploadItem.error(clientId, "Desteklenmeyen dosya türü");
 
             long size = file.sizeBytes() == null ? 0 : file.sizeBytes();
-            if (size <= 0) return UploadItem.error(clientId, "File is empty");
+            if (size <= 0) return UploadItem.error(clientId, "Dosya boş");
             long limit = properties.limitBytes(resolved.get().kind());
             if (size > limit) {
-                return UploadItem.error(clientId, "File is too large (limit " + limit / (1024 * 1024) + " MB)");
+                return UploadItem.error(clientId, "Dosya çok büyük (sınır " + limit / (1024 * 1024) + " MB)");
             }
 
             String sha256 = null;
             if (file.sha256() != null && !file.sha256().isBlank()) {
-                if (!SHA256.matcher(file.sha256().trim()).matches()) return UploadItem.error(clientId, "Invalid sha256");
+                if (!SHA256.matcher(file.sha256().trim()).matches()) return UploadItem.error(clientId, "Geçersiz sha256");
                 sha256 = file.sha256().trim().toLowerCase(Locale.ROOT);
             }
 
             Media row = null;
             if (sha256 != null) {
-                var existing = media.findByAlbumIdAndSha256AndDeletedAtIsNull(albumId, sha256);
+                var existing = findBySha256(albumId, sha256);
                 if (existing.isPresent()) {
                     Media found = existing.get();
                     boolean stalePending = found.getStatus() == MediaStatus.PENDING_UPLOAD
@@ -105,17 +104,30 @@ public class MediaService {
             } else {
                 row.reissue(type.kind(), filename, type.contentType(), size);
             }
-            row = media.save(row);
+            row = media.saveAndFlush(row);
             createdInThisBatch.add(row.getId());
 
             String url = storage.presignPut(row.getOriginalKey(), type.contentType(), properties.uploadUrlTtl());
             return UploadItem.presigned(clientId, row.getId(), url, type.contentType());
         } catch (DataIntegrityViolationException e) {
-            return UploadItem.error(clientId, "Conflicting upload in progress, please retry");
+            // Lost a race on (album_id, sha256): a concurrent request inserted the same file first.
+            return duplicateOf(albumId, clientId, file.sha256())
+                    .orElseGet(() -> UploadItem.error(clientId, "Eşzamanlı yükleme çakışması, lütfen tekrar deneyin"));
         } catch (RuntimeException e) {
             log.error("Could not prepare upload for client file {}", clientId, e);
-            return UploadItem.error(clientId, "Could not prepare upload");
+            return UploadItem.error(clientId, "Yükleme hazırlanamadı");
         }
+    }
+
+    /** Live (not deleted) media with this hash in the album, if any. */
+    public Optional<Media> findBySha256(UUID albumId, String sha256) {
+        return media.findByAlbumIdAndSha256AndDeletedAtIsNull(albumId, sha256);
+    }
+
+    private Optional<UploadItem> duplicateOf(UUID albumId, String clientId, String rawSha256) {
+        if (rawSha256 == null || rawSha256.isBlank()) return Optional.empty();
+        return findBySha256(albumId, rawSha256.trim().toLowerCase(Locale.ROOT))
+                .map(existing -> UploadItem.duplicate(clientId, existing.getId()));
     }
 
     /** Verifies the stored object with HeadObject. Safe to call repeatedly. */
@@ -126,24 +138,24 @@ public class MediaService {
         }
 
         var head = storage.head(m.getOriginalKey())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "File has not been uploaded yet"));
+                .orElseThrow(() -> ApiException.conflict("Dosya henüz yüklenmedi"));
 
         long actualSize = head.contentLength() == null ? 0 : head.contentLength();
         long limit = properties.limitBytes(m.getType());
         String problem = null;
         if (actualSize <= 0) {
-            problem = "Uploaded file is empty";
+            problem = "Yüklenen dosya boş";
         } else if (actualSize > limit) {
-            problem = "Uploaded file is too large";
+            problem = "Yüklenen dosya izin verilen boyutu aşıyor";
         } else if (!MediaTypes.normalize(head.contentType()).equals(m.getContentType())) {
-            problem = "Uploaded content type does not match";
+            problem = "Yüklenen dosyanın türü beklenenle uyuşmuyor";
         }
 
         if (problem != null) {
             storage.delete(m.getOriginalKey());
             m.reject();
             media.save(m);
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, problem);
+            throw ApiException.unprocessable(problem);
         }
 
         m.markUploaded(actualSize);
@@ -159,6 +171,6 @@ public class MediaService {
 
     private Media find(UUID mediaId) {
         return media.findByIdAndDeletedAtIsNull(mediaId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Media not found"));
+                .orElseThrow(() -> ApiException.notFound("Medya bulunamadı"));
     }
 }

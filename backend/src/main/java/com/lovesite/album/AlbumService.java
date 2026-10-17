@@ -1,10 +1,9 @@
 package com.lovesite.album;
 
 import com.lovesite.album.AlbumDtos.AlbumResponse;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.lovesite.system.ApiException;
 
 import java.util.List;
 import java.util.UUID;
@@ -43,6 +42,6 @@ public class AlbumService {
     /** Used by the media feature to make sure an album exists and is not deleted. */
     public Album require(UUID id) {
         return albums.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Album not found"));
+                .orElseThrow(() -> ApiException.notFound("Albüm bulunamadı"));
     }
 }

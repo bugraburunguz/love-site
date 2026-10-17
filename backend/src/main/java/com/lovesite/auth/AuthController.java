@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import com.lovesite.system.ApiException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -40,7 +40,7 @@ public class AuthController {
     public UserResponse me(Authentication authentication) {
         if (authentication == null || authentication instanceof AnonymousAuthenticationToken
                 || !authentication.isAuthenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            throw ApiException.unauthorized("Giriş yapılmadı");
         }
         return authService.me(authentication);
     }

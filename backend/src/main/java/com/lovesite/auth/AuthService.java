@@ -4,7 +4,6 @@ import com.lovesite.user.AppUser;
 import com.lovesite.user.AppUserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,7 +14,7 @@ import org.springframework.security.web.authentication.session.SessionFixationPr
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import com.lovesite.system.ApiException;
 
 @Service
 public class AuthService {
@@ -36,7 +35,7 @@ public class AuthService {
     public UserResponse login(LoginRequest login, HttpServletRequest request, HttpServletResponse response) {
         String email = login.email().trim();
         if (attempts.isLocked(email)) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many failed attempts, try again later");
+            throw ApiException.tooManyRequests("Çok fazla hatalı deneme. Lütfen daha sonra tekrar deneyin.");
         }
 
         Authentication authentication;
@@ -45,7 +44,7 @@ public class AuthService {
                     UsernamePasswordAuthenticationToken.unauthenticated(email, login.password()));
         } catch (AuthenticationException e) {
             attempts.recordFailure(email);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            throw ApiException.unauthorized("E-posta veya şifre hatalı");
         }
         attempts.recordSuccess(email);
 
@@ -72,6 +71,6 @@ public class AuthService {
 
     private AppUser find(String email) {
         return users.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() -> ApiException.unauthorized("Oturum bulunamadı"));
     }
 }

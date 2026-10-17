@@ -114,6 +114,18 @@ public class StorageService {
         });
     }
 
+    /** Server-side upload (e.g. variants written by the media worker). */
+    public void putObject(String key, String contentType, byte[] data) {
+        client.putObject(PutObjectRequest.builder().bucket(properties.bucket()).key(key).contentType(contentType).build(),
+                software.amazon.awssdk.core.sync.RequestBody.fromBytes(data));
+    }
+
+    /** Server-side download (e.g. the media worker reading an original). */
+    public byte[] getObject(String key) {
+        return client.getObjectAsBytes(GetObjectRequest.builder().bucket(properties.bucket()).key(key).build())
+                .asByteArray();
+    }
+
     /** Empty when the object does not exist. */
     public Optional<HeadObjectResponse> head(String key) {
         try {
@@ -148,8 +160,9 @@ public class StorageService {
     }
 
     /**
-     * PutBucketCors requires an integrity header. Recent SDKs send a CRC32 checksum, but several S3-compatible
-     * servers only accept the classic Content-MD5 (which is what the AWS CLI sent when this was documented).
+     * PutBucketCors requires an integrity header. Even with WHEN_REQUIRED the SDK sends a CRC32 checksum, which
+     * CloudServer rejects (verified by test: without this header PutBucketCors fails with a Content-MD5 error).
+     * The classic Content-MD5 is what the AWS CLI sends and is accepted by AWS itself too.
      */
     private static final ExecutionInterceptor CONTENT_MD5 = new ExecutionInterceptor() {
         @Override

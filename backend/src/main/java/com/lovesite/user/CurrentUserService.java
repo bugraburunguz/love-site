@@ -1,9 +1,8 @@
 package com.lovesite.user;
 
-import org.springframework.http.HttpStatus;
+import com.lovesite.system.ApiException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class CurrentUserService {
@@ -16,6 +15,6 @@ public class CurrentUserService {
 
     public AppUser require(Authentication authentication) {
         return users.findByEmailIgnoreCase(authentication.getName())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() -> ApiException.unauthorized("Oturum bulunamadı"));
     }
 }

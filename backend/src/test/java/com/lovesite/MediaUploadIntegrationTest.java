@@ -2,7 +2,10 @@ package com.lovesite;
 
 import com.jayway.jsonpath.JsonPath;
 import com.lovesite.media.PendingUploadCleanup;
+import com.lovesite.media.MediaService;
+import com.lovesite.storage.StorageService;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -27,6 +30,15 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.core.sync.RequestBody;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.Optional;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -35,6 +47,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doReturn;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -106,6 +121,8 @@ class MediaUploadIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired PendingUploadCleanup cleanup;
+    @Autowired StorageService storage;
+    @MockitoSpyBean MediaService mediaService;
 
     final HttpClient http = HttpClient.newHttpClient();
     static final RequestPostProcessor USER = user("a@test.io");
@@ -227,7 +244,7 @@ class MediaUploadIntegrationTest {
         String key = jdbc.queryForObject("select original_key from media where id = ?::uuid", String.class, mediaId);
         assertThat(objectExists(key)).isTrue();
 
-        complete(mediaId, 422);
+        assertThat(JsonPath.<String>read(complete(mediaId, 422), "$.detail")).isEqualTo("Yüklenen dosya izin verilen boyutu aşıyor");
 
         assertThat(objectExists(key)).isFalse();
         assertThat(jdbc.queryForObject("select status from media where id = ?::uuid", String.class, mediaId))
@@ -329,5 +346,104 @@ class MediaUploadIntegrationTest {
         assertThat(cors.corsRules().get(0).allowedOrigins()).containsExactly("http://localhost:5173");
         assertThat(cors.corsRules().get(0).allowedMethods()).contains("PUT", "GET", "HEAD");
         assertThat(cors.corsRules().get(0).exposeHeaders()).contains("ETag");
+    }
+
+    @Test
+    void serverSideRoundTripPutObjectGetObject() {
+        byte[] data = new byte[100_000];
+        new java.util.Random(7).nextBytes(data);
+        String key = "roundtrip/" + java.util.UUID.randomUUID() + "/original";
+
+        storage.putObject(key, "application/octet-stream", data);
+
+        assertThat(storage.getObject(key)).isEqualTo(data);
+        var head = storage.head(key).orElseThrow();
+        assertThat(head.contentLength()).isEqualTo(data.length);
+        assertThat(head.contentType()).isEqualTo("application/octet-stream");
+        storage.delete(key);
+        assertThat(storage.head(key)).isEmpty();
+    }
+
+    @Test
+    void lostRaceOnUniqueIndexReturnsDuplicateNotServerError() throws Exception {
+        String album = createAlbum();
+        String first = uploads(album, "[" + file("c1", "a.jpg", "image/jpeg", 10, sha('a')) + "]");
+        String existingId = JsonPath.read(first, "$.items[0].mediaId");
+
+        // Simulate the race window: the pre-insert lookup misses, the insert then hits the unique index.
+        doReturn(Optional.empty()).doCallRealMethod().when(mediaService).findBySha256(any(), any());
+        String res = uploads(album, "[" + file("c2", "b.jpg", "image/jpeg", 10, sha('a')) + "]");
+
+        assertThat(JsonPath.<String>read(res, "$.items[0].result")).isEqualTo("DUPLICATE");
+        assertThat(JsonPath.<String>read(res, "$.items[0].mediaId")).isEqualTo(existingId);
+        assertThat(jdbc.queryForObject("select count(*) from media where album_id = ?::uuid", Integer.class, album)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentRequestsWithSameSha256NeverFailAndCreateOneRow() throws Exception {
+        String album = createAlbum();
+        int threads = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        try {
+            for (int round = 0; round < 5; round++) {
+                String sha = String.valueOf((char) ('b' + round)).repeat(64);
+                CountDownLatch start = new CountDownLatch(1);
+                List<Future<String>> futures = new ArrayList<>();
+                for (int t = 0; t < threads; t++) {
+                    String clientId = "t" + t;
+                    Callable<String> call = () -> {
+                        start.await();
+                        return uploads(album, "[" + file(clientId, "same.jpg", "image/jpeg", 10, sha) + "]");
+                    };
+                    futures.add(pool.submit(call));
+                }
+                start.countDown();
+
+                List<String> ids = new ArrayList<>();
+                for (Future<String> f : futures) {
+                    String body = f.get(); // uploads() asserts HTTP 200, so any 500 fails here
+                    String result = JsonPath.read(body, "$.items[0].result");
+                    assertThat(result).isIn("PRESIGNED", "DUPLICATE");
+                    ids.add(JsonPath.read(body, "$.items[0].mediaId"));
+                }
+                assertThat(ids).allMatch(id -> id.equals(ids.get(0)));
+                assertThat(jdbc.queryForObject("select count(*) from media where album_id = ?::uuid and sha256 = ?",
+                        Integer.class, album, sha)).isEqualTo(1);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void softDeletedAlbumIsNotFoundForMediaUploadsAndRename() throws Exception {
+        String album = createAlbum();
+        mvc.perform(delete("/api/albums/" + album).with(USER).with(csrf())).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/albums/" + album + "/media").with(USER)).andExpect(status().isNotFound());
+        json(post("/api/albums/" + album + "/uploads"), "{\"files\":[" + file("c1", "a.jpg", "image/jpeg", 10, null) + "]}", 404);
+        json(patch("/api/albums/" + album), "{\"title\":\"x\"}", 404);
+        mvc.perform(delete("/api/albums/" + album).with(USER).with(csrf())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void domainErrorsAreProblemDetailsWithTurkishMessages() throws Exception {
+        String missing = java.util.UUID.randomUUID().toString();
+        var notFound = mvc.perform(get("/api/albums/" + missing + "/media").with(USER)).andExpect(status().isNotFound()).andReturn().getResponse();
+        assertThat(notFound.getContentType()).startsWith("application/problem+json");
+        assertThat(JsonPath.<String>read(notFound.getContentAsString(), "$.detail")).isEqualTo("Albüm bulunamadı");
+        assertThat(JsonPath.<Integer>read(notFound.getContentAsString(), "$.status")).isEqualTo(404);
+
+        String blank = json(post("/api/albums"), "{\"title\":\"  \"}", 400);
+        assertThat(JsonPath.<String>read(blank, "$.detail")).isEqualTo("Albüm adı boş olamaz");
+
+        String notUploaded = createAlbum();
+        String res = uploads(notUploaded, "[" + file("c1", "a.jpg", "image/jpeg", 10, sha('9')) + "]");
+        String mediaId = JsonPath.read(res, "$.items[0].mediaId");
+        assertThat(JsonPath.<String>read(complete(mediaId, 409), "$.detail")).isEqualTo("Dosya henüz yüklenmedi");
+
+        var unknownApi = mvc.perform(get("/api/olmayan").with(USER)).andExpect(status().isNotFound()).andReturn().getResponse();
+        assertThat(unknownApi.getContentType()).startsWith("application/problem+json");
+        assertThat(unknownApi.getContentAsString()).doesNotContain("No static resource");
     }
 }

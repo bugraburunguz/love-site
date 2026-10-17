@@ -31,11 +31,13 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   })
 
   if (!res.ok) {
-    let message = res.statusText
+    // Errors are RFC 9457 problem details; `detail` is a user-facing Turkish message.
+    let message = `İstek başarısız (${res.status})`
     try {
-      message = (await res.json()).message ?? message
+      const problem = await res.json()
+      if (typeof problem.detail === 'string' && problem.detail) message = problem.detail
     } catch {
-      /* non-JSON error body */
+      /* empty or non-JSON error body (e.g. a bare 401) */
     }
     throw new ApiError(res.status, message)
   }
