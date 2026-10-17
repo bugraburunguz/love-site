@@ -57,12 +57,6 @@ public class SpaceService {
         return jdbc.queryForObject("SELECT count(*) FROM space_member WHERE space_id = ?", Integer.class, spaceId);
     }
 
-    /** The first space ever created is the "initial" one (it may still use the old global music file). */
-    public boolean isInitial(UUID spaceId) {
-        List<UUID> first = jdbc.query("SELECT id FROM space ORDER BY created_at, id LIMIT 1", (rs, i) -> rs.getObject(1, UUID.class));
-        return !first.isEmpty() && first.get(0).equals(spaceId);
-    }
-
     // ---- admin
 
     public List<AdminSpace> adminList() {

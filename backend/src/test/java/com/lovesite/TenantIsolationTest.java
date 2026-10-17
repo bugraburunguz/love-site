@@ -175,35 +175,8 @@ class TenantIsolationTest {
     }
 
     @Test
-    void musicIsPerSpaceAndTheLegacyFileOnlyBelongsToTheInitialSpace() throws Exception {
-        String legacy = "audio/theme";
-        String keyA = "spaces/" + spaceA + "/audio/theme";
-        String keyB = "spaces/" + spaceB + "/audio/theme";
-        try {
-            storage.putObject(legacy, "audio/mpeg", "legacy".getBytes());
-            // the initial space (a/b) still plays the old global file, a newer space does not
-            mvc.perform(get("/api/settings/music").with(OWNER_A)).andExpect(r -> assertThat(r.getResponse().getStatus()).isEqualTo(200));
-            mvc.perform(get("/api/settings/music").with(outsider)).andExpect(r -> assertThat(r.getResponse().getStatus()).isEqualTo(204));
-
-            storage.putObject(keyB, "audio/mpeg", "theirs".getBytes());
-            String theirs = mvc.perform(get("/api/settings/music").with(outsider)).andReturn().getResponse().getContentAsString();
-            assertThat(theirs).contains(keyB);
-            // A prefers its own file once it exists, and never sees B's
-            storage.putObject(keyA, "audio/mpeg", "mine".getBytes());
-            String mine = mvc.perform(get("/api/settings/music").with(OWNER_A)).andReturn().getResponse().getContentAsString();
-            assertThat(mine).contains(keyA).doesNotContain(spaceB.toString());
-        } finally {
-            storage.delete(legacy);
-            storage.delete(keyA);
-            storage.delete(keyB);
-        }
-    }
-
-    // ---- who may call what
-
-    @Test
     void aUserWithoutASpaceHasNoContentAndAnAdminIsNoExceptionToThat() throws Exception {
-        for (String url : List.of("/api/albums", "/api/albums/" + albumA + "/media", "/api/space", "/api/settings/music")) {
+        for (String url : List.of("/api/albums", "/api/albums/" + albumA + "/media", "/api/space")) {
             assertThat(mvc.perform(get(url).with(admin)).andReturn().getResponse().getStatus()).as(url).isEqualTo(403);
         }
         assertThat(send(post("/api/albums"), admin, "{\"title\":\"x\"}").getResponse().getStatus()).isEqualTo(403);
@@ -239,7 +212,7 @@ class TenantIsolationTest {
 
     @Test
     void unauthenticatedCallsAreRejected() throws Exception {
-        for (String url : List.of("/api/space", "/api/admin/spaces", "/api/albums", "/api/settings/music")) {
+        for (String url : List.of("/api/space", "/api/admin/spaces", "/api/albums")) {
             assertThat(mvc.perform(get(url)).andReturn().getResponse().getStatus()).as(url).isEqualTo(401);
         }
     }

@@ -1,0 +1,178 @@
+/* theme picker cards and the sticker drawer */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.theme-card {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  grid-template-rows: auto auto;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid var(--paper-edge);
+  border-radius: 12px;
+  background: rgba(255, 250, 238, 0.7);
+  text-align: left;
+}
+
+.theme-card[aria-pressed='true'] {
+  border-color: var(--rose-deep);
+  box-shadow: 0 0 0 2px var(--rose-deep);
+}
+
+.theme-card__cover,
+.theme-card__page {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 3px 6px 6px 3px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(40, 20, 10, 0.4);
+}
+
+.theme-card__cover {
+  display: grid;
+  place-items: center;
+}
+
+.theme-card__cover img {
+  width: 82%;
+  height: auto;
+}
+
+.theme-card__page {
+  background-color: var(--page-bg);
+  background-image: var(--page-paper);
+  background-blend-mode: soft-light;
+  background-size: 100% 100%;
+}
+
+.theme-card__photo {
+  position: absolute;
+  left: 18%;
+  top: 14%;
+  width: 52%;
+  aspect-ratio: 0.8;
+  background: var(--frame-paper);
+  border: 1px solid var(--frame-edge);
+  box-shadow: 0 1px 3px rgba(40, 20, 10, 0.4);
+  transform: rotate(-6deg);
+}
+
+.theme-card__photo::before {
+  content: '';
+  position: absolute;
+  inset: 8% 8% 22%;
+  background: linear-gradient(135deg, #9fb7c4, #6f8b73);
+}
+
+.theme-card__sticker {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
+  width: 40%;
+  height: auto;
+  filter: drop-shadow(0 1px 1px rgba(40, 20, 10, 0.35));
+}
+
+.theme-card__name {
+  grid-column: 1 / -1;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* sticker drawer */
+.sticker-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.sticker-tabs > * {
+  flex: none;
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.sticker-grid button {
+  padding: 4px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 10px;
+  background: rgba(255, 250, 238, 0.8);
+  aspect-ratio: 1;
+}
+
+.sticker-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px rgba(40, 20, 10, 0.3));
+  pointer-events: none;
+}
+
+.look-swatches,
+.look-papers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.look-swatch,
+.look-paper {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid var(--paper-edge);
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  padding: 0;
+}
+
+.look-paper {
+  border-radius: 8px;
+  background-blend-mode: soft-light;
+  background-size: 100% 100%;
+}
+
+.look-swatch[aria-pressed='true'],
+.look-paper[aria-pressed='true'] {
+  border-color: var(--rose-deep);
+  box-shadow: 0 0 0 2px var(--rose-deep);
+}
+
+.album-settings__music {
+  display: grid;
+  gap: 8px;
+  margin: var(--space-3) 0;
+}
+
+.album-settings__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dialog--wide {
+  width: min(560px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.dialog-backdrop--light {
+  background: rgba(40, 22, 12, 0.18);
+  backdrop-filter: none;
+  align-items: end;
+}

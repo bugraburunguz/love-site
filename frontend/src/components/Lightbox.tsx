@@ -187,6 +187,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
 
       <div className="lightbox__footer">
         <span>{index + 1} / {items.length}</span>
+        {media.uploadedByName && <span className="lightbox__by">Ekleyen: {media.uploadedByName}</span>}
         {saveError && <span role="alert" className="lightbox__error">{saveError}</span>}
       </div>
     </div>

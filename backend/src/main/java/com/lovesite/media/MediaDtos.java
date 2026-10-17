@@ -70,6 +70,6 @@ public final class MediaDtos {
                                 String contentType, long sizeBytes, Instant createdAt, Instant clientModifiedAt,
                                 Instant displayDate, String caption,
                                 String thumbUrl, String displayUrl, String loopUrl, String posterUrl,
-                                Integer width, Integer height, Long durationMs) {
+                                Integer width, Integer height, Long durationMs, String uploadedByName) {
     }
 }

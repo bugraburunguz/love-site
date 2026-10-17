@@ -22,6 +22,8 @@ export interface PageDto {
   pageIndex: number
   template: PageTemplate
   version: number
+  swatch: string | null
+  paper: string | null
   items: PageItemDto[]
 }
 
@@ -57,6 +59,11 @@ export const reorderPages = (albumId: string, pageIds: string[]) =>
   api<PagesView>(`/api/albums/${albumId}/pages/reorder`, { method: 'POST', body: { pageIds } })
 export const changeTemplate = (pageId: string, template: PageTemplate, version: number, items?: FrozenItem[]) =>
   api<PagesView>(`/api/pages/${pageId}`, { method: 'PATCH', body: { template, version, items } })
+/** swatch / paper: a slot, or 'DEFAULT' to go back to the theme's choice */
+export const changePageLook = (pageId: string, version: number, look: { swatch?: string; paper?: string }) =>
+  api<PagesView>(`/api/pages/${pageId}`, { method: 'PATCH', body: { version, ...look } })
+export const addSticker = (pageId: string, variant: string, geometry: Geometry) =>
+  api<PagesView>('/api/page-items', { method: 'POST', body: { pageId, kind: 'STICKER', variant, ...geometry } })
 export const deletePage = (pageId: string, version: number) =>
   api<PagesView>(`/api/pages/${pageId}?version=${version}`, { method: 'DELETE' })
 export const patchItem = (itemId: string, geometry: Geometry, version: number) =>

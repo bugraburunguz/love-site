@@ -3,6 +3,10 @@ import { api } from './client'
 export interface Album {
   id: string
   title: string
+  themeId: string
+  /** presigned link of the album's song (null: no song) and the file name it was uploaded with */
+  musicUrl: string | null
+  musicName: string | null
   createdAt: string
   updatedAt: string
 }
@@ -29,6 +33,8 @@ export interface MediaDto {
   width: number | null
   height: number | null
   durationMs: number | null
+  /** who added it (display name) */
+  uploadedByName: string | null
 }
 
 export interface UploadFileRequest {
@@ -53,9 +59,17 @@ export interface UploadItemResult {
 }
 
 export const listAlbums = () => api<Album[]>('/api/albums')
-export const createAlbum = (title: string) => api<Album>('/api/albums', { method: 'POST', body: { title } })
+export const createAlbum = (title: string, themeId?: string) => api<Album>('/api/albums', { method: 'POST', body: { title, themeId } })
 export const renameAlbum = (id: string, title: string) =>
   api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { title } })
+export const changeAlbumTheme = (id: string, themeId: string) =>
+  api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { themeId } })
+
+// the album's song: presigned PUT straight to the bucket, then "complete"
+export const requestMusicUpload = (id: string, file: { filename: string; contentType: string; sizeBytes: number }) =>
+  api<{ uploadUrl: string; contentType: string }>(`/api/albums/${id}/music/upload`, { method: 'POST', body: file })
+export const completeMusicUpload = (id: string) => api<Album>(`/api/albums/${id}/music/complete`, { method: 'POST' })
+export const deleteAlbumMusic = (id: string) => api<Album>(`/api/albums/${id}/music`, { method: 'DELETE' })
 export const deleteAlbum = (id: string) => api<void>(`/api/albums/${id}`, { method: 'DELETE' })
 
 export const listMedia = (albumId: string) => api<MediaDto[]>(`/api/albums/${albumId}/media`)
@@ -64,7 +78,6 @@ export const updateCaption = (id: string, caption: string) =>
 export const getMediaStatuses = (ids: string[]) =>
   api<MediaDto[]>(`/api/media?ids=${ids.join(',')}`)
 export const reprocessMedia = (id: string) => api<MediaDto>(`/api/media/${id}/reprocess`, { method: 'POST' })
-export const getMusicUrl = () => api<{ url: string } | undefined>('/api/settings/music')
 export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { method: 'DELETE' })
 export const requestUploads = (albumId: string, files: UploadFileRequest[]) =>
   api<{ items: UploadItemResult[] }>(`/api/albums/${albumId}/uploads`, { method: 'POST', body: { files } })

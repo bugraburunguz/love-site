@@ -1,0 +1,9 @@
+/* one canvas over the book; it never takes pointer events */
+.ambient {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: calc(var(--z-controls) - 1);
+}

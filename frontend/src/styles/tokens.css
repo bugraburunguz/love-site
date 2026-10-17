@@ -26,6 +26,13 @@
   --font-display: 'Cinzel', 'Times New Roman', serif;
   --font-body: 'Cormorant Garamond', Georgia, serif;
   --font-hand: 'Caveat', 'Comic Sans MS', cursive;
+  /* album title and cover: the theme's display font (headings elsewhere use --font-display) */
+  --font-title: var(--font-display);
+
+  /* theme hooks (set per album by the theme; these are the defaults) */
+  --theme-plus: var(--rose-deep);
+  --theme-focus: var(--gold);
+  --theme-glow: #f1c27d;
 
   /* Shape and spacing */
   --radius-sm: 8px;

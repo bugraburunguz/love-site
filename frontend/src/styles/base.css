@@ -48,7 +48,7 @@ button {
 }
 
 :focus-visible {
-  outline: 3px solid var(--gold);
+  outline: 3px solid var(--theme-focus, var(--gold));
   outline-offset: 2px;
 }
 
@@ -64,8 +64,8 @@ button {
 /* Embossed lettering, used on leather covers */
 /* blind-embossed lettering: a pressed-in gold tint with a dark lower edge */
 .emboss {
-  font-family: var(--font-display);
-  color: rgba(236, 208, 150, 0.78);
+  font-family: var(--font-title, var(--font-display));
+  color: var(--cover-ink, rgba(236, 208, 150, 0.78));
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 -1px 0 rgba(255, 240, 210, 0.22), 0 0 6px rgba(0, 0, 0, 0.35);
 }
 

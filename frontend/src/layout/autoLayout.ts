@@ -238,6 +238,13 @@ function placeSticker(all: Placement[], tapes: TapePlacement[], rng: Rng): TapeP
 const STICKERS = ['heart', 'star', 'sparkle'] as const
 const TAPES = ['rose', 'cream', 'gold', 'sage'] as const
 
+/**
+ * What the automatic decoration may use: tape variants and sticker variants (the theme provides them; the defaults are the
+ * original generic ones). The choice among them is as deterministic as everything else here.
+ */
+export type Decor = { tapes: readonly string[]; stickers: readonly string[] }
+export const DEFAULT_DECOR: Decor = { tapes: TAPES, stickers: STICKERS }
+
 type MediaRef = { id: string; /** layout item id; defaults to `${id}:photo` */ itemId?: string }
 
 /**
@@ -251,6 +258,7 @@ function buildPage(
   aspects: Readonly<Record<string, number>>,
   metrics: Metrics,
   pageIndex: number,
+  decor: Decor = DEFAULT_DECOR,
 ): PageLayout {
   const size = media.length
   const rng = createRng(pageSeed)
@@ -267,7 +275,7 @@ function buildPage(
   })
 
   const placements = placePage(specs, rng, metrics)
-  const items = decorate(placements, media, mediaSeed, rng, metrics, pageIndex)
+  const items = decorate(placements, media, mediaSeed, rng, metrics, pageIndex, decor)
   return { pageIndex, items }
 }
 
@@ -279,6 +287,7 @@ function decorate(
   rng: Rng,
   metrics: Metrics,
   pageIndex: number,
+  decor: Decor,
 ): PageItem[] {
   const items: PageItem[] = placements.map((p, i) => ({
     id: media.find((m) => m.id === p.spec.id)?.itemId ?? `${p.spec.id}:photo`,
@@ -305,7 +314,7 @@ function decorate(
       width: tape.width,
       rotation: tape.rotation,
       zIndex: 200 + i,
-      variant: createRng(`${mediaSeed}:${p.spec.id}:tapecolour`).pick(TAPES),
+      variant: createRng(`${mediaSeed}:${p.spec.id}:tapecolour`).pick(decor.tapes),
     })
   })
 
@@ -320,7 +329,7 @@ function decorate(
         width: sticker.width,
         rotation: sticker.rotation,
         zIndex: 300,
-        variant: rng.pick(STICKERS),
+        variant: rng.pick(decor.stickers),
       })
     }
   }
@@ -376,8 +385,9 @@ export function layoutAutoPage(
   aspects: Readonly<Record<string, number>>,
   metrics: Metrics = DESKTOP_METRICS,
   pageIndex = 0,
+  decor: Decor = DEFAULT_DECOR,
 ): PageLayout {
-  return buildPage(media.slice(0, MAX_PER_PAGE), `${pageId}:page`, pageId, aspects, metrics, pageIndex)
+  return buildPage(media.slice(0, MAX_PER_PAGE), `${pageId}:page`, pageId, aspects, metrics, pageIndex, decor)
 }
 
 /**
@@ -390,6 +400,7 @@ export function layoutFeaturedPage(
   aspects: Readonly<Record<string, number>>,
   metrics: Metrics = DESKTOP_METRICS,
   pageIndex = 0,
+  decor: Decor = DEFAULT_DECOR,
 ): PageLayout {
   if (!media) return { pageIndex, items: [] }
   const own = createRng(`${pageId}:${media.id}`)
@@ -416,5 +427,5 @@ export function layoutFeaturedPage(
     shapes: polaroidShapes({ ...centre, width, rotation }, aspect, metrics),
   }
   const rng = createRng(`${pageId}:page`)
-  return { pageIndex, items: decorate([placement], [media], pageId, rng, metrics, pageIndex) }
+  return { pageIndex, items: decorate([placement], [media], pageId, rng, metrics, pageIndex, decor) }
 }

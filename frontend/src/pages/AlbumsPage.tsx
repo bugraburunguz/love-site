@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import SpacePanel from '../components/SpacePanel'
 import { createAlbum, deleteAlbum, listAlbums, listMedia, renameAlbum, type Album } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
 import { ConfirmDialog, PromptDialog } from '../components/Dialog'
-import { coverColor } from '../components/leather'
+import NewAlbumDialog from '../components/NewAlbumDialog'
+import { assetUrl } from '../themes/assets'
+import { themeVars } from '../themes/cssVars'
+import { getTheme } from '../themes/registry'
+import { loadThemeFonts } from '../themes/ThemeContext'
 import '../components/leather.css'
 import { coverSource, type CoverSource } from '../media/display'
 import './shelf.css'
@@ -19,6 +23,13 @@ type DialogState =
 function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () => void; onDelete: () => void }) {
   const [still, setStill] = useState<CoverSource | null>(null)
   const [menu, setMenu] = useState(false)
+  const theme = getTheme(album.themeId)
+  const ornament = assetUrl(theme.id, theme.cover.ornament)
+
+  // the cover is lettered in the theme's own font, which loads only for themes that are on the shelf
+  useEffect(() => {
+    void loadThemeFonts(theme)
+  }, [theme])
 
   useEffect(() => {
     let cancelled = false
@@ -52,11 +63,12 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
   }
 
   return (
-    <article className="album-cover" style={{ '--cover-color': coverColor(album.id) } as CSSProperties}>
+    <article className="album-cover" style={themeVars(theme)}>
       <Link to={`/albums/${album.id}`} className="album-cover__link" aria-label={`${album.title} albümünü aç`}>
         <div className="album-cover__book">
           <div className="album-cover__pages" aria-hidden="true" />
           <div className="album-cover__face leather">
+            {ornament && <img className="album-cover__ornament" src={ornament} alt="" draggable={false} />}
             <div className="album-cover__window">
               {still ? (
                 still.kind === 'video' ? (
@@ -82,6 +94,9 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
         </Clay>
         {menu && (
           <div className="album-cover__dropdown">
+            <Link to={`/albums/${album.id}?ayarlar=1`} className="clay clay--pill clay--sm clay--cream" onClick={() => setMenu(false)}>
+              Tema ve müzik
+            </Link>
             <Clay size="sm" tone="cream" onClick={(e) => { stop(e); setMenu(false); onRename() }}>
               Yeniden adlandır
             </Clay>
@@ -161,13 +176,10 @@ export default function AlbumsPage() {
       )}
 
       {dialog?.kind === 'create' && (
-        <PromptDialog
-          title="Yeni albüm"
-          label="Albümün adı"
-          confirmLabel="Oluştur"
+        <NewAlbumDialog
           onClose={close}
-          onSubmit={async (title) => {
-            await createAlbum(title)
+          onSubmit={async (title, themeId) => {
+            await createAlbum(title, themeId)
             refresh()
           }}
         />

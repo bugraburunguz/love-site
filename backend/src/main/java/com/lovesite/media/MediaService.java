@@ -11,6 +11,7 @@ import com.lovesite.space.QuotaService;
 import com.lovesite.storage.StorageService;
 import com.lovesite.system.ApiException;
 import com.lovesite.user.CurrentUser;
+import com.lovesite.user.DisplayNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -50,11 +51,13 @@ public class MediaService {
     private final QuotaService quota;
     private final TransactionTemplate tx;
     private final PageService pages;
+    private final DisplayNames names;
 
     public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties,
                         ObjectProvider<MediaProcessingQueue> queue, QuotaService quota, TransactionTemplate tx,
-                        PageService pages) {
+                        PageService pages, DisplayNames names) {
         this.pages = pages;
+        this.names = names;
         this.queue = queue;
         this.media = media;
         this.albums = albums;
@@ -103,7 +106,8 @@ public class MediaService {
                 m.getSizeBytes(), m.getCreatedAt(), m.getClientModifiedAt(), displayDate, m.getCaption(),
                 ready ? url(m.getThumbKey()) : null, ready ? url(m.getDisplayKey()) : null,
                 ready ? url(m.getLoopKey()) : null, ready ? url(m.getPosterKey()) : null,
-                ready ? m.getWidth() : null, ready ? m.getHeight() : null, ready ? m.getDurationMs() : null);
+                ready ? m.getWidth() : null, ready ? m.getHeight() : null, ready ? m.getDurationMs() : null,
+                names.of(m.getUploadedBy()));
     }
 
     private String url(String key) {

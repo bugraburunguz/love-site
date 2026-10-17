@@ -94,24 +94,6 @@ CSRF: the `XSRF-TOKEN` cookie is set on every response; send it back as the `X-X
 Pending uploads older than 24 h are removed hourly. Run the backend tests (Testcontainers needs Docker) with
 `cd backend && ./mvnw test`.
 
-## Müzik kutusu (arka plan müziği)
-
-The bottom-left music box plays one song from the bucket. It only appears when the object `audio/theme` exists, and it only
-starts on a tap (never automatically). Each space has its own song at `spaces/{spaceId}/audio/theme`; only the initial space
-(the one that existed before tenancy) still falls back to the old global `audio/theme`, no other space ever sees that file.
-The file is not part of the repo; put it in the bucket yourself (replace `audio/theme` below with the space key for a
-non-initial space; the space id is in the `space` table):
-
-```bash
-# any S3 client works; with the AWS CLI (credentials = the bucket's access key, region auto)
-export AWS_ACCESS_KEY_ID=<S3_ACCESS_KEY_ID> AWS_SECRET_ACCESS_KEY=<S3_SECRET_ACCESS_KEY> AWS_DEFAULT_REGION=auto
-aws s3 cp theme.mp3 s3://<S3_BUCKET>/audio/theme --endpoint-url https://t3.storageapi.dev --content-type audio/mpeg
-```
-
-Or in the Railway bucket's Files tab create a folder `audio` and upload the file named exactly `theme` (no extension).
-`GET /api/settings/music` returns `204` until the object exists, and a presigned URL afterwards. Use music you have the
-rights to use.
-
 ## Design notes (Phase 4)
 
 - Tokens (colours, shadows, radii, layers, `--media-filter`, grain) live in `frontend/src/styles/tokens.css`. Fonts are
@@ -153,8 +135,7 @@ only some lone landscape photos and landscape-plus-portrait pages stay below).
 ## Bucket client limits
 
 The S3 client does not rely on SDK defaults: `app.storage.connect-timeout` (3s), `read-timeout` (10s, socket inactivity) and
-`max-attempts` (3) are explicit, and the optional music lookup has a 4 s total budget. `GET /api/settings/music` answers
-`204` (no music) for a missing file *and* for any bucket error, logging `Music lookup failed, answering 204` as a warning.
+`max-attempts` (3) are explicit; presigned URLs are computed locally, so a slow bucket cannot stall album requests.
 
 ## Security headers
 
@@ -235,7 +216,7 @@ Presigned URLs are only generated from records that were loaded through a scoped
 (it claims jobs across spaces) and works from the row it claimed. The admin sees names, member names and usage numbers; no endpoint
 exposes another space's albums or media. When adding an endpoint: take `CurrentUser me`, call a `...SpaceId...` repository method.
 
-`TenantIsolationTest` is the IDOR matrix (every id endpoint probed with another space's ids, plus lists, music, admin).
+`TenantIsolationTest` is the IDOR matrix (every id endpoint probed with another space's ids, plus lists, admin).
 
 ### Invitations (no public signup)
 
@@ -297,3 +278,37 @@ live media on no page is the **tray**. AUTO and FEATURED pages store only the or
 - Editor: pencil button -> edit mode (hover/lightbox/ambient off). FREE pages: drag, rotate handle, scale handle (interact.js, touch works).
   AUTO pages: drag a photo onto another photo (reorder) or page. Page bar (reorder by dragging, add, delete, template), item bar, tray.
   To add an editing feature, extend `PageEditor` (`components/book/editor.ts`).
+
+## Themes, page look, stickers and album music (Phase 5b)
+
+A **theme is data**: one folder `frontend/src/themes/<id>/` with a `theme.ts` (the `ThemeDef` shape in `themes/types.ts`) and its
+files under `assets/` (papers, cover ornament, fasteners, stickers, music box, cursor). Nothing branches on a theme id.
+Six themes exist: `romantik` (default), `buyulu`, `arkadaslar`, `seyahat`, `yilbasi`, `cadilar-bayrami`. All artwork is original
+(generic magic / autumn / travel / winter imagery; no names, characters, crests or slogans of any film, book or franchise).
+
+**Adding a theme = two steps:** (1) create `themes/<id>/theme.ts` + `assets/` and import it in `themes/registry.ts`;
+(2) add the id to `app.themes.allowed` (backend, `application.yml` / `ThemeProperties`). `themes.test.ts` checks the schema
+for every registered theme: 5 swatches and 4 papers (semantic slots), 10-12 stickers, every referenced file exists, contrast of
+every swatch >= 4.5:1, photo filter inside the limits (sepia <= 0.35, contrast 0.95-1.12, saturate 0.8-1.1, no hue rotation),
+at most 30 ambient particles, no `<text>` in stickers (text is converted to paths), no fonts imported at start-up.
+
+- **Fonts** load when an album of the theme opens (`theme.fonts.load` = dynamic `import()` of `@fontsource` files); only the base
+  fonts (Cinzel, Cormorant Garamond, Caveat) are in the start-up bundle. Creepster and Mountains of Christmas have no latin-ext
+  subset: Turkish letters outside Latin-1 (ğ ş ı İ) fall back to the next font of the stack.
+- **Pages** have `swatch` (`light|soft|accent|deep|dark`) and `paper` (`plain|lined|textured|special`) slots, `null` = the theme
+  default; `PATCH /api/pages/{id}` takes `swatch` / `paper` (`"DEFAULT"` resets). Papers are mid-grey pictures blended (soft-light)
+  onto the swatch colour, so every paper suits every colour and a "dark" page stays dark after a theme change.
+- **Stickers** (`POST /api/page-items` with `kind: STICKER`, `variant: "themeId:stickerId"`) are free layers on every template,
+  at most 20 per page; the layout engine ignores them. Unknown theme or sticker ids draw nothing.
+- **Frame skin** only changes colours, texture, corner ornaments and the stamp perforation of the polaroid; its outer geometry is
+  identical in all themes, so layout code and its overflow tests do not know about themes.
+- **Ambient animation** (`components/Ambient.tsx`): one canvas, <= 30 particles, ~30 fps; off with `prefers-reduced-motion`, in edit
+  mode, while the lightbox is open and while the tab is hidden; switch in the album header (remembered in `localStorage`).
+  Hover bursts, the custom cursor (`buyulu`), sticker wiggle and the compass needle (`seyahat`) follow the same rules and only run
+  with a real mouse (`effectsAllowed` in `components/ambient/effects.ts`).
+- **Album music**: `POST /api/albums/{id}/music/upload` {filename, contentType, sizeBytes} -> presigned PUT (audio/mpeg, mp4, x-m4a,
+  aac, ogg; <= 20 MB; counted in the space quota, also while pending), `POST .../music/complete` (HeadObject check, the previous
+  object is deleted), `DELETE .../music`. Key: `spaces/{spaceId}/albums/{albumId}/audio/{uuid}`. The album response carries `musicUrl`
+  and `musicName`. The trash purge removes the song together with its album. The space-wide `GET /api/settings/music` (and the global
+  `audio/theme` objects) is gone: an `audio/theme` object that is still in the bucket is no longer read and can be deleted by hand.
+  The music box plays only after a tap, fades out when the album is left, and does not exist for albums without a song.

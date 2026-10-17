@@ -436,26 +436,6 @@ class MediaUploadIntegrationTest {
     }
 
     @Test
-    void musicEndpointReturnsNoContentUntilTheFileExists() throws Exception {
-        String key = "audio/theme";
-        storage.delete(key);
-        mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent());
-
-        byte[] data = "fake-mp3".getBytes();
-        storage.putObject(key, "audio/mpeg", data);
-        try {
-            String body = mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isOk())
-                    .andReturn().getResponse().getContentAsString();
-            String url = JsonPath.read(body, "$.url");
-            var got = http.send(HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
-            assertThat(got.body()).isEqualTo(data);
-            mvc.perform(get("/api/settings/music")).andExpect(status().isUnauthorized());
-        } finally {
-            storage.delete(key);
-        }
-    }
-
-    @Test
     void clientModifiedDateIsStoredAndSanitised() throws Exception {
         String album = createAlbum();
         long taken = java.time.Instant.parse("2023-07-14T10:15:30Z").toEpochMilli();
@@ -496,20 +476,5 @@ class MediaUploadIntegrationTest {
         assertThat(mvc.perform(get("/")).andReturn().getResponse().getHeader("Strict-Transport-Security")).isNull();
         // API responses carry the same headers
         assertThat(mvc.perform(get("/api/albums").with(USER)).andReturn().getResponse().getHeader("Content-Security-Policy")).isEqualTo(csp);
-    }
-
-    @Test
-    void musicEndpointAnswersNoContentWhenTheBucketFails() throws Exception {
-        // a connection error, a timeout and a 5xx from the bucket must all silence the music box, never produce a 5xx
-        for (RuntimeException failure : new RuntimeException[] {
-                software.amazon.awssdk.core.exception.SdkClientException.create("Unable to execute HTTP request: connect timed out"),
-                software.amazon.awssdk.core.exception.ApiCallTimeoutException.create(4000),
-                software.amazon.awssdk.services.s3.model.S3Exception.builder().statusCode(503).message("Service Unavailable").build()}) {
-            doThrow(failure).when(storage).head(eq("audio/theme"), any());
-            mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent());
-        }
-        org.mockito.Mockito.reset(storage);
-        // and it still works afterwards
-        mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent()); // no file uploaded
     }
 }

@@ -24,6 +24,33 @@ public class Album {
     @Column(nullable = false)
     private String title;
 
+    @Column(name = "theme_id", nullable = false)
+    private String themeId = "romantik";
+
+    @Column(name = "music_key")
+    private String musicKey;
+
+    @Column(name = "music_content_type")
+    private String musicContentType;
+
+    @Column(name = "music_size_bytes")
+    private Long musicSizeBytes;
+
+    @Column(name = "music_original_filename")
+    private String musicOriginalFilename;
+
+    @Column(name = "music_pending_key")
+    private String musicPendingKey;
+
+    @Column(name = "music_pending_content_type")
+    private String musicPendingContentType;
+
+    @Column(name = "music_pending_size_bytes")
+    private Long musicPendingSizeBytes;
+
+    @Column(name = "music_pending_filename")
+    private String musicPendingFilename;
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -43,6 +70,84 @@ public class Album {
         this.spaceId = spaceId;
         this.title = title;
         this.createdBy = createdBy;
+    }
+
+    public Album(UUID spaceId, String title, UUID createdBy, String themeId) {
+        this(spaceId, title, createdBy);
+        this.themeId = themeId;
+    }
+
+    public void changeTheme(String themeId) {
+        this.themeId = themeId;
+        this.updatedAt = Instant.now();
+    }
+
+    public void requestMusic(String key, String contentType, long size, String filename) {
+        this.musicPendingKey = key;
+        this.musicPendingContentType = contentType;
+        this.musicPendingSizeBytes = size;
+        this.musicPendingFilename = filename;
+    }
+
+    public void clearPendingMusic() {
+        this.musicPendingKey = null;
+        this.musicPendingContentType = null;
+        this.musicPendingSizeBytes = null;
+        this.musicPendingFilename = null;
+    }
+
+    /** The pending upload becomes the album's song. */
+    public void confirmMusic(long actualSize) {
+        this.musicKey = musicPendingKey;
+        this.musicContentType = musicPendingContentType;
+        this.musicSizeBytes = actualSize;
+        this.musicOriginalFilename = musicPendingFilename;
+        clearPendingMusic();
+        this.updatedAt = Instant.now();
+    }
+
+    public void clearMusic() {
+        this.musicKey = null;
+        this.musicContentType = null;
+        this.musicSizeBytes = null;
+        this.musicOriginalFilename = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public String getThemeId() {
+        return themeId;
+    }
+
+    public String getMusicKey() {
+        return musicKey;
+    }
+
+    public String getMusicContentType() {
+        return musicContentType;
+    }
+
+    public Long getMusicSizeBytes() {
+        return musicSizeBytes;
+    }
+
+    public String getMusicOriginalFilename() {
+        return musicOriginalFilename;
+    }
+
+    public String getMusicPendingKey() {
+        return musicPendingKey;
+    }
+
+    public String getMusicPendingContentType() {
+        return musicPendingContentType;
+    }
+
+    public Long getMusicPendingSizeBytes() {
+        return musicPendingSizeBytes;
+    }
+
+    public String getMusicPendingFilename() {
+        return musicPendingFilename;
     }
 
     public void rename(String title) {

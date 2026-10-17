@@ -1,30 +1,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
-  deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
+  changeAlbumTheme, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
 import {
-  changeTemplate, createPage, deletePage, featureMedia, initializePages, moveItem, placeMedia, removeItem, reorderPages,
-  type PageDto, type PageItemDto, type PageTemplate,
+  addSticker, changePageLook, changeTemplate, createPage, deletePage, featureMedia, initializePages, moveItem, placeMedia, removeItem,
+  reorderPages, type PageDto, type PageItemDto, type PageTemplate,
 } from '../api/pages'
+import AlbumMusic from '../components/AlbumMusic'
+import AlbumSettings from '../components/AlbumSettings'
+import Ambient, { useAmbientPreference } from '../components/Ambient'
 import Clay from '../components/Clay'
+import CompassNeedle from '../components/CompassNeedle'
 import '../components/clay.css'
 import { ConfirmDialog } from '../components/Dialog'
 import Lightbox from '../components/Lightbox'
 import Book from '../components/book/Book'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
+import PagePanel from '../components/edit/PagePanel'
 import Tray from '../components/edit/Tray'
 import UploadSetupDialog from '../components/edit/UploadSetupDialog'
-import { coverColor } from '../components/leather'
 import UploadPanel from '../components/UploadPanel'
 import { useAspectProbe } from '../hooks/useAspectProbe'
 import { usePages } from '../hooks/usePages'
+import { effectsAllowed } from '../components/ambient/effects'
 import { initialDistribution } from '../layout/autoLayout'
+import { assetUrl } from '../themes/assets'
 import type { Metrics } from '../layout/geometry'
 import { freezePayload, layoutPage } from '../layout/pageLayout'
 import type { PageLayout } from '../layout/types'
 import { cachedAspects, rememberAspects } from '../media/aspectCache'
+import { useReducedMotion, useHoverCapable } from '../hooks/useReducedMotion'
+import { themeDecor } from '../themes/decor'
+import { themeVars } from '../themes/cssVars'
+import { getTheme } from '../themes/registry'
+import { ThemeContext, useThemeFonts } from '../themes/ThemeContext'
 import { useUploadQueue } from '../upload/useUploadQueue'
 import './album.css'
 
@@ -65,9 +76,20 @@ function AlbumView({ id }: { id: string }) {
   const [visibleStart, setVisibleStart] = useState(0)
   const [trayOpen, setTrayOpen] = useState(false)
   const [confirm, setConfirm] = useState<Confirm>(null)
+  const [search, setSearch] = useSearchParams()
+  const [settingsOpen, setSettingsOpen] = useState(() => search.get('ayarlar') === '1')
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [ambientOn, setAmbientOn] = useAmbientPreference()
+  const reduced = useReducedMotion()
+  const hoverCapable = useHoverCapable()
+  const pendingSticker = useRef<string | null>(null)
   const [goTo, setGoTo] = useState<{ index: number; nonce: number }>({ index: 0, nonce: 0 })
   const layouts = useRef<PageLayout[]>([])
 
+  const theme = useMemo(() => getTheme(previewThemeId ?? album?.themeId), [previewThemeId, album?.themeId])
+  useThemeFonts(theme)
+  const decor = useMemo(() => themeDecor(theme), [theme])
   const pagesState = usePages(id)
   const { view, run: runPages, refresh: refreshPages } = pagesState
 
@@ -200,19 +222,19 @@ function AlbumView({ id }: { id: string }) {
   // Layouts are computed per page from data only (plus the screen's text metrics, which the Book supplies).
   // Computing a page is the expensive part, so every page keeps its result until it changes (pages the user did not
   // touch keep their identity when another page is edited).
-  const layoutCache = useRef(new WeakMap<PageDto, { metrics: Metrics; aspects: object; layout: PageLayout }>())
+  const layoutCache = useRef(new WeakMap<PageDto, { metrics: Metrics; aspects: object; decor: object; layout: PageLayout }>())
   const layout = useCallback(
     (metrics: Metrics): PageLayout[] =>
       pages.length
         ? pages.map((p) => {
             const hit = layoutCache.current.get(p)
-            if (hit && hit.metrics === metrics && hit.aspects === aspects) return hit.layout
-            const computed = layoutPage(p, aspects, metrics)
-            layoutCache.current.set(p, { metrics, aspects, layout: computed })
+            if (hit && hit.metrics === metrics && hit.aspects === aspects && hit.decor === decor) return hit.layout
+            const computed = layoutPage(p, aspects, metrics, decor)
+            layoutCache.current.set(p, { metrics, aspects, decor, layout: computed })
             return computed
           })
         : [{ pageIndex: 0, items: [] }],
-    [pages, aspects],
+    [pages, aspects, decor],
   )
   const onLayouts = useCallback((computed: PageLayout[]) => {
     layouts.current = computed
@@ -291,7 +313,7 @@ function AlbumView({ id }: { id: string }) {
   const handleDrop = useCallback(
     (itemId: string, target: DropTarget) => {
       const from = findItem(itemId)
-      if (!from) return
+      if (!from || from.item.kind !== 'MEDIA') return
       if (target.kind === 'item') {
         const dest = findItem(target.itemId)
         if (!dest) return
@@ -383,6 +405,27 @@ function AlbumView({ id }: { id: string }) {
     }
   }
 
+  // a sticker that was just added is selected, so it can be moved at once
+  useEffect(() => {
+    const pageId = pendingSticker.current
+    if (!pageId || !view) return
+    const page = view.pages.find((p) => p.id === pageId)
+    const stickers = page?.items.filter((i) => i.kind === 'STICKER') ?? []
+    if (stickers.length === 0) return
+    pendingSticker.current = null
+    setSelectedId(stickers.reduce((a, b) => ((b.zIndex ?? 0) > (a.zIndex ?? 0) ? b : a)).id)
+  }, [view])
+
+  function addStickerToPage(variant: string) {
+    const page = pages[focusIndex]
+    if (!page) return
+    pendingSticker.current = page.id
+    void runPages(() => addSticker(page.id, variant, { x: 500, y: 700, width: 170, rotation: 0 }))
+  }
+
+  const currentPage = pages[focusIndex]
+  const lightboxOpen = openIndex >= 0 && !editing
+
   // the short "updated" notice disappears by itself
   const { notice, clearNotice } = pagesState
   useEffect(() => {
@@ -390,6 +433,26 @@ function AlbumView({ id }: { id: string }) {
     const t = setTimeout(clearNotice, 4500)
     return () => clearTimeout(t)
   }, [notice, clearNotice])
+
+  // the shelf menu links here with ?ayarlar=1 to open the settings straight away; the flag is consumed
+  useEffect(() => {
+    if (search.get('ayarlar') === '1') {
+      setSearch({}, { replace: true })
+    }
+  }, [search, setSearch])
+
+  const refreshMusicUrl = useCallback(async () => {
+    const albums = await listAlbums()
+    const fresh = albums.find((a) => a.id === id)
+    if (fresh) setAlbum(fresh)
+    return fresh?.musicUrl ?? null
+  }, [id])
+
+  async function saveTheme(themeId: string) {
+    const updated = await changeAlbumTheme(id, themeId)
+    setAlbum(updated)
+    setPreviewThemeId(null)
+  }
 
   if (album === null) {
     return (
@@ -402,17 +465,38 @@ function AlbumView({ id }: { id: string }) {
 
   const shownError = error ?? pagesState.error
 
+  const effects = effectsAllowed({ reduced, hoverCapable, editing, lightboxOpen, ambientOn, hidden: false })
+  const cursor = theme.cursor && effects.cursor && assetUrl(theme.id, theme.cursor.file)
+  const rootClass = `album-screen${cursor ? ' album-screen--cursor' : ''}${theme.hover.wiggle && effects.wiggle ? ' themed-wiggle' : ''}`
+  const rootStyle = {
+    ...themeVars(theme),
+    ...(cursor && theme.cursor ? { '--theme-cursor': `url("${cursor}") ${theme.cursor.hotspot[0]} ${theme.cursor.hotspot[1]}, auto` } : {}),
+  } as React.CSSProperties
+
   return (
-    <main className="album-screen">
+    <ThemeContext.Provider value={theme}>
+    <Ambient enabled={ambientOn} editing={editing} lightboxOpen={lightboxOpen}>
+    <main className={rootClass} style={rootStyle}>
       <header className="album-screen__header">
         <Link to="/" className="clay clay--pill clay--sm clay--cream album-screen__back">
           ‹ Albümler
         </Link>
         <h1 className="album-screen__title">{album?.title ?? ''}</h1>
-        <Clay shape="round" size="sm" tone={editing ? 'rose' : 'cream'} onClick={toggleEditing}
-          aria-label={editing ? 'Düzenlemeyi bitir' : 'Albümü düzenle'} aria-pressed={editing}>
-          {editing ? '✓' : '✎'}
-        </Clay>
+        <span className="album-screen__tools">
+          {!reduced && (
+            <Clay shape="round" size="sm" tone="cream" onClick={() => setAmbientOn(!ambientOn)} aria-pressed={ambientOn}
+              aria-label={ambientOn ? 'Süsleri kapat' : 'Süsleri aç'} title={ambientOn ? 'Süsleri kapat' : 'Süsleri aç'}>
+              ✦
+            </Clay>
+          )}
+          <Clay shape="round" size="sm" tone="cream" onClick={() => setSettingsOpen(true)} aria-label="Albüm ayarları" title="Albüm ayarları" disabled={!album}>
+            ⚙
+          </Clay>
+          <Clay shape="round" size="sm" tone={editing ? 'rose' : 'cream'} onClick={toggleEditing}
+            aria-label={editing ? 'Düzenlemeyi bitir' : 'Albümü düzenle'} aria-pressed={editing}>
+            {editing ? '✓' : '✎'}
+          </Clay>
+        </span>
       </header>
 
       {shownError && (
@@ -429,7 +513,7 @@ function AlbumView({ id }: { id: string }) {
           layout={layout}
           mediaById={mediaById}
           aspects={aspects}
-          coverColor={coverColor(id)}
+          coverColor={theme.cover.color}
           emptyHint={all.length === 0}
           keyboard={openIndex < 0 && !toDelete && !confirm && !pickedFiles}
           onOpen={(m) => setOpenId(m.id)}
@@ -445,8 +529,16 @@ function AlbumView({ id }: { id: string }) {
       {editing && view && (
         <div className="edit-tools">
           {/* always rendered: a bar that appears and disappears would resize the book and re-layout every page */}
-          {!(selected && selectedMedia) && (
+          {!selected && (
             <div className="item-bar"><span className="item-bar__label">Düzenlemek için bir fotoğrafa dokun</span></div>
+          )}
+          {selected && !selectedMedia && selected.item.kind === 'STICKER' && (
+            <div className="item-bar" role="toolbar" aria-label="Seçili çıkartma">
+              <span className="item-bar__label">Seçili çıkartma</span>
+              <Clay size="sm" tone="cream" onClick={() => bringTo(true)}>Öne getir</Clay>
+              <Clay size="sm" tone="cream" onClick={() => bringTo(false)}>Arkaya gönder</Clay>
+              <Clay size="sm" tone="rose" onClick={() => { void runPages(() => removeItem(selected.item.id)); setSelectedId(null) }}>Sil</Clay>
+            </div>
           )}
           {selected && selectedMedia && (
             <div className="item-bar" role="toolbar" aria-label="Seçili fotoğraf">
@@ -480,12 +572,22 @@ function AlbumView({ id }: { id: string }) {
             onDelete={(page) => setConfirm({ kind: 'deletePage', page })}
             onTemplate={changePageTemplate}
           />
-          {trayMedia.length > 0 && !trayOpen && (
-            <div className="item-bar">
-              <Clay size="sm" tone="cream" onClick={() => setTrayOpen(true)}>Tepsi ({trayMedia.length})</Clay>
-            </div>
-          )}
+          <div className="item-bar">
+            <Clay size="sm" tone="cream" disabled={!currentPage} onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>Renk, doku, çıkartma</Clay>
+            {trayMedia.length > 0 && !trayOpen && (
+              <Clay size="sm" tone="cream" onClick={() => { setTrayOpen(true); setPanelOpen(false) }}>Tepsi ({trayMedia.length})</Clay>
+            )}
+          </div>
         </div>
+      )}
+
+      {editing && panelOpen && currentPage && (
+        <PagePanel
+          page={currentPage}
+          onLook={(look) => void runPages(() => changePageLook(currentPage.id, currentPage.version, look))}
+          onSticker={addStickerToPage}
+          onClose={() => setPanelOpen(false)}
+        />
       )}
 
       {editing && trayOpen && trayMedia.length > 0 && (
@@ -552,6 +654,20 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
 
+      {settingsOpen && album && (
+        <AlbumSettings
+          album={album}
+          previewThemeId={previewThemeId ?? album.themeId}
+          onPreview={setPreviewThemeId}
+          onSaveTheme={saveTheme}
+          onAlbum={setAlbum}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      <AlbumMusic url={album?.musicUrl ?? null} refreshUrl={refreshMusicUrl} />
+      {theme.hover.compass && effects.compass && <CompassNeedle />}
+
       <UploadPanel entries={entries} onRetry={retry} onClear={clearFinished} />
 
       <input ref={fileInput} type="file" multiple accept="image/*,video/*" onChange={onFiles} hidden />
@@ -562,5 +678,7 @@ function AlbumView({ id }: { id: string }) {
         </Clay>
       )}
     </main>
+    </Ambient>
+    </ThemeContext.Provider>
   )
 }

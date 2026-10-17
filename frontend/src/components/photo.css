@@ -12,12 +12,32 @@
 
 .polaroid__tilt {
   position: relative;
-  background: linear-gradient(180deg, #fcf7ec, #f4ead3);
+  background-color: var(--frame-paper, #f8f1e1);
+  background-image: var(--frame-texture, none), linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(0, 0, 0, 0.04));
+  /* the texture is a mid-grey picture: it only shades the frame colour */
+  background-blend-mode: soft-light, normal;
   border-radius: 3px;
-  box-shadow: var(--shadow-polaroid);
+  box-shadow: var(--shadow-polaroid), inset 0 0 0 1px var(--frame-edge, transparent);
   transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) scale(var(--lift, 1));
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   will-change: transform;
+}
+
+/* lace corners, ribbons ... of the theme, drawn over the frame */
+.polaroid__tilt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  /* corner ornaments of the theme, and (perforated skins only) half-circles in the page colour along the edge */
+  background:
+    var(--frame-corner, none) center / 100% 100% no-repeat,
+    radial-gradient(circle 6px at 50% 0, var(--perf-color, transparent) 5.2px, transparent 5.8px) 0 0 / 22px 100% repeat-x,
+    radial-gradient(circle 6px at 50% 100%, var(--perf-color, transparent) 5.2px, transparent 5.8px) 0 0 / 22px 100% repeat-x,
+    radial-gradient(circle 6px at 0 50%, var(--perf-color, transparent) 5.2px, transparent 5.8px) 0 0 / 100% 22px repeat-y,
+    radial-gradient(circle 6px at 100% 50%, var(--perf-color, transparent) 5.2px, transparent 5.8px) 0 0 / 100% 22px repeat-y;
+  pointer-events: none;
 }
 
 /* paper fibres on the frame */
@@ -36,7 +56,7 @@
 @media (hover: hover) and (pointer: fine) {
   .polaroid--tilt:hover .polaroid__tilt {
     --lift: 1.03;
-    box-shadow: var(--shadow-polaroid-lifted);
+    box-shadow: var(--shadow-polaroid-lifted), 0 0 26px 3px color-mix(in srgb, var(--theme-glow) 55%, transparent);
   }
   .polaroid--tilt .polaroid__tilt {
     transition: transform 0.12s ease-out, box-shadow 0.25s ease;

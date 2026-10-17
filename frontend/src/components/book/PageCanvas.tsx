@@ -1,11 +1,13 @@
 import { lazy, Suspense, useRef } from 'react'
 import type { MediaDto } from '../../api/albums'
 import { PAGE_H, PAGE_W, type Metrics } from '../../layout/geometry'
-import type { PageLayout } from '../../layout/types'
+import type { PageItem, PageLayout } from '../../layout/types'
+import { pageVars } from '../../themes/cssVars'
+import { useTheme } from '../../themes/ThemeContext'
+import { useBurst } from '../Ambient'
 import LivingPhoto from '../LivingPhoto'
-import { Sticker, Tape } from '../ornaments/Ornaments'
+import { ThemeSticker, ThemeTape } from '../ornaments/ThemeOrnaments'
 import type { PageEditor } from './editor'
-import type { PageItem } from '../../layout/types'
 import './book.css'
 
 // interact.js is only needed while editing: it is loaded on first use and kept out of the main bundle
@@ -30,23 +32,25 @@ interface Props {
   onAspect?: (mediaId: string, aspect: number) => void
   /** present while the page is being edited: photos get handles and stop reacting to hover / click */
   editor?: PageEditor
+  /** handwriting under the page content (the last page of a theme that has an end note) */
+  endNote?: string
 }
 
-function EditablePhoto({
-  item, style, media, aspect, metrics, scale, editor, layout, slot,
+function EditableItem({
+  item, style, children, scale, editor, layout, slot, free,
 }: {
-  item: PageItem; style: Record<string, string | number>; media: MediaDto; aspect?: number; metrics: Metrics; scale: number
-  editor: PageEditor; layout: PageLayout; slot: number | null
+  item: PageItem; style: Record<string, string | number>; children: React.ReactNode; scale: number
+  editor: PageEditor; layout: PageLayout; slot: number | null; free: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   return (
     <div ref={ref} className="page-item" style={style}>
-      <LivingPhoto media={media} width={item.width} aspect={aspect} metrics={metrics} interactive={false} />
+      {children}
       <Suspense fallback={null}>
         <ItemEditor
           itemId={item.id}
           pageId={layout.pageId ?? ''}
-          free={layout.template === 'FREE'}
+          free={free}
           slot={slot}
           geometry={{ x: item.x, y: item.y, width: item.width, rotation: item.rotation, zIndex: item.zIndex }}
           scale={scale}
@@ -62,10 +66,13 @@ function EditablePhoto({
 /**
  * Draws one page from data only: it receives a PageLayout and positions everything in page units
  * (PAGE_W x PAGE_H) inside a single scaled container. Where the layout came from does not matter.
+ * Colour and paper of the page come from the album's theme through CSS variables.
  */
 export default function PageCanvas({
-  layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onRetry, onAspect, editor,
+  layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onRetry, onAspect, editor, endNote,
 }: Props) {
+  const theme = useTheme()
+  const burst = useBurst()
   const items = layout ? [...layout.items].sort((a, b) => a.zIndex - b.zIndex) : []
   const editing = editor !== undefined && layout?.pageId !== undefined
   const slotOf = (id: string) => {
@@ -73,8 +80,12 @@ export default function PageCanvas({
     const at = order.findIndex((i) => i.id === id)
     return at < 0 ? null : at
   }
+  const free = layout?.template === 'FREE'
   return (
-    <div className={`page page--${side}${editing ? ' page--editing' : ''}`} style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
+    <div
+      className={`page page--${side}${editing ? ' page--editing' : ''}`}
+      style={{ width: PAGE_W * scale, height: PAGE_H * scale, ...pageVars(theme, layout?.swatch, layout?.paper) }}
+    >
       <div
         className="page__inner"
         style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}
@@ -97,12 +108,18 @@ export default function PageCanvas({
             if (!media) return null
             if (editing) {
               return (
-                <EditablePhoto key={item.id} item={item} style={style} media={media} aspect={aspects[media.id]} metrics={metrics}
-                  scale={scale} editor={editor} layout={layout!} slot={slotOf(item.id)} />
+                <EditableItem key={item.id} item={item} style={style} scale={scale} editor={editor} layout={layout!} slot={slotOf(item.id)} free={free}>
+                  <LivingPhoto media={media} width={item.width} aspect={aspects[media.id]} metrics={metrics} interactive={false} />
+                </EditableItem>
               )
             }
             return (
-              <div key={item.id} className="page-item" style={style}>
+              <div
+                key={item.id}
+                className="page-item"
+                style={style}
+                onPointerEnter={interactive && burst ? (e) => e.pointerType === 'mouse' && burst(e.clientX, e.clientY) : undefined}
+              >
                 <LivingPhoto
                   media={media}
                   width={item.width}
@@ -116,9 +133,24 @@ export default function PageCanvas({
               </div>
             )
           }
+          if (item.kind === 'STICKER' && item.stored) {
+            // a sticker placed by hand: movable while editing, wiggles under the mouse otherwise
+            if (editing) {
+              return (
+                <EditableItem key={item.id} item={item} style={style} scale={scale} editor={editor} layout={layout!} slot={null} free>
+                  <ThemeSticker variant={item.variant} />
+                </EditableItem>
+              )
+            }
+            return (
+              <div key={item.id} className="page-item page-item--sticker" style={style}>
+                <ThemeSticker variant={item.variant} />
+              </div>
+            )
+          }
           return (
             <div key={item.id} className="page-item page-item--deco" style={style}>
-              {item.kind === 'TAPE' ? <Tape variant={item.variant} /> : <Sticker variant={item.variant} />}
+              {item.kind === 'TAPE' ? <ThemeTape variant={item.variant} /> : <ThemeSticker variant={item.variant} />}
             </div>
           )
         })}
@@ -133,6 +165,7 @@ export default function PageCanvas({
           </div>
         )}
 
+        {endNote && <div className="page__endnote">{endNote}</div>}
         {pageNumber !== undefined && <div className="page__number">{pageNumber}</div>}
       </div>
     </div>

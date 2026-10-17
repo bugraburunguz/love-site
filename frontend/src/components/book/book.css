@@ -3,9 +3,11 @@
   position: relative;
   flex: none;
   overflow: hidden;
-  background:
-    var(--tex-paper),
-    linear-gradient(135deg, #f8eedb 0%, #f1e3c4 100%);
+  /* colour = swatch, texture = paper (a mid-grey picture, blended onto the colour, so every paper suits every colour) */
+  background-color: var(--page-bg, #f6ead2);
+  background-image: var(--page-paper, none), var(--tex-paper);
+  background-blend-mode: soft-light, multiply;
+  transition: background-color 0.5s ease;
   isolation: isolate;
 }
 
@@ -35,8 +37,21 @@
   font-family: var(--font-body);
   font-style: italic;
   font-size: 34px;
-  color: var(--ink-soft);
+  color: var(--page-ink, var(--ink-soft));
   opacity: 0.7;
+}
+
+.page__endnote {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 70px;
+  text-align: center;
+  font-family: var(--font-hand);
+  font-size: 34px;
+  color: var(--page-ink, var(--ink-soft));
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .page__hint {
@@ -71,17 +86,17 @@
 }
 
 .page--left::after {
-  background: linear-gradient(to left, rgba(90, 55, 20, 0.32) 0, rgba(90, 55, 20, 0.08) 7%, transparent 16%),
-    linear-gradient(to right, rgba(90, 55, 20, 0.12), transparent 3%);
+  background: linear-gradient(to left, color-mix(in srgb, var(--page-shadow, #5a3714) 32%, transparent) 0, color-mix(in srgb, var(--page-shadow, #5a3714) 8%, transparent) 7%, transparent 16%),
+    linear-gradient(to right, color-mix(in srgb, var(--page-shadow, #5a3714) 12%, transparent), transparent 3%);
 }
 
 .page--right::after {
-  background: linear-gradient(to right, rgba(90, 55, 20, 0.32) 0, rgba(90, 55, 20, 0.08) 7%, transparent 16%),
-    linear-gradient(to left, rgba(90, 55, 20, 0.12), transparent 3%);
+  background: linear-gradient(to right, color-mix(in srgb, var(--page-shadow, #5a3714) 32%, transparent) 0, color-mix(in srgb, var(--page-shadow, #5a3714) 8%, transparent) 7%, transparent 16%),
+    linear-gradient(to left, color-mix(in srgb, var(--page-shadow, #5a3714) 12%, transparent), transparent 3%);
 }
 
 .page--single::after {
-  background: linear-gradient(to right, rgba(90, 55, 20, 0.2) 0, transparent 8%);
+  background: linear-gradient(to right, color-mix(in srgb, var(--page-shadow, #5a3714) 20%, transparent) 0, transparent 8%);
 }
 
 /* ---- the open book ---- */
@@ -112,6 +127,7 @@
     radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.14), transparent 60%),
     var(--cover-color, var(--leather-bordeaux));
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.35), 0 18px 30px rgba(50, 25, 10, 0.4), inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.5s ease;
 }
 
 .book__cover::before {
@@ -119,7 +135,7 @@
   position: absolute;
   inset: 3px;
   border-radius: 8px;
-  border: 1.5px dashed rgba(230, 203, 142, 0.45);
+  border: 1.5px dashed color-mix(in srgb, var(--cover-stitch, #e6cb8e) 55%, transparent);
   pointer-events: none;
 }
 

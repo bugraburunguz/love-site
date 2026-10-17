@@ -32,7 +32,7 @@ public class PageController {
     public record ReorderRequest(List<UUID> pageIds) {
     }
 
-    public record PatchPageRequest(String template, Integer version, List<ItemGeometry> items) {
+    public record PatchPageRequest(String template, Integer version, List<ItemGeometry> items, String swatch, String paper) {
     }
 
     public record PatchItemRequest(Double x, Double y, Double width, Double rotation, Integer zIndex, Integer version) {
@@ -42,7 +42,7 @@ public class PageController {
     }
 
     public record CreateItemRequest(UUID pageId, UUID mediaId, String kind, Integer slotIndex, Double x, Double y, Double width,
-                                    Double rotation, Integer zIndex) {
+                                    Double rotation, Integer zIndex, String variant) {
     }
 
     private final PageService pages;
@@ -74,7 +74,7 @@ public class PageController {
 
     @PatchMapping("/api/pages/{id}")
     public PagesView patchPage(CurrentUser me, @PathVariable UUID id, @RequestBody PatchPageRequest request) {
-        return pages.patchPage(me, id, request.template(), request.version(), request.items());
+        return pages.patchPage(me, id, request.template(), request.version(), request.items(), request.swatch(), request.paper());
     }
 
     @DeleteMapping("/api/pages/{id}")
@@ -98,7 +98,7 @@ public class PageController {
     @ResponseStatus(HttpStatus.CREATED)
     public PagesView createItem(CurrentUser me, @RequestBody CreateItemRequest request) {
         return pages.createItem(me, request.pageId(), request.mediaId(), request.kind(), request.slotIndex(),
-                new Geometry(request.x(), request.y(), request.width(), request.rotation(), request.zIndex()));
+                new Geometry(request.x(), request.y(), request.width(), request.rotation(), request.zIndex()), request.variant());
     }
 
     @DeleteMapping("/api/page-items/{id}")

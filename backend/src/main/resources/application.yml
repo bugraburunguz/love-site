@@ -51,6 +51,10 @@ management:
 app:
   # platform admin (can create spaces and invites, sees usage numbers, never content)
   admin-email: ${ADMIN_EMAIL:}
+  # theme ids the API accepts (a theme itself is frontend data: frontend/src/themes/<id>)
+  themes:
+    default-theme: romantik
+    allowed: romantik,buyulu,arkadaslar,seyahat,yilbasi,cadilar-bayrami
   space:
     initial-name: ${INITIAL_SPACE_NAME:Bizim Alanımız}
     initial-limit-gb: ${INITIAL_SPACE_LIMIT_GB:400}

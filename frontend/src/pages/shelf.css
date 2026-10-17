@@ -88,7 +88,19 @@
     0 12px 20px rgba(50, 25, 10, 0.38);
 }
 
+.album-cover__ornament {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 92%;
+  transform: translateX(-50%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
 .album-cover__window {
+  position: relative;
+  z-index: 1;
   width: 68%;
   aspect-ratio: 1;
   display: grid;
@@ -115,6 +127,8 @@
 
 .album-cover__title {
   margin-top: auto;
+  position: relative;
+  z-index: 1;
   font-size: clamp(0.95rem, 2.4vw, 1.15rem);
   text-align: center;
   line-height: 1.2;

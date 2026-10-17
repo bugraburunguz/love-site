@@ -34,7 +34,8 @@ public class PageService {
                        Double rotation, Integer zIndex, String variant, int version) {
     }
 
-    public record PageView(UUID id, UUID albumId, int pageIndex, String template, int version, List<Item> items) {
+    public record PageView(UUID id, UUID albumId, int pageIndex, String template, int version, String swatch, String paper,
+                           List<Item> items) {
     }
 
     /** Pages in order plus the tray: live media of the album that sit on no page. */
@@ -78,8 +79,15 @@ public class PageService {
                 + "ORDER BY i.slot_index NULLS LAST, i.z_index NULLS LAST, i.id", rs -> {
             items.computeIfAbsent(rs.getObject(12, UUID.class), k -> new ArrayList<>()).add(itemRow(rs));
         }, albumId, spaceId);
+        Map<UUID, String[]> looks = new LinkedHashMap<>();
+        jdbc.query("SELECT id, swatch, paper FROM page WHERE album_id = ? AND space_id = ?",
+                rs -> { looks.put(rs.getObject(1, UUID.class), new String[] {rs.getString(2), rs.getString(3)}); }, albumId, spaceId);
         List<PageView> pages = rows.stream()
-                .map(r -> new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), items.getOrDefault(r.id(), List.of())))
+                .map(r -> {
+                    String[] look = looks.getOrDefault(r.id(), new String[2]);
+                    return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1],
+                            items.getOrDefault(r.id(), List.of()));
+                })
                 .toList();
         List<UUID> tray = jdbc.query("SELECT m.id FROM media m WHERE m.space_id = ? AND m.album_id = ? AND m.deleted_at IS NULL "
                 + "AND m.status IN " + LISTED + " AND NOT EXISTS (SELECT 1 FROM page_item i WHERE i.media_id = m.id) ORDER BY m.created_at, m.id",
@@ -90,7 +98,9 @@ public class PageService {
     private PageView pageView(UUID pageId) {
         PageRow r = jdbc.queryForObject("SELECT id, album_id, space_id, page_index, template, version FROM page WHERE id = ?",
                 (rs, i) -> pageRow(rs), pageId);
-        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), items(pageId));
+        String[] look = jdbc.queryForObject("SELECT swatch, paper FROM page WHERE id = ?",
+                (rs, i) -> new String[] {rs.getString(1), rs.getString(2)}, pageId);
+        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1], items(pageId));
     }
 
     private static PageRow pageRow(java.sql.ResultSet rs) throws java.sql.SQLException {
@@ -318,10 +328,35 @@ public class PageService {
         return build(spaceId, albumId);
     }
 
+    private static final Set<String> SWATCHES = Set.of("light", "soft", "accent", "deep", "dark");
+    private static final Set<String> PAPERS = Set.of("plain", "lined", "textured", "special");
+    /** themeId:stickerId, both lower-case slugs */
+    private static final java.util.regex.Pattern VARIANT = java.util.regex.Pattern.compile("^[a-z][a-z0-9-]{1,30}:[a-z][a-z0-9-]{1,40}$");
+    public static final int MAX_STICKERS = 20;
+
+    /** null / blank leaves the value alone, "DEFAULT" goes back to the theme's own choice. */
+    private static String slot(String requested, Set<String> allowed, String current, String what) {
+        if (requested == null || requested.isBlank()) return current;
+        if ("DEFAULT".equalsIgnoreCase(requested)) return null;
+        if (!allowed.contains(requested)) throw ApiException.badRequest("Geçersiz " + what);
+        return requested;
+    }
+
     @Transactional
-    public PagesView patchPage(CurrentUser me, UUID pageId, String requestedTemplate, Integer version, List<ItemGeometry> frozen) {
+    public PagesView patchPage(CurrentUser me, UUID pageId, String requestedTemplate, Integer version, List<ItemGeometry> frozen,
+                               String swatch, String paper) {
         PageRow page = lockedPage(me, pageId);
         checkPageVersion(page, version, true);
+
+        String[] look = jdbc.queryForObject("SELECT swatch, paper FROM page WHERE id = ?",
+                (rs, i) -> new String[] {rs.getString(1), rs.getString(2)}, page.id());
+        String newSwatch = slot(swatch, SWATCHES, look[0], "sayfa rengi");
+        String newPaper = slot(paper, PAPERS, look[1], "kağıt dokusu");
+        boolean lookChanged = !java.util.Objects.equals(newSwatch, look[0]) || !java.util.Objects.equals(newPaper, look[1]);
+        if (lookChanged) {
+            jdbc.update("UPDATE page SET swatch = ?, paper = ?, version = version + 1, updated_at = now() WHERE id = ?", newSwatch, newPaper, page.id());
+        }
+
         String target = requestedTemplate == null ? page.template() : normalizeTemplate(requestedTemplate);
         if (target.equals(page.template())) return build(page.spaceId(), page.albumId());
 
@@ -400,8 +435,9 @@ public class PageService {
 
     /** Tray -> page. */
     @Transactional
-    public PagesView createItem(CurrentUser me, UUID pageId, UUID mediaId, String kind, Integer slotIndex, Geometry g) {
-        if (kind != null && !"MEDIA".equals(kind)) throw ApiException.badRequest("Şimdilik yalnızca medya yerleştirilebilir");
+    public PagesView createItem(CurrentUser me, UUID pageId, UUID mediaId, String kind, Integer slotIndex, Geometry g, String variant) {
+        if ("STICKER".equals(kind)) return createSticker(me, pageId, g, variant);
+        if (kind != null && !"MEDIA".equals(kind)) throw ApiException.badRequest("Bu öğe türü eklenemez");
         if (mediaId == null) throw ApiException.badRequest("Medya gerekli");
         PageRow page = lockedPage(me, pageId);
         UUID spaceId = page.spaceId();
@@ -426,6 +462,22 @@ public class PageService {
         compact(page.id());
         bump(page.id());
         return build(spaceId, page.albumId());
+    }
+
+    /** A sticker is a free layer on top of the page, whatever its template; at most 20 per page. */
+    private PagesView createSticker(CurrentUser me, UUID pageId, Geometry g, String variant) {
+        if (variant == null || !VARIANT.matcher(variant).matches()) throw ApiException.badRequest("Geçersiz çıkartma");
+        if (g == null || g.x() == null || g.y() == null) throw ApiException.badRequest("Çıkartmanın konumu gerekli");
+        checkGeometry(g);
+        PageRow page = lockedPage(me, pageId);
+        Integer count = jdbc.queryForObject("SELECT count(*) FROM page_item WHERE page_id = ? AND kind = 'STICKER'", Integer.class, page.id());
+        if (count != null && count >= MAX_STICKERS) throw ApiException.badRequest("Bir sayfaya en fazla " + MAX_STICKERS + " çıkartma eklenebilir");
+        Integer maxZ = jdbc.queryForObject("SELECT max(z_index) FROM page_item WHERE page_id = ? AND kind = 'STICKER'", Integer.class, page.id());
+        int z = g.zIndex() != null ? g.zIndex() : (maxZ == null ? 1000 : maxZ + 1);
+        jdbc.update("INSERT INTO page_item (page_id, space_id, kind, x, y, width, rotation, z_index, variant) VALUES (?, ?, 'STICKER', ?, ?, ?, ?, ?, ?)",
+                page.id(), page.spaceId(), g.x(), g.y(), g.width() == null ? 140.0 : g.width(), g.rotation() == null ? 0.0 : g.rotation(), z, variant);
+        bump(page.id());
+        return build(page.spaceId(), page.albumId());
     }
 
     @Transactional

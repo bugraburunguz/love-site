@@ -17,6 +17,8 @@ export type PageItem = {
   zIndex: number
   /** tape colour, sticker kind, ... */
   variant?: string
+  /** a persisted item (it has a database id): FREE page items and stickers placed by hand; auto decoration is not */
+  stored?: boolean
 }
 
 export type PageLayout = {
@@ -25,4 +27,7 @@ export type PageLayout = {
   /** set for stored pages: the editor needs to know which page and template it is drawing */
   pageId?: string
   template?: 'AUTO' | 'FEATURED' | 'FREE'
+  /** the page's own colour / paper slot (null = the theme default) */
+  swatch?: string | null
+  paper?: string | null
 }

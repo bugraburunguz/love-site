@@ -50,6 +50,23 @@ public class TrashPurgeJob {
         }
     }
 
+    /** The song of an album that stayed in the trash long enough goes with it (and stops counting against the quota). */
+    private void purgeAlbumMusic(Timestamp cutoff) {
+        List<Object[]> albums = jdbc.query("SELECT id, music_key, music_pending_key FROM album WHERE deleted_at < ? "
+                + "AND (music_key IS NOT NULL OR music_pending_key IS NOT NULL)",
+                (rs, i) -> new Object[] {rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3)}, cutoff);
+        for (Object[] row : albums) {
+            try {
+                if (row[1] != null) storage.delete((String) row[1]);
+                if (row[2] != null) storage.delete((String) row[2]);
+                jdbc.update("UPDATE album SET music_key = NULL, music_content_type = NULL, music_size_bytes = NULL, music_original_filename = NULL, "
+                        + "music_pending_key = NULL, music_pending_content_type = NULL, music_pending_size_bytes = NULL, music_pending_filename = NULL WHERE id = ?", row[0]);
+            } catch (RuntimeException e) {
+                log.warn("Could not purge the song of album {}: {}", row[0], e.toString());
+            }
+        }
+    }
+
     /** Everything deleted before now - retention goes. Objects are removed first: a row is only dropped once its files are gone. */
     public Result purge(Instant now) {
         Timestamp cutoff = Timestamp.from(now.minus(properties.trashRetention()));
@@ -80,6 +97,7 @@ public class TrashPurgeJob {
             media += removedInBatch;
             if (removedInBatch == 0) break; // everything left in this batch failed: do not spin
         }
+        purgeAlbumMusic(cutoff);
         int albums = jdbc.update("DELETE FROM album a WHERE a.deleted_at < ? AND NOT EXISTS (SELECT 1 FROM media m WHERE m.album_id = a.id)", cutoff);
         if (media > 0 || albums > 0) log.info("Trash purge removed {} media item(s) and {} album(s)", media, albums);
         return new Result(media, albums);

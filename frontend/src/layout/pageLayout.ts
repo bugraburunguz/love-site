@@ -1,5 +1,5 @@
 import type { PageDto, PageItemDto, FrozenItem } from '../api/pages'
-import { layoutAutoPage, layoutFeaturedPage } from './autoLayout'
+import { layoutAutoPage, layoutFeaturedPage, type Decor } from './autoLayout'
 import { DESKTOP_METRICS, type Metrics } from './geometry'
 import type { PageItem, PageLayout } from './types'
 
@@ -23,6 +23,7 @@ export function layoutFreePage(page: PageDto): PageLayout {
     rotation: i.rotation ?? DEFAULTS.rotation,
     zIndex: i.zIndex ?? 10 + n,
     variant: i.variant ?? undefined,
+    stored: true,
   }))
   return { pageIndex: page.pageIndex, items }
 }
@@ -31,15 +32,25 @@ export function layoutFreePage(page: PageDto): PageLayout {
  * One stored page -> positioned items. AUTO and FEATURED pages are computed right here from the stored order (so they
  * adapt to the screen), FREE pages use their stored positions. The layout item id of a photo is its page item id.
  */
-export function layoutPage(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics = DESKTOP_METRICS): PageLayout {
-  return { ...layoutPageItems(page, aspects, metrics), pageId: page.id, template: page.template }
+export function layoutPage(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics = DESKTOP_METRICS, decor?: Decor): PageLayout {
+  const layout = layoutPageItems(page, aspects, metrics, decor)
+  return { ...layout, pageId: page.id, template: page.template, swatch: page.swatch, paper: page.paper }
 }
 
-function layoutPageItems(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics): PageLayout {
+function layoutPageItems(page: PageDto, aspects: Readonly<Record<string, number>>, metrics: Metrics, decor?: Decor): PageLayout {
   if (page.template === 'FREE') return layoutFreePage(page)
   const media = mediaItemsInOrder(page).map((i) => ({ id: i.mediaId as string, itemId: i.id }))
-  if (page.template === 'FEATURED') return layoutFeaturedPage(media[0], page.id, aspects, metrics, page.pageIndex)
-  return layoutAutoPage(media, page.id, aspects, metrics, page.pageIndex)
+  const computed = page.template === 'FEATURED'
+    ? layoutFeaturedPage(media[0], page.id, aspects, metrics, page.pageIndex, decor)
+    : layoutAutoPage(media, page.id, aspects, metrics, page.pageIndex, decor)
+  // stickers placed by hand lie on top of whatever the engine drew (the engine ignores them)
+  const stickers: PageItem[] = page.items
+    .filter((i) => i.kind === 'STICKER')
+    .map((i, n) => ({
+      id: i.id, kind: 'STICKER' as const, x: i.x ?? 500, y: i.y ?? 700, width: i.width ?? 140, rotation: i.rotation ?? 0,
+      zIndex: i.zIndex ?? 1000 + n, variant: i.variant ?? undefined, stored: true,
+    }))
+  return { ...computed, items: [...computed.items, ...stickers] }
 }
 
 /**

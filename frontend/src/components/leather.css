@@ -13,7 +13,7 @@
   content: '';
   position: absolute;
   inset: 10px;
-  border: 1.5px dashed rgba(230, 203, 142, 0.5);
+  border: 1.5px dashed color-mix(in srgb, var(--cover-stitch, #e6cb8e) 60%, transparent);
   border-radius: inherit;
   pointer-events: none;
 }

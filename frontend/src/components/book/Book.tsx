@@ -9,6 +9,7 @@ import { PAGE_H, PAGE_W, toMetrics, type Metrics } from '../../layout/geometry'
 import type { PageLayout } from '../../layout/types'
 import Clay from '../Clay'
 import PageCanvas from './PageCanvas'
+import { useTheme } from '../../themes/ThemeContext'
 import type { PageEditor } from './editor'
 import './book.css'
 
@@ -47,6 +48,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
   const areaRef = useRef<HTMLDivElement>(null)
   const { width, height } = useElementSize(areaRef)
   const reduced = useReducedMotion()
+  const theme = useTheme()
 
   const coverPad = width < 640 ? 9 : 22
   const cols = width > 0 && width / Math.max(height, 1) >= 1.3 ? 2 : 1
@@ -143,6 +145,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
         interactive={interactive && !editor}
         editor={interactive ? editor : undefined}
         emptyHint={emptyHint && index === 0}
+        endNote={pageLayout && index === pages.length - 1 ? theme.endNote : undefined}
         {...common}
       />
     )
