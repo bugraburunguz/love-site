@@ -1,0 +1,57 @@
+/* Bottom-left, deliberately quiet; the upload seal lives in the other corner. */
+.musicbox.clay {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-controls);
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fffaf0, var(--paper-aged));
+  opacity: 0.88;
+}
+
+.musicbox svg {
+  width: 36px;
+  height: 36px;
+  overflow: visible;
+}
+
+.musicbox__lid {
+  transform-origin: 8px 24px;
+  transition: transform 0.4s ease;
+}
+
+.musicbox--playing .musicbox__lid {
+  transform: rotate(-24deg);
+}
+
+.musicbox--remembered {
+  box-shadow: var(--shadow-clay), 0 0 0 3px rgba(201, 163, 91, 0.45);
+}
+
+.musicbox__note {
+  position: absolute;
+  left: 50%;
+  bottom: 70%;
+  font-size: 1.1rem;
+  color: var(--rose-deep);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.musicbox--playing .musicbox__note--a {
+  animation: note-rise 3.2s ease-out infinite;
+}
+
+.musicbox--playing .musicbox__note--b {
+  animation: note-rise 3.2s ease-out 1.6s infinite;
+  left: 30%;
+}
+
+@keyframes note-rise {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.8); }
+  20% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(14px, -46px) scale(1.1) rotate(12deg); }
+}

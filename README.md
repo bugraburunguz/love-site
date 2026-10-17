@@ -82,3 +82,31 @@ CSRF: the `XSRF-TOKEN` cookie is set on every response; send it back as the `X-X
 
 Pending uploads older than 24 h are removed hourly. Run the backend tests (Testcontainers needs Docker) with
 `cd backend && ./mvnw test`.
+
+## Müzik kutusu (arka plan müziği)
+
+The bottom-left music box plays one song from the bucket. It only appears when the object `audio/theme` exists, and it only
+starts on a tap (never automatically). The file is not part of the repo; put it in the bucket yourself:
+
+```bash
+# any S3 client works; with the AWS CLI (credentials = the bucket's access key, region auto)
+export AWS_ACCESS_KEY_ID=<S3_ACCESS_KEY_ID> AWS_SECRET_ACCESS_KEY=<S3_SECRET_ACCESS_KEY> AWS_DEFAULT_REGION=auto
+aws s3 cp theme.mp3 s3://<S3_BUCKET>/audio/theme --endpoint-url https://t3.storageapi.dev --content-type audio/mpeg
+```
+
+Or in the Railway bucket's Files tab create a folder `audio` and upload the file named exactly `theme` (no extension).
+`GET /api/settings/music` returns `204` until the object exists, and a presigned URL afterwards. Use music you have the
+rights to use.
+
+## Design notes (Phase 4)
+
+- Tokens (colours, shadows, radii, layers, `--media-filter`, grain) live in `frontend/src/styles/tokens.css`. Fonts are
+  self-hosted through `@fontsource` (Cinzel 600, Cormorant Garamond 400/400 italic, Caveat 500; latin + latin-ext for Turkish).
+- A page is a fixed 1000 x 1400 unit canvas. `layout/autoLayout.ts` is a pure function (`autoLayout(media, seed, aspects?)`) that
+  returns `PageLayout[]`; `components/book/PageCanvas.tsx` draws a `PageLayout` and nothing else. In Phase 5 stored layouts
+  replace `autoLayout` and the renderer does not change. `LivingPhoto` and `PageCanvas` take an `interactive` prop to turn
+  hover tilt and click off for an editing mode.
+- Photo/video choice is one rule in `media/display.ts`: processed copy (`displayUrl` / `loopUrl` / `posterUrl`) when the API
+  provides it, otherwise the original if the browser can show it, otherwise the "banyo ediliyor" placeholder.
+- Videos are muted and loop, play only while on screen and never more than 6 at once (`media/playback.ts`).
+- Screenshots of every screen (desktop and mobile) are in `docs/screenshots/`.

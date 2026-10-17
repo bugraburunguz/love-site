@@ -1,36 +1,34 @@
-import type { ReactElement } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
-import AlbumPage from './pages/AlbumPage'
-import AlbumsPage from './pages/AlbumsPage'
+import { MusicProvider } from './components/MusicBox'
 import LoginPage from './pages/LoginPage'
 
-function RequireAuth({ children }: { children: ReactElement }) {
+const AlbumsPage = lazy(() => import('./pages/AlbumsPage'))
+const AlbumPage = lazy(() => import('./pages/AlbumPage'))
+
+/** Everything behind the login. The music provider lives here so the song keeps playing across pages. */
+function AppShell() {
   const { user, loading } = useAuth()
-  if (loading) return <p>Yükleniyor…</p>
-  return user ? children : <Navigate to="/login" replace />
+  if (loading) return <p className="boot">Defter açılıyor…</p>
+  if (!user) return <Navigate to="/login" replace />
+  return (
+    <MusicProvider>
+      <Suspense fallback={<p className="boot">Defter açılıyor…</p>}>
+        <Outlet />
+      </Suspense>
+    </MusicProvider>
+  )
 }
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <AlbumsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/albums/:id"
-        element={
-          <RequireAuth>
-            <AlbumPage />
-          </RequireAuth>
-        }
-      />
+      <Route element={<AppShell />}>
+        <Route path="/" element={<AlbumsPage />} />
+        <Route path="/albums/:id" element={<AlbumPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

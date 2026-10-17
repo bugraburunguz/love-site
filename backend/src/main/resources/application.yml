@@ -2,6 +2,8 @@ server:
   port: ${PORT:8080}
   error:
     include-message: never
+  compression:
+    enabled: true
   forward-headers-strategy: framework
   servlet:
     session:

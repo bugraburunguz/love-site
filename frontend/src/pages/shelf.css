@@ -1,0 +1,194 @@
+.shelf {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) 110px;
+}
+
+.shelf__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+.shelf__header h1 {
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  text-shadow: 0 1px 0 rgba(255, 250, 235, 0.8);
+}
+
+.shelf__user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.shelf__error {
+  color: var(--rose-deep);
+}
+
+.shelf__loading {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.shelf__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 34px 22px;
+  /* wooden shelf lines under each row */
+  padding-bottom: 8px;
+}
+
+/* ---- leather book cover ---- */
+.album-cover {
+  position: relative;
+}
+
+.album-cover__link {
+  display: block;
+  text-decoration: none;
+  perspective: 900px;
+}
+
+.album-cover__book {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  transform-origin: left center;
+  transition: transform 0.35s ease;
+  transform-style: preserve-3d;
+}
+
+.album-cover__pages {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: -5px;
+  width: 12px;
+  border-radius: 0 3px 3px 0;
+  background: repeating-linear-gradient(to bottom, #f2e6c8 0 2px, #d8c697 2px 3px);
+  box-shadow: 1px 2px 4px rgba(50, 30, 10, 0.4);
+}
+
+.album-cover__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 18px 18px 26px;
+  border-radius: 4px 12px 12px 4px;
+  box-shadow:
+    inset 10px 0 12px -8px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(0, 0, 0, 0.25),
+    0 2px 2px rgba(0, 0, 0, 0.3),
+    0 12px 20px rgba(50, 25, 10, 0.38);
+}
+
+.album-cover__window {
+  width: 68%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid var(--gold-light);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 235, 200, 0.3);
+}
+
+.album-cover__window img,
+.album-cover__window video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: var(--media-filter);
+}
+
+.album-cover__window span {
+  font-size: 2rem;
+  opacity: 0.75;
+}
+
+.album-cover__title {
+  margin-top: auto;
+  font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.album-cover__year {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .album-cover__link:hover .album-cover__book {
+    transform: rotateY(-16deg) translateX(-2px);
+  }
+  .album-cover__link:hover .album-cover__pages {
+    width: 18px;
+    right: -9px;
+  }
+}
+
+.album-cover__menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
+
+.album-cover__dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--paper-cream);
+  box-shadow: 0 8px 20px rgba(40, 20, 10, 0.4);
+  white-space: nowrap;
+}
+
+/* ---- the blank book that makes a new album ---- */
+.new-album {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  aspect-ratio: 3 / 4;
+  padding: var(--space-4);
+  border: 2px dashed var(--paper-edge);
+  border-radius: 6px 12px 12px 6px;
+  background: rgba(255, 248, 232, 0.55);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.new-album svg {
+  width: 62%;
+}
+
+@media (hover: hover) {
+  .new-album:hover {
+    background: rgba(255, 248, 232, 0.9);
+    transform: translateY(-3px);
+  }
+}

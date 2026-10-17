@@ -1,0 +1,70 @@
+/* Design tokens: every colour, shadow, radius and layer used by the app lives here. */
+:root {
+  /* Paper and ink */
+  --paper-cream: #f6ebd6;
+  --paper-aged: #eadbbd;
+  --paper-edge: #c9ae84;
+  --paper-shadow: #9c8159;
+  --ink: #4a2f23;
+  --ink-soft: #7a5a48;
+
+  /* Accents */
+  --blush: #f3c9d2;
+  --blush-light: #f9dde3;
+  --rose-dust: #c07a89;
+  --rose-deep: #a65f70;
+  --gold: #c9a35b;
+  --gold-light: #e6cb8e;
+
+  /* Leather cover colours (picked per album) */
+  --leather-bordeaux: #6e2230;
+  --leather-forest: #27412f;
+  --leather-navy: #22304f;
+  --leather-tan: #8b5a2b;
+
+  /* Typography */
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body: 'Cormorant Garamond', Georgia, serif;
+  --font-hand: 'Caveat', 'Comic Sans MS', cursive;
+
+  /* Shape and spacing */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+
+  /* Layers: page < item < controls < modal */
+  --z-page: 1;
+  --z-item: 10;
+  --z-controls: 100;
+  --z-modal: 1000;
+
+  /* Shadows */
+  --shadow-polaroid: 0 1px 1px rgba(60, 35, 20, 0.25), 0 4px 8px rgba(60, 35, 20, 0.22),
+    0 10px 18px rgba(60, 35, 20, 0.12);
+  --shadow-polaroid-lifted: 0 2px 2px rgba(60, 35, 20, 0.22), 0 14px 24px rgba(60, 35, 20, 0.3),
+    0 28px 44px rgba(60, 35, 20, 0.18);
+  --shadow-clay: inset 2px 3px 5px rgba(255, 255, 255, 0.85), inset -3px -4px 8px rgba(166, 95, 112, 0.28),
+    3px 6px 12px rgba(74, 47, 35, 0.28);
+  --shadow-clay-hover: inset 2px 3px 5px rgba(255, 255, 255, 0.9), inset -3px -4px 8px rgba(166, 95, 112, 0.3),
+    4px 9px 16px rgba(74, 47, 35, 0.32);
+  --shadow-clay-pressed: inset 3px 4px 8px rgba(166, 95, 112, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.6),
+    1px 2px 4px rgba(74, 47, 35, 0.2);
+
+  /* Applied to every photo and video; tune the whole look from this one line. */
+  --media-filter: sepia(0.15) saturate(0.9) contrast(1.03) brightness(1.02);
+
+  /* Film grain laid over the picture area (never baked into video pixels) */
+  --grain-opacity: 0.16;
+
+  /* Textures (tiny inline SVGs, no extra requests) */
+  --tex-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .25  0 0 0 0 .18  0 0 0 0 .1  0 0 0 .9 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  --tex-paper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='p' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.04 .6' numOctaves='3' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .32  0 0 0 0 .18  0 0 0 .35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+  --tex-leather: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='l' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='turbulence' baseFrequency='.55' numOctaves='3' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23l)'/></svg>");
+}

@@ -1,0 +1,78 @@
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(40, 22, 12, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(420px, 100%);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--tex-paper), linear-gradient(135deg, #f9f0de, #f0e2c3);
+  box-shadow: 0 2px 2px rgba(60, 35, 20, 0.3), 0 20px 40px rgba(40, 20, 10, 0.45);
+  border: 1px solid rgba(160, 125, 80, 0.5);
+}
+
+.dialog__title {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-4);
+  text-align: center;
+}
+
+.dialog__form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dialog__label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+}
+
+.dialog__message {
+  margin: 0 0 var(--space-5);
+  text-align: center;
+  font-size: 1.15rem;
+}
+
+.dialog__error {
+  margin: 0;
+  color: var(--rose-deep);
+  text-align: center;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* underlined input on paper, shared by dialogs and the login label */
+.paper-input {
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-bottom: 2px solid var(--paper-edge);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  color: var(--ink);
+  outline: none;
+}
+
+.paper-input:focus {
+  border-bottom-color: var(--rose-dust);
+}
+
+.paper-input::placeholder {
+  color: var(--paper-shadow);
+  opacity: 0.7;
+}

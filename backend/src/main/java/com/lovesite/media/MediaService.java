@@ -162,6 +162,14 @@ public class MediaService {
         return MediaResponse.from(media.save(m), storage.presignGet(m.getOriginalKey()));
     }
 
+    public MediaResponse updateCaption(UUID mediaId, String caption) {
+        Media m = find(mediaId);
+        String cleaned = caption == null ? "" : caption.trim();
+        m.setCaption(cleaned.isEmpty() ? null : cleaned);
+        m = media.save(m);
+        return MediaResponse.from(m, m.getStatus() == MediaStatus.UPLOADED ? storage.presignGet(m.getOriginalKey()) : null);
+    }
+
     /** Soft delete only: the object stays in the bucket (photos cannot be recovered once gone). */
     public void delete(UUID mediaId) {
         Media m = find(mediaId);

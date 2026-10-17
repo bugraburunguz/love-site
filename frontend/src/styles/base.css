@@ -1,0 +1,98 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.35;
+  background:
+    var(--tex-paper),
+    radial-gradient(ellipse at 50% 35%, #f3e5cb 0%, #e4d0a9 60%, #d4bc92 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Embossed lettering, used on leather covers */
+/* blind-embossed lettering: a pressed-in gold tint with a dark lower edge */
+.emboss {
+  font-family: var(--font-display);
+  color: rgba(236, 208, 150, 0.78);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 -1px 0 rgba(255, 240, 210, 0.22), 0 0 6px rgba(0, 0, 0, 0.35);
+}
+
+.gold-foil {
+  font-family: var(--font-display);
+  color: var(--gold-light);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6), 0 0 8px rgba(230, 203, 142, 0.25);
+}
+
+/* No motion at all when the user asks for it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.boot {
+  /* full-height centring instead of a top margin, which would push <body> down and count as layout shift */
+  min-height: 100dvh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-style: italic;
+  color: var(--ink-soft);
+}

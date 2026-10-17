@@ -1,0 +1,37 @@
+/* Washi tape: translucent, striped, torn ends */
+.tape {
+  width: 100%;
+  aspect-ratio: 3.6;
+  opacity: 0.88;
+  box-shadow: 0 1px 3px rgba(60, 35, 20, 0.25);
+  clip-path: polygon(
+    0 8%, 3% 0, 6% 10%, 9% 0, 12% 8%, 15% 0, 100% 0,
+    100% 100%, 97% 92%, 94% 100%, 91% 90%, 88% 100%, 85% 92%, 82% 100%, 0 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+.tape--rose {
+  background: repeating-linear-gradient(135deg, #f2b9c4 0 10px, #f7ccd4 10px 20px);
+}
+
+.tape--cream {
+  background: repeating-linear-gradient(135deg, #efdcae 0 12px, #f6e8c4 12px 24px);
+}
+
+.tape--gold {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 1.5px, transparent 2px) 0 0 / 14px 14px,
+    linear-gradient(90deg, #dcc07a, #ecd699);
+}
+
+.tape--sage {
+  background: repeating-linear-gradient(90deg, #bccaa0 0 8px, #cfdab6 8px 16px);
+}
+
+.sticker {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 2px 2px rgba(60, 35, 20, 0.3));
+}

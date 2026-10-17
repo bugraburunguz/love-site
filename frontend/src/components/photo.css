@@ -1,0 +1,167 @@
+.polaroid {
+  margin: 0;
+  position: relative;
+  display: block;
+  width: max-content;
+  outline-offset: 6px;
+}
+
+.polaroid--interactive {
+  cursor: zoom-in;
+}
+
+.polaroid__tilt {
+  position: relative;
+  background: linear-gradient(180deg, #fcf7ec, #f4ead3);
+  border-radius: 3px;
+  box-shadow: var(--shadow-polaroid);
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) scale(var(--lift, 1));
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+/* paper fibres on the frame */
+.polaroid__tilt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--tex-paper);
+  opacity: 0.5;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+/* Hover lift only where a real pointer exists; touch screens get nothing. */
+@media (hover: hover) and (pointer: fine) {
+  .polaroid--tilt:hover .polaroid__tilt {
+    --lift: 1.03;
+    box-shadow: var(--shadow-polaroid-lifted);
+  }
+  .polaroid--tilt .polaroid__tilt {
+    transition: transform 0.12s ease-out, box-shadow 0.25s ease;
+  }
+}
+
+.polaroid__image {
+  position: relative;
+  overflow: hidden;
+  background: #2b2118;
+  box-shadow: inset 0 0 0 1px rgba(40, 20, 10, 0.25), inset 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: height 0.5s ease;
+}
+
+.polaroid__media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: var(--media-filter);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Film grain: a static noise layer over the picture, never applied to the video pixels themselves */
+.polaroid__grain {
+  position: absolute;
+  inset: -20px;
+  background: var(--tex-grain);
+  opacity: var(--grain-opacity);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  animation: grain 2.4s steps(4) infinite;
+}
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-9px, 6px); }
+  50% { transform: translate(7px, -8px); }
+  75% { transform: translate(-5px, -4px); }
+  100% { transform: translate(0, 0); }
+}
+
+.polaroid__caption {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.05em;
+  overflow: hidden;
+  text-align: center;
+  color: var(--ink);
+}
+
+.polaroid__text {
+  font-family: var(--font-hand);
+  font-weight: 500;
+  line-height: 1.05;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.polaroid__date {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--ink-soft);
+  letter-spacing: 0.03em;
+}
+
+.polaroid__caption-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-family: var(--font-hand);
+  font-weight: 500;
+  font-size: inherit;
+  color: var(--ink);
+  border-bottom: 1px dashed rgba(122, 90, 72, 0.4);
+  outline: none;
+}
+
+.polaroid__caption-input:focus {
+  border-bottom-color: var(--rose-dust);
+}
+
+/* "Developing in the darkroom" placeholder */
+.developing {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: #6b4a33;
+  animation: develop 5s ease-in-out infinite alternate;
+}
+
+.developing__text {
+  font-family: var(--font-hand);
+  font-weight: 500;
+  font-size: 1.15em;
+  padding: 0 1em;
+  text-align: center;
+  color: inherit;
+  animation: breathe 5s ease-in-out infinite alternate;
+}
+
+@keyframes develop {
+  from { background: #6b4a33; color: #f1dfc0; }
+  to { background: #efe0c3; color: #4a2f23; }
+}
+
+@keyframes breathe {
+  from { opacity: 0.55; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .developing {
+    background: #b39a76;
+    color: #3a2418;
+  }
+}

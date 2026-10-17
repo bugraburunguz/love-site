@@ -1,7 +1,12 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import Clay from '../components/Clay'
+import '../components/dialog.css'
+import '../components/leather.css'
+import { createRng } from '../layout/prng'
+import './login.css'
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth()
@@ -10,6 +15,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Fixed seed: the same twinkles every visit.
+  const sparkles = useMemo(() => {
+    const rng = createRng('login-stardust')
+    return Array.from({ length: 34 }, (_, i) => ({
+      id: i,
+      left: rng.range(2, 98),
+      top: rng.range(2, 98),
+      size: rng.range(4, 11),
+      delay: rng.range(0, 5),
+      duration: rng.range(2.6, 5.2),
+    }))
+  }, [])
 
   if (!loading && user) return <Navigate to="/" replace />
 
@@ -28,20 +46,59 @@ export default function LoginPage() {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ maxWidth: 320, margin: '20vh auto', display: 'grid', gap: 12 }}>
-      <h1>Giriş</h1>
-      <input type="email" placeholder="E-posta" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input
-        type="password"
-        placeholder="Şifre"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={submitting}>
-        Giriş yap
-      </button>
-    </form>
+    <main className="login">
+      <div className="login__dust" aria-hidden="true">
+        {sparkles.map((s) => (
+          <span
+            key={s.id}
+            style={{
+              left: `${s.left}%`,
+              top: `${s.top}%`,
+              width: s.size,
+              height: s.size,
+              animationDelay: `${s.delay}s`,
+              animationDuration: `${s.duration}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="login-book" style={{ '--cover-color': 'var(--leather-bordeaux)' } as CSSProperties}>
+        <div className="login-book__cover leather">
+          <div className="gold-foil login-book__star" aria-hidden="true">✦</div>
+          <h1 className="emboss login-book__title">Anılarımız</h1>
+          <div className="gold-foil login-book__rule" aria-hidden="true">❖</div>
+
+          <form className="login-label" onSubmit={onSubmit}>
+            <label>
+              <span>E-posta</span>
+              <input
+                className="paper-input"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Şifre</span>
+              <input
+                className="paper-input"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </label>
+            {error && <p role="alert" className="login-label__error">{error}</p>}
+            <Clay type="submit" disabled={submitting} className="login-label__submit">
+              Kapağı aç
+            </Clay>
+          </form>
+        </div>
+      </div>
+    </main>
   )
 }

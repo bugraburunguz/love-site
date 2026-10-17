@@ -1,0 +1,88 @@
+.login {
+  position: relative;
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5) var(--space-4);
+  overflow: hidden;
+}
+
+/* stardust drifting over the table */
+.login__dust span {
+  position: absolute;
+  background: radial-gradient(circle, #fff6d6 0%, var(--gold-light) 40%, transparent 70%);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0.55;
+  animation: twinkle 3.5s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); }
+  50% { opacity: 0.9; transform: scale(1.15) rotate(25deg); }
+}
+
+.login-book {
+  position: relative;
+  width: min(400px, 100%);
+  z-index: 1;
+}
+
+.login-book__cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 30px 34px;
+  border-radius: 6px 18px 18px 6px;
+  box-shadow:
+    inset 14px 0 14px -10px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 2px rgba(0, 0, 0, 0.25),
+    0 3px 3px rgba(0, 0, 0, 0.35),
+    0 26px 44px rgba(50, 25, 10, 0.45);
+}
+
+.login-book__star {
+  font-size: 1.6rem;
+}
+
+.login-book__title {
+  margin: 10px 0 4px;
+  font-size: clamp(1.9rem, 8vw, 2.5rem);
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.login-book__rule {
+  margin-bottom: 22px;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+/* paper label glued on the cover */
+.login-label {
+  width: 100%;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: 4px;
+  background: var(--tex-paper), linear-gradient(135deg, #faf1df, #efe0c0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px rgba(0, 0, 0, 0.3);
+  transform: rotate(-0.6deg);
+}
+
+.login-label label {
+  display: grid;
+  gap: 2px;
+  font-size: 1.02rem;
+  color: var(--ink-soft);
+}
+
+.login-label__error {
+  margin: 0;
+  color: var(--rose-deep);
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+.login-label__submit {
+  justify-self: center;
+}

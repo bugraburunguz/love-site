@@ -5,3 +5,5 @@
 .vscode/
 *.log
 .DS_Store
+postgreslog.json
+websitelog.json

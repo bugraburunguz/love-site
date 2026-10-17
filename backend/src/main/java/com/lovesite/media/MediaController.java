@@ -1,13 +1,16 @@
 package com.lovesite.media;
 
+import com.lovesite.media.MediaDtos.CaptionRequest;
 import com.lovesite.media.MediaDtos.MediaResponse;
 import com.lovesite.media.MediaDtos.UploadRequest;
 import com.lovesite.media.MediaDtos.UploadResponse;
 import com.lovesite.user.CurrentUserService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,6 +45,11 @@ public class MediaController {
     @PostMapping("/api/media/{id}/complete")
     public MediaResponse complete(@PathVariable UUID id) {
         return mediaService.complete(id);
+    }
+
+    @PatchMapping("/api/media/{id}")
+    public MediaResponse updateCaption(@PathVariable UUID id, @Valid @RequestBody CaptionRequest request) {
+        return mediaService.updateCaption(id, request.caption());
     }
 
     @DeleteMapping("/api/media/{id}")

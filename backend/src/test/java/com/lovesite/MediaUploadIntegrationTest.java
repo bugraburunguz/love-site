@@ -446,4 +446,54 @@ class MediaUploadIntegrationTest {
         assertThat(unknownApi.getContentType()).startsWith("application/problem+json");
         assertThat(unknownApi.getContentAsString()).doesNotContain("No static resource");
     }
+
+    @Test
+    void captionCanBeSetClearedAndValidated() throws Exception {
+        String album = createAlbum();
+        String res = uploads(album, "[" + file("c1", "a.jpg", "image/jpeg", 10, sha('d')) + "]");
+        String mediaId = JsonPath.read(res, "$.items[0].mediaId");
+
+        String set = json(patch("/api/media/" + mediaId), "{\"caption\":\"  Deniz kenarı, 2024  \"}", 200);
+        assertThat(JsonPath.<String>read(set, "$.caption")).isEqualTo("Deniz kenarı, 2024");
+
+        String cleared = json(patch("/api/media/" + mediaId), "{\"caption\":\"   \"}", 200);
+        assertThat(JsonPath.<Object>read(cleared, "$.caption")).isNull();
+
+        String tooLong = json(patch("/api/media/" + mediaId), "{\"caption\":\"" + "a".repeat(281) + "\"}", 400);
+        assertThat(JsonPath.<String>read(tooLong, "$.detail")).isEqualTo("Altyazı en fazla 280 karakter olabilir");
+
+        // Caption shows up in the album listing once the file is uploaded.
+        put(JsonPath.read(res, "$.items[0].uploadUrl"), "image/jpeg", "x".getBytes());
+        complete(mediaId, 200);
+        json(patch("/api/media/" + mediaId), "{\"caption\":\"Merhaba\"}", 200);
+        String list = mvc.perform(get("/api/albums/" + album + "/media").with(USER)).andReturn().getResponse().getContentAsString();
+        assertThat(JsonPath.<String>read(list, "$[0].caption")).isEqualTo("Merhaba");
+        // Fields reserved for the media worker are present and null for now.
+        assertThat(JsonPath.<Object>read(list, "$[0].displayUrl")).isNull();
+        assertThat(JsonPath.<Object>read(list, "$[0].loopUrl")).isNull();
+
+        mvc.perform(delete("/api/media/" + mediaId).with(USER).with(csrf())).andExpect(status().isNoContent());
+        String gone = json(patch("/api/media/" + mediaId), "{\"caption\":\"x\"}", 404);
+        assertThat(JsonPath.<String>read(gone, "$.detail")).isEqualTo("Medya bulunamadı");
+    }
+
+    @Test
+    void musicEndpointReturnsNoContentUntilTheFileExists() throws Exception {
+        String key = "audio/theme";
+        storage.delete(key);
+        mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent());
+
+        byte[] data = "fake-mp3".getBytes();
+        storage.putObject(key, "audio/mpeg", data);
+        try {
+            String body = mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            String url = JsonPath.read(body, "$.url");
+            var got = http.send(HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            assertThat(got.body()).isEqualTo(data);
+            mvc.perform(get("/api/settings/music")).andExpect(status().isUnauthorized());
+        } finally {
+            storage.delete(key);
+        }
+    }
 }
