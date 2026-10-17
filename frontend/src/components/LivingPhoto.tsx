@@ -7,6 +7,7 @@ import {
 } from '../layout/geometry'
 import { resolveDisplay } from '../media/display'
 import { useVideoPlayback } from '../media/playback'
+import Clay from './Clay'
 import DevelopingPlaceholder from './DevelopingPlaceholder'
 import './photo.css'
 
@@ -19,6 +20,10 @@ interface Props {
   /** false turns off hover tilt and click, e.g. for the editing mode of a later phase or inside the lightbox */
   interactive?: boolean
   onOpen?: (media: MediaDto) => void
+  /** asks the server to process a FAILED item again */
+  onRetry?: (media: MediaDto) => void | Promise<void>
+  /** 'display' always uses the large variant (lightbox); 'responsive' lets the browser pick by size */
+  variant?: 'responsive' | 'display'
   onAspect?: (mediaId: string, aspect: number) => void
   /** page scale and narrow-screen flag; decides text size and strip height (default: 1 unit = 1 px, as in the lightbox) */
   metrics?: Metrics
@@ -28,9 +33,9 @@ interface Props {
 
 const MAX_TILT = 4
 
-/** The photo's own date when the device told us, otherwise when it was uploaded. */
+/** The server decides which date to show (capture date, else device modified time, else upload time). */
 export function shownDate(media: MediaDto): string {
-  return media.clientModifiedAt || media.createdAt
+  return media.displayDate
 }
 
 export function formatDate(iso: string): string {
@@ -64,10 +69,48 @@ function AutoVideo({ src, poster, label, onAspect }: { src: string; poster?: str
   )
 }
 
-function MediaView({ media, onAspect }: { media: MediaDto; onAspect: (a: number) => void }) {
+function FailedView({
+  media, onRetry, metrics, imageWidth,
+}: { media: MediaDto; onRetry?: (media: MediaDto) => void | Promise<void>; metrics: Metrics; imageWidth: number }) {
+  const [busy, setBusy] = useState(false)
+  // The button lives inside the scaled page, so on a phone it would be ~11 px tall. Scale it back up to a tappable size;
+  // on narrow screens it becomes a round icon button, which can grow without overflowing the picture.
+  const grow = Math.max(1, 1.15 / metrics.scale)
+  const factor = metrics.compact ? grow : Math.min(grow, (imageWidth * 0.8) / 130)
+  return (
+    <div className="failed" role="img" aria-label="Bu anı işlenemedi">
+      <span className="failed__text">Bu anı işlenemedi</span>
+      {onRetry && (
+        <Clay
+          size="sm"
+          shape={metrics.compact ? 'round' : 'pill'}
+          aria-label="Tekrar dene"
+          // a transform takes no layout space: add the margin the enlarged button needs so it does not touch the text
+          style={{ transform: `scale(${factor})`, marginTop: `${(factor - 1) * 17}px` }}
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation() // do not open the lightbox
+            setBusy(true)
+            void Promise.resolve(onRetry(media)).finally(() => setBusy(false))
+          }}
+        >
+          {metrics.compact ? '↻' : 'Tekrar dene'}
+        </Clay>
+      )}
+    </div>
+  )
+}
+
+function MediaView({
+  media, onAspect, onRetry, sizes, variant, metrics, imageWidth,
+}: {
+  media: MediaDto; onAspect: (a: number) => void; onRetry?: (media: MediaDto) => void | Promise<void>; sizes: string
+  variant: 'responsive' | 'display'; metrics: Metrics; imageWidth: number
+}) {
   const display = resolveDisplay(media)
   const [failed, setFailed] = useState(false)
   const label = media.caption || media.originalFilename
+  if (display.mode === 'failed') return <FailedView media={media} onRetry={onRetry} metrics={metrics} imageWidth={imageWidth} />
   if (display.mode === 'placeholder' || failed) return <DevelopingPlaceholder />
   if (display.mode === 'video') {
     return <AutoVideo src={display.src} poster={display.poster} label={label} onAspect={onAspect} />
@@ -76,6 +119,8 @@ function MediaView({ media, onAspect }: { media: MediaDto; onAspect: (a: number)
     <img
       className="polaroid__media"
       src={display.src}
+      srcSet={variant === 'responsive' ? display.srcSet : undefined}
+      sizes={variant === 'responsive' && display.srcSet ? sizes : undefined}
       alt={label}
       loading="lazy"
       decoding="async"
@@ -90,7 +135,8 @@ function MediaView({ media, onAspect }: { media: MediaDto; onAspect: (a: number)
 }
 
 export default function LivingPhoto({
-  media, width, aspect, interactive = true, onOpen, onAspect, captionSlot, metrics = UNIT_METRICS,
+  media, width, aspect, interactive = true, onOpen, onRetry, onAspect, captionSlot, metrics = UNIT_METRICS,
+  variant = 'responsive',
 }: Props) {
   const reduced = useReducedMotion()
   const hoverCapable = useHoverCapable()
@@ -141,7 +187,16 @@ export default function LivingPhoto({
     >
       <div ref={tiltRef} className="polaroid__tilt" style={frameStyle}>
         <div className="polaroid__image" style={{ width: imageWidth, height: imageWidth / a }}>
-          <MediaView media={media} onAspect={(ratio) => onAspect?.(media.id, ratio)} />
+          <MediaView
+            media={media}
+            onAspect={(ratio) => onAspect?.(media.id, ratio)}
+            onRetry={onRetry}
+            variant={variant}
+            metrics={metrics}
+            imageWidth={imageWidth}
+            // the picture's on-screen width in CSS px: page units x page scale
+            sizes={`${Math.max(1, Math.round(imageWidth * metrics.scale))}px`}
+          />
           <div className="polaroid__grain" aria-hidden="true" />
         </div>
         <figcaption className="polaroid__caption" style={{ height: frameBottom(width, metrics) }}>

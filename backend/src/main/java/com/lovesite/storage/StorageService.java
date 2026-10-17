@@ -130,6 +130,19 @@ public class StorageService {
                 software.amazon.awssdk.core.sync.RequestBody.fromBytes(data));
     }
 
+    /** Streams an object into a new local file (it must not exist yet); used by the media worker. */
+    public void download(String key, java.nio.file.Path target) {
+        client.getObject(GetObjectRequest.builder().bucket(properties.bucket()).key(key).build(),
+                software.amazon.awssdk.core.sync.ResponseTransformer.toFile(target));
+    }
+
+    /** Uploads a local file with an explicit content type and Cache-Control (generated variants are immutable). */
+    public void upload(String key, java.nio.file.Path file, String contentType, String cacheControl) {
+        client.putObject(PutObjectRequest.builder().bucket(properties.bucket()).key(key).contentType(contentType)
+                        .cacheControl(cacheControl).build(),
+                software.amazon.awssdk.core.sync.RequestBody.fromFile(file));
+    }
+
     /** Server-side download (e.g. the media worker reading an original). */
     public byte[] getObject(String key) {
         return client.getObjectAsBytes(GetObjectRequest.builder().bucket(properties.bucket()).key(key).build())

@@ -71,6 +71,17 @@ app:
     read-timeout: 10s
     max-attempts: 3
     allowed-origins: ${APP_ALLOWED_ORIGINS:}
+  processing:
+    # the queue lives in this process: a poller claims one UPLOADED row at a time (FOR UPDATE SKIP LOCKED)
+    auto-poll: true
+    poll-interval: 3s
+    concurrency: 1
+    stale-after: 15m
+    max-attempts: 3
+    backoff: 1m,5m,15m
+    photo-timeout: 60s
+    video-timeout: 180s
+    default-timezone: Europe/Istanbul
   media:
     max-image-size: 30MB
     max-video-size: 300MB

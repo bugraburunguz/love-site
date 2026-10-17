@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { deleteMedia, listAlbums, listMedia, updateCaption, type Album, type MediaDto } from '../api/albums'
+import {
+  deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
+} from '../api/albums'
 import Clay from '../components/Clay'
 import '../components/clay.css'
 import { ConfirmDialog } from '../components/Dialog'
@@ -43,6 +45,41 @@ function AlbumView({ id }: { id: string }) {
   }, [id])
 
   const { entries, add, retry, clearFinished } = useUploadQueue(id, refresh)
+
+  // While some items are still being processed, ask for just those every 5 s (not the whole list); stop when done.
+  const pendingKey = useMemo(
+    () => (media ?? []).filter((m) => m.status === 'UPLOADED' || m.status === 'PROCESSING').map((m) => m.id).sort().join(','),
+    [media],
+  )
+  useEffect(() => {
+    if (!pendingKey) return
+    const ids = pendingKey.split(',')
+    let cancelled = false
+    const timer = setInterval(() => {
+      if (document.hidden) return
+      getMediaStatuses(ids)
+        .then((updated) => {
+          if (cancelled) return
+          const byId = new Map(updated.map((u) => [u.id, u]))
+          // only items whose state changed are replaced, so unchanged photos keep their identity
+          setMedia((list) => list?.map((m) => (byId.get(m.id) && byId.get(m.id)!.status !== m.status ? byId.get(m.id)! : m)) ?? list)
+        })
+        .catch(() => undefined) // a missed poll is simply retried
+    }, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [pendingKey])
+
+  async function retryProcessing(item: MediaDto) {
+    try {
+      const updated = await reprocessMedia(item.id)
+      setMedia((list) => list?.map((m) => (m.id === updated.id ? updated : m)) ?? list)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Tekrar denenemedi')
+    }
+  }
 
   useEffect(() => {
     listAlbums()
@@ -173,6 +210,7 @@ function AlbumView({ id }: { id: string }) {
           emptyHint={items.length === 0}
           keyboard={openIndex < 0 && !toDelete}
           onOpen={(m) => setOpenId(m.id)}
+          onRetry={retryProcessing}
           onAspect={onAspect}
           onPosition={onPosition}
         />
@@ -187,6 +225,7 @@ function AlbumView({ id }: { id: string }) {
           onClose={() => setOpenId(null)}
           onCaption={saveCaption}
           onDelete={setToDelete}
+          onRetry={retryProcessing}
           onAspect={onAspect}
         />
       )}

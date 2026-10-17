@@ -54,20 +54,16 @@ public final class MediaDtos {
     }
 
     /**
-     * url is the original file. displayUrl, thumbUrl, loopUrl, posterUrl, width and height are filled by the
-     * media worker in a later phase and are null until then.
+     * What the client needs to draw a media item. The original file is never exposed; variant URLs are only set once
+     * the item is READY (null while UPLOADED / PROCESSING and for FAILED). Photos have thumbUrl + displayUrl, videos
+     * have loopUrl + posterUrl. width / height are the display size (rotation applied). displayDate is the capture date
+     * (EXIF / video metadata), else the file's modified time on the uploader's device, else the upload time.
+     * FAILED carries no error detail.
      */
     public record MediaResponse(UUID id, MediaKind type, MediaStatus status, String originalFilename,
-                                String contentType, long sizeBytes, Instant createdAt, Instant clientModifiedAt, String caption,
-                                String url,
-                                String displayUrl, String thumbUrl, String loopUrl, String posterUrl,
-                                Integer width, Integer height) {
-
-        static MediaResponse from(Media media, String url) {
-            return new MediaResponse(media.getId(), media.getType(), media.getStatus(), media.getOriginalFilename(),
-                    media.getContentType(), media.getSizeBytes(), media.getCreatedAt(), media.getClientModifiedAt(),
-                    media.getCaption(), url,
-                    null, null, null, null, null, null);
-        }
+                                String contentType, long sizeBytes, Instant createdAt, Instant clientModifiedAt,
+                                Instant displayDate, String caption,
+                                String thumbUrl, String displayUrl, String loopUrl, String posterUrl,
+                                Integer width, Integer height, Long durationMs) {
     }
 }

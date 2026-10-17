@@ -161,3 +161,45 @@ No inline styles or scripts are needed (textures are real files, not data: URLs)
 Uploads send `File.lastModified`; the server stores it as `media.client_modified_at` (ignored if missing, non-positive or in
 the future). The album shows that date, falling back to the upload time. Phase 3 will prefer the EXIF date and use this as
 the fallback.
+
+## Media processing (Phase 3)
+
+Every verified upload becomes `UPLOADED` and is picked up by an in-process queue (no separate service):
+`UPLOADED -> PROCESSING -> READY`, or `FAILED` after the last attempt. The original is never modified or deleted and is never
+sent to the browser; the album only uses generated variants.
+
+- **Queue:** a poller (every 3 s, plus a kick right after an upload completes) claims one due `UPLOADED` row with
+  `SELECT ... FOR UPDATE SKIP LOCKED` and marks it `PROCESSING` in a short transaction; the work runs outside any
+  transaction on a bounded pool (`app.processing.concurrency`, default 1) and the result is written in another one.
+  A job stuck in `PROCESSING` for 15 min (crash, restart) is re-queued and counts as a failed attempt. Failures retry after
+  1 min, 5 min, 15 min (`app.processing.backoff`); the 3rd failure sets `FAILED`. Existing `UPLOADED` rows are processed
+  automatically after a deploy. `POST /api/media/{id}/reprocess` re-queues a `FAILED` or `READY` item with a fresh counter.
+- **External tools** (`ffmpeg`, `ffprobe`, `vips`) run with argument lists (no shell), both output streams drained, a timeout
+  per process (photo 60 s, video 180 s) and the whole process tree killed on timeout. Temporary files are removed in `finally`.
+- **Variants** are written to `albums/{albumId}/media/{mediaId}/v{n}/` with
+  `Cache-Control: private, max-age=31536000, immutable`; the row points at version *n* only after every object is uploaded, then
+  the previous version's objects are deleted. No EXIF/GPS/ICC in any variant.
+  - Photos (format detected from content, HEIC via `heifload`): `thumb.webp` (long edge 480, Q78) and `display.webp`
+    (long edge 1600, Q82); orientation applied, sRGB, never enlarged. Capture date from EXIF `DateTimeOriginal`
+    (+ `OffsetTimeOriginal`, else `app.processing.default-timezone` = Europe/Istanbul; dates before 2000 or in the future are ignored).
+  - Videos: silent boomerang `loop.mp4` (first 3 s forward then backward, long edge 720, <= 30 fps, H.264 yuv420p, CRF 26,
+    faststart; videos under 1 s are used whole) and `poster.webp`. HLG / PQ sources are tone-mapped to SDR bt709
+    (`zscale` + `tonemap`). Capture date from `creation_time`.
+- **API:** the media DTO has `status`, `thumbUrl`, `displayUrl`, `loopUrl`, `posterUrl`, `width`, `height`, `durationMs` and a
+  computed `displayDate` (`taken_at` > device modified time > upload time). URLs are null until `READY`; `FAILED` carries no
+  detail (the cause stays in `media.last_error` and the log). `GET /api/media?ids=a,b` returns the current state of a few items
+  (the album page polls only the unfinished ones, every 5 s).
+- **Docker image:** installs `ffmpeg`, `libvips-tools`, `libheif1` and `libheif-plugin-libde265` (the HEVC decoder iPhone HEIC needs;
+  it is only a "recommended" package, so it is named explicitly). The build fails if ffmpeg lacks `zscale`, `tonemap`, `reverse`,
+  `libx264` or `libwebp`, or if vips has no `heifload` or libheif no HEVC plugin.
+
+### Running the tests with the real tools
+
+The processing tests use synthetic media made on the fly with ffmpeg/vips (nothing personal is committed) and skip themselves
+when those tools are missing. To run everything (including HEIC and HLG) use the test image, which has the same OS and
+tools as production plus an HEVC encoder:
+
+```bash
+docker build -t love-site-test -f backend/test.Dockerfile backend
+docker run --rm -v "$PWD/backend:/w" -v m2cache:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock   -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -e TESTCONTAINERS_RYUK_DISABLED=true -w /w love-site-test ./mvnw test
+```

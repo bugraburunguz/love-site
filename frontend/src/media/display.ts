@@ -1,41 +1,46 @@
 import type { MediaDto } from '../api/albums'
 
-// Formats every browser can draw; HEIC/HEIF and friends wait for the Phase 3 display copy.
-const BROWSER_IMAGES = ['image/jpeg', 'image/png', 'image/webp']
+/** Long edge of the generated thumbnail, in px (the backend's PhotoProcessor.THUMB_EDGE). */
+const THUMB_EDGE = 480
+const DISPLAY_EDGE = 1600
 
 export type Display =
-  | { mode: 'image'; src: string }
+  | { mode: 'image'; src: string; srcSet?: string }
   | { mode: 'video'; src: string; poster?: string }
+  /** waiting for the processing queue (UPLOADED / PROCESSING) or no variants yet */
   | { mode: 'placeholder' }
+  | { mode: 'failed' }
 
-let probe: HTMLVideoElement | null = null
-function canPlayVideo(contentType: string): boolean {
-  if (typeof document === 'undefined') return false
-  probe ??= document.createElement('video')
-  return probe.canPlayType(contentType) !== ''
+/**
+ * One rule for every screen. Only generated variants are ever shown: the original (HEIC, huge JPEG, raw video)
+ * is never loaded or played by the browser.
+ */
+export function resolveDisplay(media: MediaDto): Display {
+  if (media.status === 'FAILED') return { mode: 'failed' }
+  if (media.status !== 'READY') return { mode: 'placeholder' }
+
+  if (media.type === 'IMAGE') {
+    if (!media.displayUrl) return { mode: 'placeholder' }
+    return { mode: 'image', src: media.displayUrl, srcSet: media.thumbUrl ? srcSet(media) : undefined }
+  }
+  if (!media.loopUrl) return { mode: 'placeholder' }
+  return { mode: 'video', src: media.loopUrl, poster: media.posterUrl ?? undefined }
 }
 
-/** One rule for before and after Phase 3: use the processed copy if there is one, else the original, else a placeholder. */
-export function resolveDisplay(media: MediaDto): Display {
-  if (media.type === 'IMAGE') {
-    if (media.displayUrl) return { mode: 'image', src: media.displayUrl }
-    if (media.url && BROWSER_IMAGES.includes(media.contentType)) return { mode: 'image', src: media.url }
-    return { mode: 'placeholder' }
-  }
-  if (media.loopUrl) return { mode: 'video', src: media.loopUrl, poster: media.posterUrl ?? undefined }
-  if (media.url && canPlayVideo(media.contentType)) {
-    return { mode: 'video', src: media.url, poster: media.posterUrl ?? undefined }
-  }
-  return { mode: 'placeholder' }
+/** `thumb 270w, display 900w`: widths are the real pixel widths of the two files, so the browser can choose well. */
+function srcSet(media: MediaDto): string | undefined {
+  const { thumbUrl, displayUrl, width, height } = media
+  if (!thumbUrl || !displayUrl) return undefined
+  if (!width || !height) return `${thumbUrl} ${THUMB_EDGE}w, ${displayUrl} ${DISPLAY_EDGE}w`
+  const thumbWidth = Math.max(1, Math.round(width * Math.min(1, THUMB_EDGE / Math.max(width, height))))
+  return thumbWidth >= width ? undefined : `${thumbUrl} ${thumbWidth}w, ${displayUrl} ${width}w`
 }
 
 export type CoverSource = { kind: 'image' | 'video'; src: string }
 
-/** What to show in a small still window (album cover): a picture, or a paused first frame; null if nothing showable yet. */
+/** A small still for the album cover window: the thumbnail, or a video's poster. */
 export function coverSource(media: MediaDto): CoverSource | null {
-  if (media.thumbUrl) return { kind: 'image', src: media.thumbUrl }
-  const display = resolveDisplay(media)
-  if (display.mode === 'image') return { kind: 'image', src: display.src }
-  if (display.mode === 'video') return display.poster ? { kind: 'image', src: display.poster } : { kind: 'video', src: display.src }
-  return null
+  if (media.status !== 'READY') return null
+  const src = media.type === 'IMAGE' ? (media.thumbUrl ?? media.displayUrl) : media.posterUrl
+  return src ? { kind: 'image', src } : null
 }

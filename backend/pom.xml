@@ -66,6 +66,12 @@
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>s3</artifactId>
 		</dependency>
+		<!-- EXIF capture date for photos -->
+		<dependency>
+			<groupId>com.drewnoakes</groupId>
+			<artifactId>metadata-extractor</artifactId>
+			<version>2.19.0</version>
+		</dependency>
 		<!-- named explicitly because the HTTP timeouts are configured on it -->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>

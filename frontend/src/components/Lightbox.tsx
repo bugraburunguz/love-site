@@ -16,12 +16,13 @@ interface Props {
   onClose: () => void
   onCaption: (mediaId: string, caption: string) => Promise<void>
   onDelete: (media: MediaDto) => void
+  onRetry: (media: MediaDto) => void | Promise<void>
   onAspect: (mediaId: string, aspect: number) => void
 }
 
 const SWIPE = 60
 
-export default function Lightbox({ items, index, aspects, onIndex, onClose, onCaption, onDelete, onAspect }: Props) {
+export default function Lightbox({ items, index, aspects, onIndex, onClose, onCaption, onDelete, onRetry, onAspect }: Props) {
   const media = items[index]
   const stageRef = useRef<HTMLDivElement>(null)
   const { width: stageW, height: stageH } = useElementSize(stageRef)
@@ -154,6 +155,8 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
               width={frameWidth}
               aspect={aspect}
               interactive={false}
+              variant="display"
+              onRetry={onRetry}
               metrics={metrics}
               onAspect={onAspect}
               captionSlot={

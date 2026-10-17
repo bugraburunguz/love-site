@@ -15,9 +15,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -64,59 +61,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class MediaUploadIntegrationTest {
 
-    static final String BUCKET = "test-bucket";
+    static final String BUCKET = TestInfrastructure.BUCKET;
     static final long MAX_IMAGE_BYTES = 1000;
-
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
-    // S3-compatible server (MinIO's community images are no longer published). Verifies SigV4 signatures.
-    static final String S3_USER = "testaccesskey";
-    static final String S3_SECRET = "testsecretkey12345";
-    static final GenericContainer<?> S3 = new GenericContainer<>("zenko/cloudserver:latest")
-            .withEnv("S3BACKEND", "mem")
-            // CloudServer only accepts hosts it knows as REST endpoints.
-            .withEnv("ENDPOINT", org.testcontainers.DockerClientFactory.instance().dockerHostIpAddress())
-            .withEnv("SCALITY_ACCESS_KEY_ID", S3_USER)
-            .withEnv("SCALITY_SECRET_ACCESS_KEY", S3_SECRET)
-            .withExposedPorts(8000)
-            .waitingFor(Wait.forListeningPort());
+    static final S3Client admin = TestInfrastructure.ADMIN;
 
     static String s3Url() {
-        return "http://" + S3.getHost() + ":" + S3.getMappedPort(8000);
-    }
-    static S3Client admin;
-
-    static {
-        POSTGRES.start();
-        S3.start();
-        admin = S3Client.builder()
-                .endpointOverride(URI.create(s3Url()))
-                .region(Region.US_EAST_1)
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(S3_USER, S3_SECRET)))
-                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
-                .requestChecksumCalculation(software.amazon.awssdk.core.checksums.RequestChecksumCalculation.WHEN_REQUIRED)
-                .build();
-        admin.createBucket(CreateBucketRequest.builder().bucket(BUCKET).build());
+        return TestInfrastructure.s3Url();
     }
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry r) {
-        r.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        r.add("spring.datasource.username", POSTGRES::getUsername);
-        r.add("spring.datasource.password", POSTGRES::getPassword);
-        r.add("app.seed.user1.email", () -> "a@test.io");
-        r.add("app.seed.user1.name", () -> "A");
-        r.add("app.seed.user1.password", () -> "pw1");
-        r.add("app.seed.user2.email", () -> "b@test.io");
-        r.add("app.seed.user2.name", () -> "B");
-        r.add("app.seed.user2.password", () -> "pw2");
-        r.add("app.storage.endpoint", MediaUploadIntegrationTest::s3Url);
-        r.add("app.storage.bucket", () -> BUCKET);
-        r.add("app.storage.access-key-id", () -> S3_USER);
-        r.add("app.storage.secret-access-key", () -> S3_SECRET);
-        r.add("app.storage.region", () -> "us-east-1");
-        r.add("app.storage.path-style", () -> "true");
-        r.add("app.storage.allowed-origins", () -> "http://localhost:5173");
+        TestInfrastructure.register(r);
         r.add("app.media.max-image-size", () -> MAX_IMAGE_BYTES + "B");
     }
 
@@ -216,15 +171,15 @@ class MediaUploadIntegrationTest {
         String key = jdbc.queryForObject("select original_key from media where id = ?::uuid", String.class, mediaId);
         assertThat(key).isEqualTo("albums/" + album + "/media/" + mediaId + "/original");
 
-        // Listing returns a presigned GET url that serves the bytes, and is stable across requests.
+        // The album lists the item as UPLOADED (waiting for the processing queue): no variant URLs yet, and the
+        // original file is never exposed to the client.
         String list1 = mvc.perform(get("/api/albums/" + album + "/media").with(USER)).andReturn().getResponse().getContentAsString();
-        String list2 = mvc.perform(get("/api/albums/" + album + "/media").with(USER)).andReturn().getResponse().getContentAsString();
-        String getUrl = JsonPath.read(list1, "$[0].url");
-        assertThat(JsonPath.<String>read(list2, "$[0].url")).isEqualTo(getUrl);
         assertThat(JsonPath.<String>read(list1, "$[0].originalFilename")).isEqualTo("IMG_0001.JPG");
-        var got = http.send(HttpRequest.newBuilder(URI.create(getUrl)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
-        assertThat(got.statusCode()).isEqualTo(200);
-        assertThat(got.body()).isEqualTo(data);
+        assertThat(JsonPath.<String>read(list1, "$[0].status")).isEqualTo("UPLOADED");
+        assertThat(JsonPath.<Object>read(list1, "$[0].thumbUrl")).isNull();
+        assertThat(JsonPath.<Object>read(list1, "$[0].displayUrl")).isNull();
+        assertThat(JsonPath.<java.util.Map<String, Object>>read(list1, "$[0]")).doesNotContainKey("url");
+        assertThat(admin.getObjectAsBytes(b -> b.bucket(BUCKET).key(key)).asByteArray()).isEqualTo(data);
 
         // Soft delete hides it but keeps the object.
         mvc.perform(delete("/api/media/" + mediaId).with(USER).with(csrf())).andExpect(status().isNoContent());
@@ -528,7 +483,7 @@ class MediaUploadIntegrationTest {
         assertThat(response.getHeader("Referrer-Policy")).isEqualTo("no-referrer");
 
         String csp = response.getHeader("Content-Security-Policy");
-        String bucket = MediaUploadIntegrationTest.s3Url(); // path-style in tests: the endpoint origin itself
+        String bucket = TestInfrastructure.s3Url(); // path-style in tests: the endpoint origin itself
         assertThat(csp).contains("default-src 'self'", "frame-ancestors 'none'", "font-src 'self'", "style-src 'self'");
         assertThat(csp).contains("img-src 'self' blob: " + bucket);
         assertThat(csp).contains("media-src 'self' blob: " + bucket);

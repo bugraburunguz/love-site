@@ -2,12 +2,14 @@ package com.lovesite.media;
 
 import com.lovesite.album.AlbumService;
 import com.lovesite.media.MediaDtos.MediaResponse;
+import com.lovesite.media.processing.MediaProcessingQueue;
 import com.lovesite.media.MediaDtos.UploadFile;
 import com.lovesite.media.MediaDtos.UploadItem;
 import com.lovesite.media.MediaDtos.UploadResponse;
 import com.lovesite.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.lovesite.system.ApiException;
@@ -26,6 +28,9 @@ import java.util.regex.Pattern;
 public class MediaService {
 
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
+    /** Everything the album shows: uploaded items in any processing state (not half-uploaded or rejected ones). */
+    private static final List<MediaStatus> LISTED =
+            List.of(MediaStatus.UPLOADED, MediaStatus.PROCESSING, MediaStatus.READY, MediaStatus.FAILED);
     private static final Pattern SHA256 = Pattern.compile("[0-9a-fA-F]{64}");
     private static final int MAX_FILENAME = 512;
 
@@ -33,8 +38,11 @@ public class MediaService {
     private final AlbumService albums;
     private final StorageService storage;
     private final MediaProperties properties;
+    private final ObjectProvider<MediaProcessingQueue> queue;
 
-    public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties) {
+    public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties,
+                        ObjectProvider<MediaProcessingQueue> queue) {
+        this.queue = queue;
         this.media = media;
         this.albums = albums;
         this.storage = storage;
@@ -43,9 +51,46 @@ public class MediaService {
 
     public List<MediaResponse> list(UUID albumId) {
         albums.require(albumId);
-        return media.findByAlbumIdAndStatusAndDeletedAtIsNullOrderByCreatedAtAsc(albumId, MediaStatus.UPLOADED).stream()
-                .map(m -> MediaResponse.from(m, storage.presignGet(m.getOriginalKey())))
+        return media.findByAlbumIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtAsc(albumId, LISTED).stream()
+                .map(this::toResponse)
                 .toList();
+    }
+
+    /** Current state of a few items (the album page polls only those that are still being processed). */
+    public List<MediaResponse> statusOf(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        if (ids.size() > properties.maxBatchSize()) {
+            throw ApiException.badRequest("En fazla " + properties.maxBatchSize() + " medya sorgulanabilir");
+        }
+        return media.findByIdInAndStatusInAndDeletedAtIsNull(ids, LISTED).stream().map(this::toResponse).toList();
+    }
+
+    /** FAILED or READY items go back to the queue with a fresh attempt counter. */
+    public MediaResponse reprocess(UUID mediaId) {
+        Media m = find(mediaId);
+        if (m.getStatus() != MediaStatus.FAILED && m.getStatus() != MediaStatus.READY) {
+            throw ApiException.conflict("Bu medya zaten işleniyor");
+        }
+        m.requeue();
+        m = media.save(m);
+        queue.ifAvailable(MediaProcessingQueue::kick);
+        return toResponse(m);
+    }
+
+    /** Variant URLs only for READY items; they come from the shared presigned-URL cache. */
+    MediaResponse toResponse(Media m) {
+        boolean ready = m.getStatus() == MediaStatus.READY;
+        Instant displayDate = m.getTakenAt() != null ? m.getTakenAt()
+                : m.getClientModifiedAt() != null ? m.getClientModifiedAt() : m.getCreatedAt();
+        return new MediaResponse(m.getId(), m.getType(), m.getStatus(), m.getOriginalFilename(), m.getContentType(),
+                m.getSizeBytes(), m.getCreatedAt(), m.getClientModifiedAt(), displayDate, m.getCaption(),
+                ready ? url(m.getThumbKey()) : null, ready ? url(m.getDisplayKey()) : null,
+                ready ? url(m.getLoopKey()) : null, ready ? url(m.getPosterKey()) : null,
+                ready ? m.getWidth() : null, ready ? m.getHeight() : null, ready ? m.getDurationMs() : null);
+    }
+
+    private String url(String key) {
+        return key == null ? null : storage.presignGet(key);
     }
 
     /** Each file is handled on its own: a bad file yields an ERROR item and never fails the batch. */
@@ -144,8 +189,8 @@ public class MediaService {
     /** Verifies the stored object with HeadObject. Safe to call repeatedly. */
     public MediaResponse complete(UUID mediaId) {
         Media m = find(mediaId);
-        if (m.getStatus() == MediaStatus.UPLOADED) {
-            return MediaResponse.from(m, storage.presignGet(m.getOriginalKey()));
+        if (m.getStatus() != MediaStatus.PENDING_UPLOAD) {
+            return toResponse(m);
         }
 
         var head = storage.head(m.getOriginalKey())
@@ -170,7 +215,9 @@ public class MediaService {
         }
 
         m.markUploaded(actualSize);
-        return MediaResponse.from(media.save(m), storage.presignGet(m.getOriginalKey()));
+        m = media.save(m);
+        queue.ifAvailable(MediaProcessingQueue::kick);
+        return toResponse(m);
     }
 
     public MediaResponse updateCaption(UUID mediaId, String caption) {
@@ -178,7 +225,7 @@ public class MediaService {
         String cleaned = caption == null ? "" : caption.trim();
         m.setCaption(cleaned.isEmpty() ? null : cleaned);
         m = media.save(m);
-        return MediaResponse.from(m, m.getStatus() == MediaStatus.UPLOADED ? storage.presignGet(m.getOriginalKey()) : null);
+        return toResponse(m);
     }
 
     /** Soft delete only: the object stays in the bucket (photos cannot be recovered once gone). */

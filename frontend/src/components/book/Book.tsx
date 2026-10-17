@@ -22,6 +22,7 @@ interface Props {
   /** turn the keyboard arrows off while a modal is open */
   keyboard?: boolean
   onOpen: (media: MediaDto) => void
+  onRetry: (media: MediaDto) => void | Promise<void>
   onAspect: (mediaId: string, aspect: number) => void
   /** called with the first visible page index and the number of pages shown at once */
   onPosition?: (start: number, cols: number) => void
@@ -35,7 +36,7 @@ const SWIPE_DISTANCE = 50
  * The open book. It owns the single page scale (fits one or two pages into the available area),
  * the current spread, and the CSS 3D page turn. Pages themselves are drawn by PageCanvas.
  */
-export default function Book({ layout, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onAspect, onPosition }: Props) {
+export default function Book({ layout, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onRetry, onAspect, onPosition }: Props) {
   const areaRef = useRef<HTMLDivElement>(null)
   const { width, height } = useElementSize(areaRef)
   const reduced = useReducedMotion()
@@ -114,7 +115,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
     }
   }
 
-  const common = { mediaById, aspects, scale, metrics, onOpen, onAspect }
+  const common = { mediaById, aspects, scale, metrics, onOpen, onRetry, onAspect }
   const sheet = (index: number, side: 'left' | 'right' | 'single', interactive = true): ReactNode => {
     const pageLayout = index >= 0 && index < pages.length ? pages[index] : null
     return (

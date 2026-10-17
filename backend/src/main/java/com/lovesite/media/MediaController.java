@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,6 +41,16 @@ public class MediaController {
     public UploadResponse requestUploads(@PathVariable UUID albumId, @RequestBody UploadRequest request,
                                          Authentication authentication) {
         return mediaService.requestUploads(albumId, currentUser.require(authentication).getId(), request.files());
+    }
+
+    @GetMapping("/api/media")
+    public List<MediaResponse> status(@RequestParam List<UUID> ids) {
+        return mediaService.statusOf(ids);
+    }
+
+    @PostMapping("/api/media/{id}/reprocess")
+    public MediaResponse reprocess(@PathVariable UUID id) {
+        return mediaService.reprocess(id);
     }
 
     @PostMapping("/api/media/{id}/complete")

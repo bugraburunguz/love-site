@@ -38,7 +38,7 @@ export function useAspectProbe(
           return
         }
         const display = resolveDisplay(media)
-        if (display.mode === 'placeholder') {
+        if (display.mode === 'placeholder' || display.mode === 'failed') {
           resolve()
           return
         }

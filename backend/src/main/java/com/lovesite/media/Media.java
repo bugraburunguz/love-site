@@ -51,6 +51,44 @@ public class Media {
     @Column(name = "client_modified_at")
     private Instant clientModifiedAt;
 
+    // ---- processing pipeline
+    @Column(nullable = false)
+    private int attempts;
+
+    @Column(name = "last_error", length = 300)
+    private String lastError;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "processing_started_at")
+    private Instant processingStartedAt;
+
+    @Column(name = "processing_version", nullable = false)
+    private int processingVersion;
+
+    private Integer width;
+
+    private Integer height;
+
+    @Column(name = "duration_ms")
+    private Long durationMs;
+
+    @Column(name = "taken_at")
+    private Instant takenAt;
+
+    @Column(name = "thumb_key", length = 512)
+    private String thumbKey;
+
+    @Column(name = "display_key", length = 512)
+    private String displayKey;
+
+    @Column(name = "loop_key", length = 512)
+    private String loopKey;
+
+    @Column(name = "poster_key", length = 512)
+    private String posterKey;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -99,6 +137,34 @@ public class Media {
         this.deletedAt = Instant.now();
     }
 
+    /** Result of a successful processing run. */
+    public void markReady(int version, Integer width, Integer height, Long durationMs, Instant takenAt,
+                          String thumbKey, String displayKey, String loopKey, String posterKey) {
+        this.status = MediaStatus.READY;
+        this.processingVersion = version;
+        this.width = width;
+        this.height = height;
+        this.durationMs = durationMs;
+        this.takenAt = takenAt;
+        this.thumbKey = thumbKey;
+        this.displayKey = displayKey;
+        this.loopKey = loopKey;
+        this.posterKey = posterKey;
+        this.attempts = 0;
+        this.lastError = null;
+        this.nextAttemptAt = null;
+        this.processingStartedAt = null;
+    }
+
+    /** Puts a FAILED or READY item back in the queue with a fresh attempt counter. */
+    public void requeue() {
+        this.status = MediaStatus.UPLOADED;
+        this.attempts = 0;
+        this.lastError = null;
+        this.nextAttemptAt = null;
+        this.processingStartedAt = null;
+    }
+
     public void setCaption(String caption) {
         this.caption = caption;
     }
@@ -145,6 +211,54 @@ public class Media {
 
     public String getSha256() {
         return sha256;
+    }
+
+    public int getAttempts() {
+        return attempts;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    public Instant getNextAttemptAt() {
+        return nextAttemptAt;
+    }
+
+    public int getProcessingVersion() {
+        return processingVersion;
+    }
+
+    public Integer getWidth() {
+        return width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
+
+    public Long getDurationMs() {
+        return durationMs;
+    }
+
+    public Instant getTakenAt() {
+        return takenAt;
+    }
+
+    public String getThumbKey() {
+        return thumbKey;
+    }
+
+    public String getDisplayKey() {
+        return displayKey;
+    }
+
+    public String getLoopKey() {
+        return loopKey;
+    }
+
+    public String getPosterKey() {
+        return posterKey;
     }
 
     public Instant getClientModifiedAt() {

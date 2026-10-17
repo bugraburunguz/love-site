@@ -7,26 +7,28 @@ export interface Album {
   updatedAt: string
 }
 
+export type MediaStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'
+
 export interface MediaDto {
   id: string
   type: 'IMAGE' | 'VIDEO'
-  status: string
+  status: MediaStatus
   originalFilename: string
   contentType: string
   sizeBytes: number
   createdAt: string
-  /** when the file was last modified on the uploader's device (epoch based), if the client sent it */
-  clientModifiedAt?: string | null
+  /** capture date (EXIF / video metadata), else the file's modified time on the device, else the upload time */
+  displayDate: string
   caption: string | null
-  /** original file */
-  url: string | null
-  /** The fields below are produced by the media worker in a later phase; null until then. */
-  displayUrl?: string | null
-  thumbUrl?: string | null
-  loopUrl?: string | null
-  posterUrl?: string | null
-  width?: number | null
-  height?: number | null
+  /** Variant URLs exist only when status is READY. The original file is never exposed. */
+  thumbUrl: string | null
+  displayUrl: string | null
+  loopUrl: string | null
+  posterUrl: string | null
+  /** display size of the variant (rotation applied) */
+  width: number | null
+  height: number | null
+  durationMs: number | null
 }
 
 export interface UploadFileRequest {
@@ -57,6 +59,9 @@ export const deleteAlbum = (id: string) => api<void>(`/api/albums/${id}`, { meth
 export const listMedia = (albumId: string) => api<MediaDto[]>(`/api/albums/${albumId}/media`)
 export const updateCaption = (id: string, caption: string) =>
   api<MediaDto>(`/api/media/${id}`, { method: 'PATCH', body: { caption } })
+export const getMediaStatuses = (ids: string[]) =>
+  api<MediaDto[]>(`/api/media?ids=${ids.join(',')}`)
+export const reprocessMedia = (id: string) => api<MediaDto>(`/api/media/${id}/reprocess`, { method: 'POST' })
 export const getMusicUrl = () => api<{ url: string } | undefined>('/api/settings/music')
 export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { method: 'DELETE' })
 export const requestUploads = (albumId: string, files: UploadFileRequest[]) =>

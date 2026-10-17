@@ -20,6 +20,7 @@ interface Props {
   interactive?: boolean
   emptyHint?: boolean
   onOpen?: (media: MediaDto) => void
+  onRetry?: (media: MediaDto) => void | Promise<void>
   onAspect?: (mediaId: string, aspect: number) => void
 }
 
@@ -28,7 +29,7 @@ interface Props {
  * (PAGE_W x PAGE_H) inside a single scaled container. Where the layout came from does not matter.
  */
 export default function PageCanvas({
-  layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onAspect,
+  layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onRetry, onAspect,
 }: Props) {
   const items = layout ? [...layout.items].sort((a, b) => a.zIndex - b.zIndex) : []
   return (
@@ -54,6 +55,7 @@ export default function PageCanvas({
                   metrics={metrics}
                   interactive={interactive}
                   onOpen={onOpen}
+                  onRetry={onRetry}
                   onAspect={onAspect}
                 />
               </div>
