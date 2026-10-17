@@ -81,6 +81,19 @@
   -webkit-user-drag: none;
 }
 
+/* Motion Photo clip over the still: fades in once it is really playing */
+.polaroid__live {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.polaroid__live--on {
+  opacity: 1;
+}
+
 /* Film grain: a static noise layer over the picture, never applied to the video pixels themselves */
 .polaroid__grain {
   position: absolute;

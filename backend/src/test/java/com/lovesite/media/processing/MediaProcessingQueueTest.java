@@ -317,6 +317,35 @@ class MediaProcessingQueueTest {
     }
 
     @Test
+    void aMotionPhotoStaysAnImageButGetsALoopAndAnOldPhotoGainsOneWhenQueuedAgain() throws Exception {
+        Path plain = ToolFixtures.jpeg(dir, "plain.jpg", 640, 480);
+        Media m = upload(MediaKind.IMAGE, plain, "image/jpeg");
+        assertThat(queue.drain(60_000)).isTrue();
+        String before = list();
+        assertThat(JsonPath.<String>read(before, "$[0].type")).isEqualTo("IMAGE");
+        assertThat(JsonPath.<Object>read(before, "$[0].loopUrl")).isNull();
+
+        // the same photo as a Motion Photo (an item processed before motion support existed looks like this): queue it again
+        Path motion = ToolFixtures.motionPhoto(dir, "motion.jpg", 640, 480);
+        byte[] bytes = Files.readAllBytes(motion);
+        storage.putObject(m.getOriginalKey(), "image/jpeg", bytes);
+        jdbc.update("UPDATE media SET status = 'UPLOADED', attempts = 0, size_bytes = ? WHERE id = ?", bytes.length, m.getId());
+        assertThat(queue.drain(90_000)).isTrue();
+
+        assertThat(statusOf(m.getId())).isEqualTo("READY");
+        String json = list();
+        assertThat(JsonPath.<String>read(json, "$[0].type")).isEqualTo("IMAGE");
+        assertThat(JsonPath.<String>read(json, "$[0].displayUrl")).isNotBlank();
+        String loopUrl = JsonPath.read(json, "$[0].loopUrl");
+        assertThat(JsonPath.<String>read(json, "$[0].posterUrl")).isNotBlank();
+        var loop = fetch(loopUrl);
+        assertThat(loop.statusCode()).isEqualTo(200);
+        assertThat(new String(loop.body(), 4, 4, StandardCharsets.US_ASCII)).isEqualTo("ftyp");
+        // the loop's bytes count against the quota with the other variants
+        assertThat(((Number) row(m.getId()).get("variants_bytes")).longValue()).isGreaterThan(loop.body().length);
+    }
+
+    @Test
     void displayDateFallsBackToTheDeviceModifiedTimeThenTheUploadTime() throws Exception {
         Path plain = ToolFixtures.jpeg(dir, "nodate.jpg", 400, 300);
         Media withDevice = upload(MediaKind.IMAGE, plain, "image/jpeg");

@@ -69,6 +69,36 @@ function AutoVideo({ src, poster, label, onAspect }: { src: string; poster?: str
   )
 }
 
+/**
+ * The loop of a Motion Photo, laid over the still. It stays invisible until the browser really is playing it, so a
+ * blocked autoplay, a slow network or a broken file simply leaves the photo as it is. Not rendered when motion is reduced.
+ */
+function LiveLayer({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const reduced = useReducedMotion()
+  const [playing, setPlaying] = useState(false)
+  const [failed, setFailed] = useState(false)
+  useVideoPlayback(ref, !failed)
+  if (reduced || failed) return null
+  return (
+    <video
+      ref={ref}
+      className={`polaroid__media polaroid__live${playing ? ' polaroid__live--on' : ''}`}
+      src={src}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      disablePictureInPicture
+      aria-hidden="true"
+      tabIndex={-1}
+      onPlaying={() => setPlaying(true)}
+      onPause={() => setPlaying(false)}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function FailedView({
   media, onRetry, metrics, imageWidth,
 }: { media: MediaDto; onRetry?: (media: MediaDto) => void | Promise<void>; metrics: Metrics; imageWidth: number }) {
@@ -116,6 +146,7 @@ function MediaView({
     return <AutoVideo src={display.src} poster={display.poster} label={label} onAspect={onAspect} />
   }
   return (
+    <>
     <img
       className="polaroid__media"
       src={display.src}
@@ -131,6 +162,8 @@ function MediaView({
       }}
       onError={() => setFailed(true)}
     />
+    {display.live && <LiveLayer src={display.live} />}
+    </>
   )
 }
 

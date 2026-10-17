@@ -237,4 +237,34 @@ final class ToolFixtures {
     static String vipsLoader(Path file) throws Exception {
         return ProcessRunner.runChecked(List.of("vipsheader", "-f", "vips-loader", file.toString()), TIMEOUT).stdout().trim();
     }
+
+    // ------------------------------------------------------------------ Android Motion Photo
+
+    /** A Google-style Motion Photo: JPEG with an XMP container entry, the MP4 appended at the end. */
+    static Path motionPhoto(Path dir, String name, int width, int height) throws Exception {
+        byte[] still = Files.readAllBytes(jpeg(dir, name + ".still.jpg", width, height));
+        byte[] video = Files.readAllBytes(video(dir, name + ".clip.mp4", 320, 240, 1.5));
+        String xmp = "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">"
+                + "<rdf:Description xmlns:GCamera=\"http://ns.google.com/photos/1.0/camera/\" xmlns:Container=\"http://ns.google.com/photos/1.0/container/\" "
+                + "xmlns:Item=\"http://ns.google.com/photos/1.0/container/item/\" GCamera:MotionPhoto=\"1\" GCamera:MotionPhotoVersion=\"1\">"
+                + "<Container:Directory><rdf:Seq><rdf:li rdf:parseType=\"Resource\"><Container:Item Item:Mime=\"video/mp4\" Item:Semantic=\"MotionPhoto\" "
+                + "Item:Length=\"" + video.length + "\" Item:Padding=\"0\"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>";
+        byte[] ns = "http://ns.adobe.com/xap/1.0/ ".getBytes(StandardCharsets.US_ASCII);
+        byte[] body = xmp.getBytes(StandardCharsets.UTF_8);
+        int length = 2 + ns.length + body.length;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(0xFF);
+        out.write(0xD8);
+        out.write(0xFF);
+        out.write(0xE1);
+        out.write(length >> 8);
+        out.write(length & 0xFF);
+        out.writeBytes(ns);
+        out.writeBytes(body);
+        out.write(still, 2, still.length - 2);
+        out.writeBytes(video);
+        Path file = dir.resolve(name);
+        Files.write(file, out.toByteArray());
+        return file;
+    }
 }

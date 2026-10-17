@@ -5,7 +5,8 @@ const THUMB_EDGE = 480
 const DISPLAY_EDGE = 1600
 
 export type Display =
-  | { mode: 'image'; src: string; srcSet?: string }
+  /** `live` is the short looping clip of an Android Motion Photo: the photo stays an image, the clip plays over it */
+  | { mode: 'image'; src: string; srcSet?: string; live?: string }
   | { mode: 'video'; src: string; poster?: string }
   /** waiting for the processing queue (UPLOADED / PROCESSING) or no variants yet */
   | { mode: 'placeholder' }
@@ -21,7 +22,7 @@ export function resolveDisplay(media: MediaDto): Display {
 
   if (media.type === 'IMAGE') {
     if (!media.displayUrl) return { mode: 'placeholder' }
-    return { mode: 'image', src: media.displayUrl, srcSet: media.thumbUrl ? srcSet(media) : undefined }
+    return { mode: 'image', src: media.displayUrl, srcSet: media.thumbUrl ? srcSet(media) : undefined, live: media.loopUrl ?? undefined }
   }
   if (!media.loopUrl) return { mode: 'placeholder' }
   return { mode: 'video', src: media.loopUrl, poster: media.posterUrl ?? undefined }
