@@ -1,0 +1,63 @@
+.error-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5) 16px;
+  background-color: var(--page-bg);
+  background-image: var(--page-paper);
+  background-size: cover;
+  /* the paper texture is a mid-grey picture that only works blended into the page colour */
+  background-blend-mode: soft-light;
+  color: var(--page-ink);
+  text-align: center;
+}
+
+.error-screen__card {
+  position: relative;
+  width: min(480px, 100%);
+  padding: 40px 28px 32px;
+  border-radius: 6px;
+  background: var(--frame-paper);
+  color: var(--page-ink, inherit);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.25), 0 18px 36px var(--page-shadow, rgba(60, 30, 10, 0.35));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.error-screen__sticker {
+  width: 96px;
+  height: 96px;
+  transform: rotate(-6deg);
+}
+
+.error-screen__sticker .sticker {
+  width: 100%;
+  height: 100%;
+}
+
+.error-screen__code {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 1.6rem;
+  opacity: 0.8;
+}
+
+.error-screen h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.error-screen p {
+  margin: 0;
+}
+
+.error-screen__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-2);
+}

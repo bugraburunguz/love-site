@@ -63,7 +63,7 @@ function MaintenancePanel({ onError }: { onError: (m: string) => void }) {
   }
 
   return (
-    <section aria-label="Yedekleme">
+    <section aria-label="Yedekleme" className="admin-section">
       <h2>Yedekleme</h2>
       {backup === null ? (
         <p>Yükleniyor…</p>

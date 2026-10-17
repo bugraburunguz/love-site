@@ -160,3 +160,7 @@
 .admin-status--bad {
   color: var(--rose-deep);
 }
+
+.admin-section {
+  margin-bottom: var(--space-5);
+}

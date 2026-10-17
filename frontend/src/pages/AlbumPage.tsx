@@ -12,6 +12,8 @@ import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
 import Clay from '../components/Clay'
 import CompassNeedle from '../components/CompassNeedle'
+import ErrorBoundary from '../components/ErrorBoundary'
+import ErrorScreen from '../components/ErrorScreen'
 import '../components/clay.css'
 import { ConfirmDialog } from '../components/Dialog'
 import Lightbox from '../components/Lightbox'
@@ -455,12 +457,8 @@ function AlbumView({ id }: { id: string }) {
   }
 
   if (album === null) {
-    return (
-      <main className="album-screen album-screen--missing">
-        <p>Albüm bulunamadı.</p>
-        <Link to="/">Albümlere dön</Link>
-      </main>
-    )
+    // a missing album and one that belongs to another space look exactly the same
+    return <ErrorScreen kind="notfound" />
   }
 
   const shownError = error ?? pagesState.error
@@ -475,6 +473,7 @@ function AlbumView({ id }: { id: string }) {
 
   return (
     <ThemeContext.Provider value={theme}>
+    <ErrorBoundary>
     <Ambient enabled={ambientOn} editing={editing} lightboxOpen={lightboxOpen}>
     <main className={rootClass} style={rootStyle}>
       <header className="album-screen__header">
@@ -679,6 +678,7 @@ function AlbumView({ id }: { id: string }) {
       )}
     </main>
     </Ambient>
+    </ErrorBoundary>
     </ThemeContext.Provider>
   )
 }

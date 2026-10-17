@@ -17,6 +17,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lovesite.auth.ClientIp;
+import com.lovesite.ratelimit.RateLimitProperties;
+import com.lovesite.ratelimit.RateLimiter;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -24,9 +28,13 @@ import java.util.UUID;
 public class MediaController {
 
     private final MediaService mediaService;
+    private final RateLimiter limiter;
+    private final RateLimitProperties limits;
 
-    public MediaController(MediaService mediaService) {
+    public MediaController(MediaService mediaService, RateLimiter limiter, RateLimitProperties limits) {
         this.mediaService = mediaService;
+        this.limiter = limiter;
+        this.limits = limits;
     }
 
     @GetMapping("/api/albums/{albumId}/media")
@@ -35,7 +43,10 @@ public class MediaController {
     }
 
     @PostMapping("/api/albums/{albumId}/uploads")
-    public UploadResponse requestUploads(CurrentUser me, @PathVariable UUID albumId, @RequestBody UploadRequest request) {
+    public UploadResponse requestUploads(CurrentUser me, @PathVariable UUID albumId, @RequestBody UploadRequest request,
+                                         jakarta.servlet.http.HttpServletRequest http) {
+        limiter.check("upload-user:" + me.userId(), limits.uploadStartPerUser(), limits.uploadWindow());
+        limiter.check("upload-ip:" + ClientIp.of(http), limits.uploadStartPerIp(), limits.uploadWindow());
         return mediaService.requestUploads(me, albumId, request.files());
     }
 

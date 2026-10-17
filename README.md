@@ -36,7 +36,8 @@ Create a Storage Bucket in the project and add these variables to the app servic
 | `S3_ACCESS_KEY_ID` | `${{<Bucket service>.ACCESS_KEY_ID}}` |
 | `S3_SECRET_ACCESS_KEY` | `${{<Bucket service>.SECRET_ACCESS_KEY}}` |
 | `S3_REGION` | `${{<Bucket service>.REGION}}` (defaults to `auto`) |
-| `APP_ALLOWED_ORIGINS` | the app's public origin, e.g. `https://love-site.up.railway.app` (comma separated; no trailing slash) |
+| `APP_PUBLIC_URL` | the app's public address, e.g. `https://love-site.up.railway.app` or your custom domain (see Phase 6 below) |
+| `APP_ALLOWED_ORIGINS` | optional: origins allowed to upload to the bucket (comma separated, no trailing slash); defaults to the origin of `APP_PUBLIC_URL` |
 | `S3_PATH_STYLE` | leave unset (virtual-hosted style); `true` only for old path-style buckets or MinIO |
 
 On startup the app calls `PutBucketCors` for `APP_ALLOWED_ORIGINS` (PUT, GET, HEAD, `Content-Type`, exposes `ETag`).
@@ -312,3 +313,131 @@ at most 30 ambient particles, no `<text>` in stickers (text is converted to path
   and `musicName`. The trash purge removes the song together with its album. The space-wide `GET /api/settings/music` (and the global
   `audio/theme` objects) is gone: an `audio/theme` object that is still in the bucket is no longer read and can be deleted by hand.
   The music box plays only after a tap, fades out when the album is left, and does not exist for albums without a song.
+
+## Custom domain, backup, Motion Photo, final checks (Phase 6)
+
+### Public address (`APP_PUBLIC_URL`)
+
+One setting names the app's address: `APP_PUBLIC_URL=https://example.com` (scheme + host, no path). Nothing else in the code or
+the configuration contains a domain. It is used for:
+
+- **invitation links** (`/api/space/invites`, `/api/admin/spaces`): the response carries an absolute `url` built from it. Without
+  the variable the link is built by the browser from the address the owner is browsing (`path` is always returned too);
+- the **default of `APP_ALLOWED_ORIGINS`** and so the **bucket CORS rule**: if `APP_ALLOWED_ORIGINS` is not set the origin of
+  `APP_PUBLIC_URL` is used. Setting `APP_ALLOWED_ORIGINS` explicitly (comma separated) wins;
+- the optional **redirect** (`REDIRECT_TO_PUBLIC_URL=true`, default off): GET/HEAD *page* requests that arrive on a
+  `*.up.railway.app` host get a `301` to `APP_PUBLIC_URL` with the same path and query. `/api/**` and `/actuator/health/**` are
+  never redirected (a POST must not turn into a GET, and Railway's health probe uses the platform host);
+- the **cookie's `Secure` flag**: an `https://` address keeps the default (`Secure`), an `http://` address (local / closed test network)
+  turns it off, since a `Secure` cookie is never sent back over http. An explicit `COOKIE_SECURE` always wins; a startup warning
+  appears when `APP_PUBLIC_URL` and `COOKIE_SECURE` contradict each other.
+
+The session cookie is *host only* (no `Domain` attribute), `HttpOnly`, `SameSite=Lax`, so it needs no domain setting; the Content-Security-Policy uses `'self'`, which is relative to whatever host served the page. Both are covered by
+`PublicUrlTest` (CSP header on the custom domain, redirect rules, invite URL) and by the browser smoke test.
+
+#### Moving to a custom domain, in this order
+
+1. **Add the domain** in Railway: service -> Settings -> Networking -> Custom Domain. Railway shows the DNS record(s) to create.
+2. **Create the DNS records** at the registrar / DNS provider exactly as shown (for a bare domain use an ALIAS/ANAME or
+   Cloudflare's CNAME flattening). Wait until Railway shows the domain as active and the certificate as issued. (With Cloudflare
+   in front: SSL mode "Full (strict)".)
+3. **Set the variables** on the app service and redeploy:
+   - `APP_PUBLIC_URL=https://example.com`
+   - `APP_ALLOWED_ORIGINS=https://example.com,https://<old>.up.railway.app` (temporarily: the old address must still be allowed
+     to upload until everybody has moved). Check the log: `Public URL https://example.com ...` and
+     `Bucket CORS configured for origins [...]`.
+4. **Try it** on `https://example.com`: sign in (sessions belong to the host, everybody has to sign in once on the new address),
+   upload a photo (this proves the bucket CORS rule), create a partner invitation and check that the link starts with the new
+   address.
+5. **Tell the other users** the new address and update bookmarks / home-screen shortcuts.
+6. **Turn the redirect on**: `REDIRECT_TO_PUBLIC_URL=true`, redeploy. Old page links now answer `301` to the new domain; the API and
+   the health probe on the Railway host keep working. (Leave Railway's healthcheck path at `/actuator/health/liveness`.)
+7. **Clean up**: remove `APP_ALLOWED_ORIGINS` (so only the new origin is derived) and redeploy. Invitation links that were created
+   before the move keep working: on the old host they are redirected, path included.
+
+### Backup (second bucket)
+
+Optional but recommended. Any S3-compatible provider works (the code only uses `ListObjectsV2`, `PutObject`, `DeleteObject`);
+**Cloudflare R2** is a good fit (no egress fees). Leave the variables unset and backup is simply off (one `Backup is OFF` warning
+at startup).
+
+| Variable | Value |
+| --- | --- |
+| `BACKUP_S3_ENDPOINT` | e.g. R2: `https://<account id>.r2.cloudflarestorage.com` |
+| `BACKUP_S3_BUCKET` | a *different* bucket from the media bucket, ideally at another provider |
+| `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` | an access key limited to that bucket (object read + write) |
+| `BACKUP_S3_REGION` | `auto` (default) for R2 |
+| `BACKUP_S3_PATH_STYLE` | `false` (default); `true` for MinIO-like servers |
+
+Every night at 04:00 (Europe/Istanbul, after the 03:30 trash purge) the app runs, one after the other:
+
+- **database**: `pg_dump --format=custom` -> `db/YYYY-MM-DD.dump`; the newest 14 days are kept, older dated dumps are deleted.
+  The image contains `postgresql-client-17` from the PostgreSQL apt repository (`ARG PG_CLIENT_MAJOR` in the `Dockerfile`; the
+  build prints the version and fails if it is not that major). **`pg_dump` must be at least as new as the database server**:
+  raise `PG_CLIENT_MAJOR` before upgrading the Railway Postgres. The password reaches `pg_dump` through `PGPASSWORD`, never
+  through the command line.
+- **media**: the **originals and album songs only** (`spaces/...` keys, copied one-to-one; thumbnails, display images and loops are
+  rebuilt by the queue). Incremental: an object that is already at the target with the same key and size is skipped. Copies are
+  streamed from the media bucket to the target (nothing is loaded into memory). Items in the trash are backed up like everything
+  else. When the trash purge removes an original (or a song is replaced / removed) the copy at the target stays **30 more days**
+  (table `purged_object`), then the nightly run deletes it there.
+
+The **admin screen** (`/admin`) shows, for media and database, the time of the last run, its status (successful / failed),
+the number of objects at the target and their total size, a failure message, "Şimdi yedekle" (`POST /api/admin/backup/run`) and
+"Tümünü yeniden işle". A run with an unreadable object is marked failed but still copies everything else; the log has the key.
+
+#### Restore
+
+Rehearse this once before you need it.
+
+1. Stop writes: scale the app service to zero (or just stop it).
+2. **Database** (an empty database, `pg_restore` of the same or a newer major than the dump):
+   ```bash
+   # download the newest dump (R2 example; any S3 client works)
+   aws s3 cp s3://<backup bucket>/db/2030-01-20.dump ./restore.dump --endpoint-url https://<account id>.r2.cloudflarestorage.com
+   pg_restore --no-owner --no-privileges --dbname "$DATABASE_URL" restore.dump
+   ```
+   Flyway's history table is part of the dump, so the app starts normally afterwards. On a database that already has tables add
+   `--clean --if-exists`.
+3. **Media**: copy the `spaces/` prefix from the backup bucket into the (new) media bucket, **keeping the keys unchanged**
+   (rclone copies between two providers directly):
+   ```bash
+   rclone copy backup:<backup bucket>/spaces media:<media bucket>/spaces --transfers 8 --progress
+   ```
+4. Start the app and, as the admin, click **"Tümünü yeniden işle"** on `/admin` (or `POST /api/admin/reprocess-all`).
+   Thumbnails, display images and loops are not in the backup: every live photo and video is put back in the processing
+   queue under the normal fair-queue rule and gets new variants. Until its turn an item shows the "developing" placeholder.
+   The same button is useful after a pipeline improvement.
+5. Check a few albums, the quota on `/admin` and the music of an album.
+
+### Android Motion Photo
+
+A JPEG taken as a Motion Photo carries a short MP4. The photo worker looks for it only when the file says so (XMP
+`GCamera:MotionPhoto="1"` / `GCamera:MicroVideo="1"`, or the Samsung `MotionPhoto_Data` tag), takes the offset from the XMP
+(`Item:Length` of the `MotionPhoto` item, `MicroVideoOffset`), checks that an MP4 header (`ftyp`) really is there, and otherwise
+searches for one. The end of the video is found by walking its boxes, so a Samsung trailer is cut off. The clip then goes
+through the normal video pipeline (HDR tone mapping, boomerang, poster). The media stays an `IMAGE`; `loopUrl` / `posterUrl` are
+filled. In the UI the polaroid plays the loop over the still (under the same "at most 6 playing" rule as videos; not at all with
+reduced motion) and the lightbox shows the loop over the large still. A broken offset or video never fails the photo: it is
+delivered as an ordinary still. Photos processed before this phase get their loop after **"Tümünü yeniden işle"**.
+
+### Request limits
+
+Besides the failure locks (5 wrong passwords lock an e-mail for 15 minutes from any address; 5 wrong invitation tokens lock an
+address) there are fixed-window request limits (`app.rate-limit.*`, in memory, one instance): **login** 30 attempts per address
+per 10 minutes; **upload start** (`POST /api/albums/{id}/uploads`, up to 50 files each) 120 per user and 300 per address per hour.
+Over the limit the API answers `429`. The address is the rightmost `X-Forwarded-For` entry (the one the platform router appends;
+anything the client sends is to its left).
+
+### Final checks
+
+- **Dependencies**: `npm audit --omit=dev` (0 vulnerabilities) and an OSV scan of the Maven dependency tree
+  (`osv-scanner scan source pom.xml`); the Tomcat and Jackson versions are pinned in `pom.xml` (`tomcat.version`,
+  `jackson-bom.version`) to the fixed releases. Re-run both before a release.
+- **Logs**: `LogHygieneTest` runs login, invitation, upload start and error flows with the application logger at DEBUG and fails if a
+  password, invitation token, session cookie, presigned signature or storage secret appears in a log line, and scans the source for
+  log statements that pass such values.
+- **Error pages**: unknown addresses and albums of other spaces show a Turkish 404 page, render errors a Turkish error page, both in
+  the look of the current theme (`components/ErrorScreen.tsx`, `ErrorBoundary.tsx`). The server still answers `200` for these SPA
+  routes (the React router decides); API errors keep their proper status codes.
+- **Browser smoke test**: see [e2e/README.md](e2e/README.md).

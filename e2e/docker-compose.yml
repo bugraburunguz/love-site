@@ -1,0 +1,94 @@
+# Production-like stack for the browser smoke test: the real production image (Dockerfile in the repository root, so the
+# React build is served by Spring and ffmpeg / vips / pg_dump are the ones from the image), a Postgres, an S3-compatible
+# server standing in for the bucket, and a runner with Playwright. Nothing here talks to the internet at run time.
+#
+#   ./e2e/run.sh
+name: love-site-e2e
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: e2e-db-password
+      POSTGRES_DB: love
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d love"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  s3:
+    image: zenko/cloudserver:latest
+    environment:
+      S3BACKEND: mem
+      # CloudServer only accepts hosts it knows; the app and the browser both use the service name
+      ENDPOINT: s3
+      SCALITY_ACCESS_KEY_ID: e2eaccesskey
+      SCALITY_SECRET_ACCESS_KEY: e2esecretkey12345
+
+  s3-init:
+    image: amazon/aws-cli
+    depends_on:
+      - s3
+    environment:
+      AWS_ACCESS_KEY_ID: e2eaccesskey
+      AWS_SECRET_ACCESS_KEY: e2esecretkey12345
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for i in $$(seq 1 60); do
+          aws --endpoint-url http://s3:8000 s3 mb s3://lovesite && exit 0
+          sleep 2
+        done
+        exit 1
+    restart: "no"
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      s3-init:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: postgres
+      PGDATABASE: love
+      PGUSER: postgres
+      PGPASSWORD: e2e-db-password
+      # the one address setting: invite links, the bucket CORS origin and the cookie Secure flag (http -> off) derive from it
+      APP_PUBLIC_URL: http://app:8080
+      ADMIN_EMAIL: admin@e2e.test
+      USER1_EMAIL: admin@e2e.test
+      USER1_NAME: Yonetici
+      USER1_PASSWORD: e2e-admin-password
+      # the seeding step expects both founding users; they share the initial space
+      USER2_EMAIL: partner@e2e.test
+      USER2_NAME: Partner
+      USER2_PASSWORD: e2e-partner-password
+      S3_ENDPOINT: http://s3:8000
+      S3_BUCKET: lovesite
+      S3_ACCESS_KEY_ID: e2eaccesskey
+      S3_SECRET_ACCESS_KEY: e2esecretkey12345
+      S3_REGION: us-east-1
+      S3_PATH_STYLE: "true"
+      INITIAL_SPACE_NAME: Ilk alan
+    ports:
+      - "18081:8080"
+
+  runner:
+    image: mcr.microsoft.com/playwright/python:v1.55.0-noble
+    profiles: ["run"]
+    depends_on:
+      - app
+    working_dir: /e2e
+    volumes:
+      - ./:/e2e
+    environment:
+      BASE_URL: http://app:8080
+      ADMIN_EMAIL: admin@e2e.test
+      ADMIN_PASSWORD: e2e-admin-password
+      OUTPUT_DIR: /e2e/output
+    command: ["bash", "/e2e/runner.sh"]

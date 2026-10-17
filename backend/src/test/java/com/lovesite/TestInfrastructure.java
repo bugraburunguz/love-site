@@ -62,6 +62,10 @@ public final class TestInfrastructure {
         // small pools keep the total below Postgres max_connections
         r.add("spring.datasource.hikari.maximum-pool-size", () -> "3");
         r.add("spring.datasource.hikari.minimum-idle", () -> "0");
+        // request limits are covered by RateLimitTest; the other tests must not trip over them
+        r.add("app.rate-limit.login-per-ip", () -> "100000");
+        r.add("app.rate-limit.upload-start-per-user", () -> "100000");
+        r.add("app.rate-limit.upload-start-per-ip", () -> "100000");
         r.add("app.seed.user1.email", () -> "a@test.io");
         r.add("app.seed.user1.name", () -> "A");
         r.add("app.seed.user1.password", () -> "pw1");

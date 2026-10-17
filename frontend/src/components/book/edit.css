@@ -218,7 +218,8 @@
 .tray {
   position: fixed;
   right: 0;
-  top: 0;
+  /* below the album header: its buttons (including "finish editing") must stay reachable while a panel is open */
+  top: 56px;
   bottom: 0;
   width: min(320px, 86vw);
   z-index: calc(var(--z-controls) + 2);

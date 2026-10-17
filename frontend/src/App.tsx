@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
+import ErrorBoundary from './components/ErrorBoundary'
+import ErrorScreen from './components/ErrorScreen'
 import InvitePage from './pages/InvitePage'
 import LoginPage from './pages/LoginPage'
 
@@ -22,6 +24,7 @@ function AppShell() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
@@ -30,7 +33,8 @@ export default function App() {
         <Route path="/albums/:id" element={<AlbumPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<ErrorScreen kind="notfound" />} />
     </Routes>
+    </ErrorBoundary>
   )
 }
