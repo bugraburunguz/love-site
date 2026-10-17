@@ -2,7 +2,8 @@ import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerE
 import type { MediaDto } from '../api/albums'
 import { useHoverCapable, useReducedMotion } from '../hooks/useReducedMotion'
 import {
-  DEFAULT_ASPECT, FRAME_SIDE, FRAME_TOP, captionFontSize, clampAspect, dateFontSize, frameBottom,
+  DEFAULT_ASPECT, FRAME_SIDE, FRAME_TOP, UNIT_METRICS, captionFontSize, clampAspect, dateFontSize, frameBottom,
+  type Metrics,
 } from '../layout/geometry'
 import { resolveDisplay } from '../media/display'
 import { useVideoPlayback } from '../media/playback'
@@ -19,6 +20,8 @@ interface Props {
   interactive?: boolean
   onOpen?: (media: MediaDto) => void
   onAspect?: (mediaId: string, aspect: number) => void
+  /** page scale and narrow-screen flag; decides text size and strip height (default: 1 unit = 1 px, as in the lightbox) */
+  metrics?: Metrics
   /** replaces the caption text (the lightbox puts an input here) */
   captionSlot?: ReactNode
 }
@@ -86,7 +89,9 @@ function MediaView({ media, onAspect }: { media: MediaDto; onAspect: (a: number)
   )
 }
 
-export default function LivingPhoto({ media, width, aspect, interactive = true, onOpen, onAspect, captionSlot }: Props) {
+export default function LivingPhoto({
+  media, width, aspect, interactive = true, onOpen, onAspect, captionSlot, metrics = UNIT_METRICS,
+}: Props) {
   const reduced = useReducedMotion()
   const hoverCapable = useHoverCapable()
   const tiltRef = useRef<HTMLDivElement>(null)
@@ -96,7 +101,7 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
   const imageWidth = width * (1 - 2 * FRAME_SIDE)
   const frameStyle: CSSProperties = {
     width,
-    fontSize: captionFontSize(width),
+    fontSize: captionFontSize(width, metrics),
     padding: `${width * FRAME_TOP}px ${width * FRAME_SIDE}px 0`,
   }
 
@@ -125,7 +130,7 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
 
   return (
     <figure
-      className={`polaroid${interactive ? ' polaroid--interactive' : ''}${tilt ? ' polaroid--tilt' : ''}`}
+      className={`polaroid${interactive ? ' polaroid--interactive' : ''}${tilt ? ' polaroid--tilt' : ''}${metrics.compact ? ' polaroid--compact' : ''}`}
       onPointerMove={onPointerMove}
       onPointerLeave={resetTilt}
       onClick={interactive && onOpen ? () => onOpen(media) : undefined}
@@ -139,9 +144,9 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
           <MediaView media={media} onAspect={(ratio) => onAspect?.(media.id, ratio)} />
           <div className="polaroid__grain" aria-hidden="true" />
         </div>
-        <figcaption className="polaroid__caption" style={{ height: frameBottom(width) }}>
+        <figcaption className="polaroid__caption" style={{ height: frameBottom(width, metrics) }}>
           {captionSlot ?? (media.caption ? <span className="polaroid__text">{media.caption}</span> : null)}
-          <time className="polaroid__date" dateTime={shownDate(media)} style={{ fontSize: dateFontSize(width) }}>
+          <time className="polaroid__date" dateTime={shownDate(media)} style={{ fontSize: dateFontSize(width, metrics) }}>
             {formatDate(shownDate(media))}
           </time>
         </figcaption>

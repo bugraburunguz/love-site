@@ -124,8 +124,11 @@ rights to use.
 - Every frame, rotated and including its caption strip, stays at least 40 units inside the page and above the page-number
   strip; an item may hide at most 15% of another picture and never a caption; tape sits on a polaroid's top edge and never
   touches a picture; stickers go only into empty space.
-- Text: caption >= 24 and date >= 22 page units (about 12-13 px on a desktop screen); the strip under the picture grows
-  to fit two caption lines plus the date.
+- Text size is `max(design size x page scale, screen minimum)`: design sizes are caption >= 24 and date >= 22 page units,
+  screen minimums are 13 px (caption) and 10 px (date). The layout takes the same metrics (page scale, narrow screen or not)
+  as input, so the caption strip, the bounding boxes and the overlap rules always match what is drawn. On narrow screens
+  (book area under 700 px) the caption is a single line with an ellipsis; the lightbox shows and edits the full text.
+  Measured at 390 px wide: caption 13.5 px, date 10.4 px; at 320 px: 13.1 / 10.1 px; on a 1440 px desktop: 17 / 11.7 px.
 - Unknown aspect ratios default to 9:16; real ratios come from the API (later) or are measured in the browser, cached per
   album in memory, and applied in one batch.
 

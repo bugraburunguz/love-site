@@ -26,20 +26,51 @@ export const FRAME_TOP = 0.06
 export const FRAME_BOTTOM = 0.2
 
 /**
- * Readability floors, in page units. A desktop screen shows a page at about 0.53x, so 24 and 22 units come out at about
- * 12.7 px for the caption and 11.7 px for the date (the minimums asked for are 22 and 16 units).
+ * How a page is shown on this screen. Text must stay readable on small screens, so its size is
+ *   max(design size in page units * scale, minimum in screen px)
+ * and the strip under the picture is sized from that, which is why the layout needs the metrics too.
  */
+export type Metrics = {
+  /** screen px per page unit (the Book's single page scale) */
+  scale: number
+  /** narrow screens: caption is one line with an ellipsis (the full text is in the lightbox) */
+  compact: boolean
+  /** caption lines to make room for, overriding the compact/regular default (the lightbox shows the full text) */
+  lines?: number
+}
+
+/** A page on a ~1440x900 desktop screen; used when no metrics are given (tests, tools). */
+export const DESKTOP_METRICS: Metrics = { scale: 0.53, compact: false }
+/** 1 unit = 1 px (the lightbox). */
+export const UNIT_METRICS: Metrics = { scale: 1, compact: false }
+
+/** Smallest text on screen, in px. */
+export const MIN_CAPTION_PX = 13
+export const MIN_DATE_PX = 10
+/** Design sizes in page units (never smaller than these, whatever the screen). */
 export const MIN_CAPTION_FONT = 24
 export const MIN_DATE_FONT = 22
 
-export const captionFontSize = (width: number) => Math.max(MIN_CAPTION_FONT, width * 0.085)
-export const dateFontSize = (width: number) => Math.max(MIN_DATE_FONT, width * 0.05)
+/** Metrics scale is rounded DOWN to this step, so the px minimums are never undershot and layouts are not recomputed per pixel. */
+const SCALE_STEP = 0.02
+export function toMetrics(scale: number, compact: boolean): Metrics {
+  return { scale: Math.max(0.2, Math.floor(scale / SCALE_STEP) * SCALE_STEP), compact }
+}
+
+export const captionFontSize = (width: number, m: Metrics = DESKTOP_METRICS) =>
+  Math.max(MIN_CAPTION_FONT, width * 0.085, MIN_CAPTION_PX / m.scale)
+export const dateFontSize = (width: number, m: Metrics = DESKTOP_METRICS) =>
+  Math.max(MIN_DATE_FONT, width * 0.05, MIN_DATE_PX / m.scale)
+export const captionLines = (m: Metrics = DESKTOP_METRICS) => m.lines ?? (m.compact ? 1 : 2)
 /**
- * Height of the white strip under the picture: 20% of the width, but never less than two caption lines plus the date
- * (so the strip is taller than before on narrow polaroids).
+ * Height of the white strip under the picture: 20% of the width, but never less than the caption lines plus the date.
+ * The layout uses this same number for its bounding boxes, so what is placed is what is drawn.
  */
-export const frameBottom = (width: number) =>
-  Math.max(width * FRAME_BOTTOM, captionFontSize(width) * 2.1 + dateFontSize(width) * 1.3 + 8)
+export const frameBottom = (width: number, m: Metrics = DESKTOP_METRICS) =>
+  Math.max(
+    width * FRAME_BOTTOM,
+    captionFontSize(width, m) * 1.05 * captionLines(m) + dateFontSize(width, m) * 1.3 + 8,
+  )
 
 /** Washi tape is this many times wider than tall (matches the CSS). */
 export const TAPE_ASPECT = 3.6
@@ -50,8 +81,8 @@ export function clampAspect(aspect: number | undefined): number {
 }
 
 /** Outer size of a polaroid of the given frame width holding a picture with the given aspect ratio. */
-export function polaroidSize(width: number, aspect: number | undefined) {
+export function polaroidSize(width: number, aspect: number | undefined, m: Metrics = DESKTOP_METRICS) {
   const imageWidth = width * (1 - 2 * FRAME_SIDE)
   const imageHeight = imageWidth / clampAspect(aspect)
-  return { imageWidth, imageHeight, height: width * FRAME_TOP + imageHeight + frameBottom(width) }
+  return { imageWidth, imageHeight, height: width * FRAME_TOP + imageHeight + frameBottom(width, m) }
 }

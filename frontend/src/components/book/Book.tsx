@@ -1,18 +1,19 @@
 import {
-  useCallback, useEffect, useRef, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
   type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent, type ReactNode,
 } from 'react'
 import type { MediaDto } from '../../api/albums'
 import { useElementSize } from '../../hooks/useElementSize'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
-import { PAGE_H, PAGE_W } from '../../layout/geometry'
+import { PAGE_H, PAGE_W, toMetrics, type Metrics } from '../../layout/geometry'
 import type { PageLayout } from '../../layout/types'
 import Clay from '../Clay'
 import PageCanvas from './PageCanvas'
 import './book.css'
 
 interface Props {
-  pages: PageLayout[]
+  /** builds the pages for this screen's metrics (text size depends on the page scale, so the layout does too) */
+  layout: (metrics: Metrics) => PageLayout[]
   mediaById: ReadonlyMap<string, MediaDto>
   aspects: Readonly<Record<string, number>>
   /** leather colour of the cover frame */
@@ -34,7 +35,7 @@ const SWIPE_DISTANCE = 50
  * The open book. It owns the single page scale (fits one or two pages into the available area),
  * the current spread, and the CSS 3D page turn. Pages themselves are drawn by PageCanvas.
  */
-export default function Book({ pages, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onAspect, onPosition }: Props) {
+export default function Book({ layout, mediaById, aspects, coverColor, emptyHint, keyboard = true, onOpen, onAspect, onPosition }: Props) {
   const areaRef = useRef<HTMLDivElement>(null)
   const { width, height } = useElementSize(areaRef)
   const reduced = useReducedMotion()
@@ -44,6 +45,10 @@ export default function Book({ pages, mediaById, aspects, coverColor, emptyHint,
   const availW = Math.max(0, width - 2 * coverPad - 24)
   const availH = Math.max(0, height - 2 * coverPad - 16)
   const scale = Math.max(0.05, Math.min(availW / (cols * PAGE_W), availH / PAGE_H))
+
+  // Narrow screens get single-line captions; the layout is generated for exactly these metrics.
+  const metrics = useMemo(() => toMetrics(scale, width < 700), [scale, width])
+  const pages = useMemo(() => layout(metrics), [layout, metrics])
 
   const total = Math.max(pages.length, 1)
   const [current, setCurrent] = useState(0)
@@ -109,15 +114,15 @@ export default function Book({ pages, mediaById, aspects, coverColor, emptyHint,
     }
   }
 
-  const common = { mediaById, aspects, scale, onOpen, onAspect }
+  const common = { mediaById, aspects, scale, metrics, onOpen, onAspect }
   const sheet = (index: number, side: 'left' | 'right' | 'single', interactive = true): ReactNode => {
-    const layout = index >= 0 && index < pages.length ? pages[index] : null
+    const pageLayout = index >= 0 && index < pages.length ? pages[index] : null
     return (
       <PageCanvas
         key={`${index}:${side}`}
-        layout={layout}
+        layout={pageLayout}
         side={side}
-        pageNumber={layout || (pages.length === 0 && index === 0) ? index + 1 : undefined}
+        pageNumber={pageLayout || (pages.length === 0 && index === 0) ? index + 1 : undefined}
         interactive={interactive}
         emptyHint={emptyHint && index === 0}
         {...common}

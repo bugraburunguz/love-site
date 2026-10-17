@@ -1,4 +1,4 @@
-import { FRAME_TOP, TAPE_ASPECT, frameBottom, polaroidSize } from './geometry'
+import { DESKTOP_METRICS, FRAME_TOP, TAPE_ASPECT, frameBottom, polaroidSize, type Metrics } from './geometry'
 
 export type Point = { x: number; y: number }
 /** Convex polygon, counter-clockwise in a y-down coordinate system is not required: orientation is normalised. */
@@ -54,8 +54,8 @@ export type PolaroidShapes = {
 }
 
 /** Where every part of a polaroid lands on the page (rotation included). */
-export function polaroidShapes(item: Placed, aspect: number | undefined): PolaroidShapes {
-  const { imageWidth, imageHeight, height } = polaroidSize(item.width, aspect)
+export function polaroidShapes(item: Placed, aspect: number | undefined, m: Metrics = DESKTOP_METRICS): PolaroidShapes {
+  const { imageWidth, imageHeight, height } = polaroidSize(item.width, aspect, m)
   const hw = item.width / 2
   const hh = height / 2
   const imageTop = -hh + item.width * FRAME_TOP
@@ -63,7 +63,7 @@ export function polaroidShapes(item: Placed, aspect: number | undefined): Polaro
   return {
     frame,
     image: localRect(-imageWidth / 2, imageTop, imageWidth / 2, imageTop + imageHeight, item),
-    caption: localRect(-hw, hh - frameBottom(item.width), hw, hh, item),
+    caption: localRect(-hw, hh - frameBottom(item.width, m), hw, hh, item),
     box: boxOf(frame),
   }
 }

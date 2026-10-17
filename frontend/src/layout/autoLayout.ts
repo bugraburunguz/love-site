@@ -1,4 +1,4 @@
-import { BOUNDS, FRAME_TOP, TAPE_ASPECT, clampAspect, polaroidSize } from './geometry'
+import { BOUNDS, DESKTOP_METRICS, FRAME_TOP, TAPE_ASPECT, clampAspect, polaroidSize, type Metrics } from './geometry'
 import { createRng, type Rng } from './prng'
 import {
   boxInside, boxOf, boxesOverlap, intersectionArea, area, polaroidShapes, stickerPoly, tapePoly, toPage,
@@ -124,12 +124,12 @@ function placementOk(all: Placement[]): boolean {
   return true
 }
 
-function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng, slack = SLACK): Placement[] | null {
+function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng, m: Metrics, slack = SLACK): Placement[] | null {
   const cells = cellsFor(specs.length, arrangement, slack)
   const placed: Placement[] = []
   specs.forEach((spec, i) => {
     const width = spec.baseWidth * scale
-    const half = polaroidShapes({ x: 0, y: 0, width, rotation: spec.rotation }, spec.aspect).box
+    const half = polaroidShapes({ x: 0, y: 0, width, rotation: spec.rotation }, spec.aspect, m).box
     const cell = cells[i]
     const bounds = boundsFor(spec)
     const pick = (lo: number, hi: number) => (hi > lo ? rng.range(lo, hi) : (lo + hi) / 2)
@@ -139,7 +139,7 @@ function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng, s
     const yHi = Math.min(cell.y1 - half.maxY, bounds.maxY - half.maxY)
     const x = Math.min(bounds.maxX - half.maxX, Math.max(bounds.minX + half.maxX, pick(xLo, xHi)))
     const y = Math.min(bounds.maxY - half.maxY, Math.max(bounds.minY + half.maxY, pick(yLo, yHi)))
-    placed.push({ spec, x, y, width, shapes: polaroidShapes({ x, y, width, rotation: spec.rotation }, spec.aspect) })
+    placed.push({ spec, x, y, width, shapes: polaroidShapes({ x, y, width, rotation: spec.rotation }, spec.aspect, m) })
   })
   return placementOk(placed) ? placed : null
 }
@@ -151,7 +151,7 @@ export function fillRatio(boxes: Box[]): number {
   return boxes.reduce((sum, b) => sum + (b.maxX - b.minX) * (b.maxY - b.minY), 0) / USABLE_AREA
 }
 
-function placePage(specs: Spec[], rng: Rng): Placement[] {
+function placePage(specs: Spec[], rng: Rng, m: Metrics): Placement[] {
   const arrangements = arrangementCount(specs.length)
   const order = [...Array(arrangements).keys()]
   for (let i = order.length - 1; i > 0; i--) {
@@ -161,7 +161,7 @@ function placePage(specs: Spec[], rng: Rng): Placement[] {
   const attemptAt = (scale: number): Placement[] | null => {
     for (const arrangement of order) {
       for (let attempt = 0; attempt < (scale > 1 ? GROW_ATTEMPTS : ATTEMPTS); attempt++) {
-        const result = tryPlace(specs, scale, arrangement, rng, scale > 1 ? GROW_SLACK : SLACK)
+        const result = tryPlace(specs, scale, arrangement, rng, m, scale > 1 ? GROW_SLACK : SLACK)
         if (result) return result
       }
     }
@@ -187,14 +187,14 @@ function placePage(specs: Spec[], rng: Rng): Placement[] {
     if (result) return result
   }
   // Unreachable in practice (the smallest scale always fits); keep the page usable regardless.
-  return tryPlace(specs, SHRINK_STEPS[SHRINK_STEPS.length - 1], 0, rng) ?? []
+  return tryPlace(specs, SHRINK_STEPS[SHRINK_STEPS.length - 1], 0, rng, m) ?? []
 }
 
 type TapePlacement = { x: number; y: number; width: number; rotation: number }
 
 /** Tape straddles the top edge of the polaroid frame and never reaches down into the picture. */
-function placeTape(target: Placement, all: Placement[], rng: Rng): TapePlacement | null {
-  const { height } = polaroidSize(target.width, target.spec.aspect)
+function placeTape(target: Placement, all: Placement[], rng: Rng, m: Metrics): TapePlacement | null {
+  const { height } = polaroidSize(target.width, target.spec.aspect, m)
   const padTop = target.width * FRAME_TOP
   for (let attempt = 0; attempt < 5; attempt++) {
     const width = TAPE_WIDTH * rng.range(0.9, 1.1)
@@ -241,6 +241,7 @@ const TAPES = ['rose', 'cream', 'gold', 'sage'] as const
 /**
  * Pure and deterministic: the same media list, seed and aspect ratios always give the same pages.
  *
+ * `metrics` (page scale on this screen, narrow or not) decides how tall the caption strip must be for readable text.
  * `aspects` maps media id -> width / height (learned when images load, or from the API); unknown photos are
  * assumed to be 9:16 portraits. Page assignment never depends on aspect ratios, only positions do.
  *
@@ -252,6 +253,7 @@ export function autoLayout(
   media: ReadonlyArray<{ id: string }>,
   seed: string,
   aspects: Readonly<Record<string, number>> = {},
+  metrics: Metrics = DESKTOP_METRICS,
 ): PageLayout[] {
   const pages: PageLayout[] = []
   let cursor = 0
@@ -272,7 +274,7 @@ export function autoLayout(
       })
     }
 
-    const placements = placePage(specs, rng)
+    const placements = placePage(specs, rng, metrics)
     const items: PageItem[] = placements.map((p, i) => ({
       id: `${p.spec.id}:photo`,
       kind: 'MEDIA',
@@ -287,7 +289,7 @@ export function autoLayout(
     const tapes: TapePlacement[] = []
     placements.forEach((p, i) => {
       if (!p.spec.tape) return
-      const tape = placeTape(p, placements, createRng(`${seed}:${p.spec.id}:tape`))
+      const tape = placeTape(p, placements, createRng(`${seed}:${p.spec.id}:tape`), metrics)
       if (!tape) return
       tapes.push(tape)
       items.push({

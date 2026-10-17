@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { autoLayout, fillRatio, pageSizes } from './autoLayout'
 import {
-  BOUNDS, DEFAULT_ASPECT, captionFontSize, dateFontSize, frameBottom, polaroidSize,
+  BOUNDS, DEFAULT_ASPECT, DESKTOP_METRICS, captionFontSize, captionLines, dateFontSize, frameBottom, polaroidSize,
+  toMetrics, type Metrics,
 } from './geometry'
 import { area, boxOf, boxesOverlap, intersectionArea, polaroidShapes, stickerPoly, tapePoly } from './shapes'
 import type { PageItem, PageLayout } from './types'
@@ -12,8 +13,13 @@ const MAX_IMAGE_COVER = 0.15
 /** Pages aim for 55% fill; no page may fall below this hard floor (a lone landscape photo cannot physically do better). */
 const MIN_FILL = 0.45
 const TARGET_FILL = 0.55
-/** Scale of a page on a 1440x900 desktop screen (the book fits a 1000x1400 page into roughly 530 px of width). */
-const DESKTOP_SCALE = 0.53
+/** The screens the layout is generated for: desktop, a 390 px phone, a 320 px phone, and a big desktop. */
+const SCREENS: Record<string, Metrics> = {
+  desktop: DESKTOP_METRICS,
+  phone390: toMetrics(0.348, true),
+  phone320: toMetrics(0.27, true),
+  bigDesktop: toMetrics(0.9, false),
+}
 
 function makeMedia(count: number, seed: number) {
   const media = Array.from({ length: count }, (_, i) => ({ id: `m${seed}-${i}` }))
@@ -30,12 +36,12 @@ function mediaCount(page: PageLayout) {
   return page.items.filter((i) => i.kind === 'MEDIA').length
 }
 
-function shapesOf(item: PageItem, aspects: Record<string, number>) {
-  return polaroidShapes(item, item.mediaId ? aspects[item.mediaId] ?? DEFAULT_ASPECT : undefined)
+function shapesOf(item: PageItem, aspects: Record<string, number>, m: Metrics = DESKTOP_METRICS) {
+  return polaroidShapes(item, item.mediaId ? aspects[item.mediaId] ?? DEFAULT_ASPECT : undefined, m)
 }
 
 /** Every rule from the brief, checked independently of the generator's own bookkeeping. */
-function violations(pages: PageLayout[], aspects: Record<string, number>, count: number): string[] {
+function violations(pages: PageLayout[], aspects: Record<string, number>, count: number, m: Metrics = DESKTOP_METRICS): string[] {
   const problems: string[] = []
   const tag = (page: PageLayout, what: string) => problems.push(`page ${page.pageIndex}: ${what}`)
 
@@ -59,7 +65,7 @@ function violations(pages: PageLayout[], aspects: Record<string, number>, count:
       }
     }
 
-    const shapes = photos.map((p) => shapesOf(p, aspects))
+    const shapes = photos.map((p) => shapesOf(p, aspects, m))
     shapes.forEach((s, i) => {
       const b = s.box
       if (b.minX < BOUNDS.minX || b.maxX > BOUNDS.maxX || b.minY < BOUNDS.minY || b.maxY > BOUNDS.maxY) {
@@ -114,29 +120,31 @@ function violations(pages: PageLayout[], aspects: Record<string, number>, count:
 }
 
 describe('autoLayout', () => {
-  it('keeps every rule for 1-40 photos of mixed aspect ratios across 50 seeds', () => {
-    const failures: string[] = []
-    for (let count = 1; count <= 40; count++) {
-      for (let seed = 0; seed < 50; seed++) {
-        const { media, aspects } = makeMedia(count, seed)
-        const pages = autoLayout(media, `album-${seed}`, aspects)
-        for (const problem of violations(pages, aspects, count)) {
-          failures.push(`n=${count} seed=${seed} ${problem}`)
-          if (failures.length > 15) break
+  for (const [screen, metrics] of Object.entries(SCREENS)) {
+    it(`keeps every rule on a ${screen} screen for 1-40 photos of mixed aspect ratios across 50 seeds`, () => {
+      const failures: string[] = []
+      outer: for (let count = 1; count <= 40; count++) {
+        for (let seed = 0; seed < 50; seed++) {
+          const { media, aspects } = makeMedia(count, seed)
+          const pages = autoLayout(media, `album-${seed}`, aspects, metrics)
+          for (const problem of violations(pages, aspects, count, metrics)) {
+            failures.push(`n=${count} seed=${seed} ${problem}`)
+            if (failures.length > 15) break outer
+          }
         }
-        if (failures.length > 15) break
       }
-      if (failures.length > 15) break
-    }
-    expect(failures).toEqual([])
-  })
+      expect(failures).toEqual([])
+    })
+  }
 
-  it('also holds when no aspect ratio is known yet (defaults to 9:16)', () => {
+  it('also holds when no aspect ratio is known yet (defaults to 9:16), on desktop and phone', () => {
     const failures: string[] = []
-    for (let count = 1; count <= 40; count++) {
-      for (let seed = 0; seed < 20; seed++) {
-        const media = Array.from({ length: count }, (_, i) => ({ id: `u${seed}-${i}` }))
-        failures.push(...violations(autoLayout(media, `seed-${seed}`), {}, count).map((p) => `n=${count} ${p}`))
+    for (const metrics of [SCREENS.desktop, SCREENS.phone390]) {
+      for (let count = 1; count <= 40; count++) {
+        for (let seed = 0; seed < 15; seed++) {
+          const media = Array.from({ length: count }, (_, i) => ({ id: `u${seed}-${i}` }))
+          failures.push(...violations(autoLayout(media, `seed-${seed}`, {}, metrics), {}, count, metrics).map((p) => `n=${count} ${p}`))
+        }
       }
     }
     expect(failures.slice(0, 10)).toEqual([])
@@ -198,10 +206,10 @@ describe('autoLayout', () => {
     for (let count = 1; count <= 40; count++) {
       for (let seed = 0; seed < 50; seed++) {
         const { media, aspects } = makeMedia(count, seed)
-        for (const page of autoLayout(media, `w-${seed}`, aspects)) {
+        for (const page of autoLayout(media, `w-${seed}`, aspects, SCREENS.phone390)) {
           const items = page.items.filter((i) => i.kind === 'MEDIA')
           const [lo] = ranges[items.length]
-          const fill = fillRatio(items.map((p) => shapesOf(p, aspects).box))
+          const fill = fillRatio(items.map((p) => shapesOf(p, aspects, SCREENS.phone390).box))
           ;(byCount[items.length] ??= []).push(fill)
           pages++
           if (fill >= TARGET_FILL) filled++
@@ -221,19 +229,38 @@ describe('autoLayout', () => {
     }
   })
 
-  it('caption and date text stay readable on a desktop screen', () => {
-    for (let width = 250; width <= 700; width += 10) {
-      // page units (the brief: caption >= 22, date >= 16)
-      expect(captionFontSize(width)).toBeGreaterThanOrEqual(22)
-      expect(dateFontSize(width)).toBeGreaterThanOrEqual(16)
-      // on a 1440x900 screen one page unit is ~0.53 px: about 12 px
-      expect(captionFontSize(width) * DESKTOP_SCALE).toBeGreaterThanOrEqual(12)
-      expect(dateFontSize(width) * DESKTOP_SCALE).toBeGreaterThanOrEqual(11.5)
-      // two caption lines plus the date fit in the strip under the picture
-      const needed = captionFontSize(width) * 1.05 * 2 + dateFontSize(width) * 1.3
-      expect(frameBottom(width)).toBeGreaterThanOrEqual(needed)
-      expect(polaroidSize(width, 9 / 16).height).toBeGreaterThan(frameBottom(width))
+  it('text is max(design size x scale, screen minimum) and the caption strip grows to fit it', () => {
+    const MIN_CAPTION_PX = 13
+    const MIN_DATE_PX = 10
+    for (const compact of [false, true]) {
+      for (let scale = 0.22; scale <= 1.2; scale += 0.02) {
+        const m = toMetrics(scale, compact)
+        for (let width = 250; width <= 700; width += 25) {
+          const caption = captionFontSize(width, m)
+          const date = dateFontSize(width, m)
+          // design sizes in page units never shrink: caption >= 24, date >= 22
+          expect(caption).toBeGreaterThanOrEqual(24)
+          expect(date).toBeGreaterThanOrEqual(22)
+          // what the reader sees: never below the screen minimum, and never below the plain scaled design size
+          expect(caption * scale).toBeGreaterThanOrEqual(MIN_CAPTION_PX - 1e-9)
+          expect(date * scale).toBeGreaterThanOrEqual(MIN_DATE_PX - 1e-9)
+          expect(caption * scale).toBeGreaterThanOrEqual(Math.max(24 * scale, width * 0.085 * scale) - 1e-9)
+          // the strip holds the caption lines plus the date
+          const needed = caption * 1.05 * captionLines(m) + date * 1.3
+          expect(frameBottom(width, m)).toBeGreaterThanOrEqual(needed)
+          // and the layout's caption rectangle is exactly that strip
+          const item = { x: 500, y: 700, width, rotation: 0 }
+          const caption_ = polaroidShapes(item, 9 / 16, m).caption
+          const stripHeight = Math.max(...caption_.map((p) => p.y)) - Math.min(...caption_.map((p) => p.y))
+          expect(stripHeight).toBeCloseTo(frameBottom(width, m), 6)
+          expect(polaroidSize(width, 9 / 16, m).height).toBeGreaterThan(frameBottom(width, m))
+        }
+      }
     }
+    // a phone draws the text bigger in page units than a desktop does, and one-line captions need less room than two lines
+    expect(captionFontSize(320, SCREENS.phone390)).toBeGreaterThan(captionFontSize(320, SCREENS.bigDesktop))
+    expect(dateFontSize(320, SCREENS.phone390)).toBeGreaterThan(dateFontSize(320, SCREENS.bigDesktop))
+    expect(frameBottom(320, { scale: 0.348, compact: true })).toBeLessThan(frameBottom(320, { scale: 0.348, compact: false }))
   })
 
   it('does not move a photo when only another page changes', () => {

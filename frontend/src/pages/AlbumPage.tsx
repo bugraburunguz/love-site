@@ -9,7 +9,8 @@ import Book from '../components/book/Book'
 import { coverColor } from '../components/leather'
 import UploadPanel from '../components/UploadPanel'
 import { useAspectProbe } from '../hooks/useAspectProbe'
-import { autoLayout } from '../layout/autoLayout'
+import { autoLayout, pageSizes } from '../layout/autoLayout'
+import type { Metrics } from '../layout/geometry'
 import type { PageLayout } from '../layout/types'
 import { cachedAspects, rememberAspects } from '../media/aspectCache'
 import { useUploadQueue } from '../upload/useUploadQueue'
@@ -81,11 +82,14 @@ function AlbumView({ id }: { id: string }) {
     return { ...result, ...measured }
   }, [items, measured])
 
-  // Layout is generated from data only; Phase 5 will feed stored layouts into the same Book.
-  const pages: PageLayout[] = useMemo(
-    () => (items.length ? autoLayout(items, id, aspects) : [{ pageIndex: 0, items: [] }]),
+  // Layout is generated from data only (plus the screen's text metrics, which the Book supplies);
+  // Phase 5 will feed stored layouts into the same Book.
+  const layout = useCallback(
+    (metrics: Metrics): PageLayout[] =>
+      items.length ? autoLayout(items, id, aspects, metrics) : [{ pageIndex: 0, items: [] }],
     [items, id, aspects],
   )
+  const sizes = useMemo(() => pageSizes(items.length, id), [items.length, id])
 
   // Photos are measured before they are drawn, so frames never change size after first paint.
   const settled = useAspectProbe(items, probeLimit, aspects, onAspect)
@@ -103,11 +107,10 @@ function AlbumView({ id }: { id: string }) {
   // How many photos precede the end of the pages the reader is about to see
   const onPosition = useCallback(
     (start: number, cols: number) => {
-      let count = 0
-      for (const page of pages.slice(0, start + cols * 3)) count += page.items.filter((i) => i.kind === 'MEDIA').length
+      const count = sizes.slice(0, start + cols * 3).reduce((sum, n) => sum + n, 0)
       setProbeLimit((limit) => Math.max(limit, count))
     },
-    [pages],
+    [sizes],
   )
 
   const openIndex = openId ? items.findIndex((m) => m.id === openId) : -1
@@ -163,7 +166,7 @@ function AlbumView({ id }: { id: string }) {
         <p className="album-screen__loading">Albüm açılıyor…</p>
       ) : (
         <Book
-          pages={pages}
+          layout={layout}
           mediaById={mediaById}
           aspects={aspects}
           coverColor={coverColor(id)}

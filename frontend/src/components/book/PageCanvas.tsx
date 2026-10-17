@@ -1,5 +1,5 @@
 import type { MediaDto } from '../../api/albums'
-import { PAGE_H, PAGE_W } from '../../layout/geometry'
+import { PAGE_H, PAGE_W, type Metrics } from '../../layout/geometry'
 import type { PageLayout } from '../../layout/types'
 import LivingPhoto from '../LivingPhoto'
 import { Sticker, Tape } from '../ornaments/Ornaments'
@@ -12,6 +12,8 @@ interface Props {
   aspects: Readonly<Record<string, number>>
   /** page units -> screen pixels; computed once by the book */
   scale: number
+  /** text size rules for this screen; the same metrics the layout was generated with */
+  metrics: Metrics
   side: 'left' | 'right' | 'single'
   /** 1-based number printed at the bottom, omitted for blank sheets */
   pageNumber?: number
@@ -26,7 +28,7 @@ interface Props {
  * (PAGE_W x PAGE_H) inside a single scaled container. Where the layout came from does not matter.
  */
 export default function PageCanvas({
-  layout, mediaById, aspects, scale, side, pageNumber, interactive = true, emptyHint, onOpen, onAspect,
+  layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onAspect,
 }: Props) {
   const items = layout ? [...layout.items].sort((a, b) => a.zIndex - b.zIndex) : []
   return (
@@ -49,6 +51,7 @@ export default function PageCanvas({
                   media={media}
                   width={item.width}
                   aspect={aspects[media.id]}
+                  metrics={metrics}
                   interactive={interactive}
                   onOpen={onOpen}
                   onAspect={onAspect}

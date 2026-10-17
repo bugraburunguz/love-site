@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { MediaDto } from '../api/albums'
 import { useElementSize } from '../hooks/useElementSize'
-import { DEFAULT_ASPECT, clampAspect, polaroidSize } from '../layout/geometry'
+import {
+  DEFAULT_ASPECT, FRAME_SIDE, UNIT_METRICS, captionFontSize, clampAspect, polaroidSize, type Metrics,
+} from '../layout/geometry'
 import Clay from './Clay'
 import LivingPhoto from './LivingPhoto'
 import './lightbox.css'
@@ -43,7 +45,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
         else onClose()
         return
       }
-      if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
+      if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
       if (e.key === 'ArrowRight') next()
       if (e.key === 'ArrowLeft') prev()
     }
@@ -61,9 +63,15 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   if (!media) return null
 
   const aspect = clampAspect(aspects[media.id] ?? (media.width && media.height ? media.width / media.height : DEFAULT_ASPECT))
-  // Biggest frame width that fits the stage (the caption strip has a minimum height, so search instead of solving)
+  // The lightbox shows the whole caption: the strip under the picture gets as many lines as the text needs.
+  const metricsFor = (width: number): Metrics => {
+    const charsPerLine = Math.max(8, Math.floor((width * (1 - 2 * FRAME_SIDE)) / (captionFontSize(width, UNIT_METRICS) * 0.46)))
+    return { ...UNIT_METRICS, lines: Math.min(10, Math.max(1, Math.ceil(draft.length / charsPerLine))) }
+  }
+  // Biggest frame width that fits the stage (the strip height depends on the width, so search instead of solving)
   let frameWidth = Math.max(160, Math.min(stageW - 24, 760))
-  while (frameWidth > 160 && polaroidSize(frameWidth, aspect).height > stageH - 24) frameWidth -= 4
+  while (frameWidth > 160 && polaroidSize(frameWidth, aspect, metricsFor(frameWidth)).height > stageH - 24) frameWidth -= 4
+  const metrics = metricsFor(frameWidth)
 
   async function save() {
     const value = draft.trim()
@@ -77,7 +85,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   }
 
   const onPointerDown = (e: PointerEvent) => {
-    if (e.target instanceof HTMLElement && e.target.closest('input,button')) return
+    if (e.target instanceof HTMLElement && e.target.closest('input,textarea,button')) return
     pointer.current = { x: e.clientX, y: e.clientY }
   }
   const onPointerUp = (e: PointerEvent) => {
@@ -146,17 +154,24 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
               width={frameWidth}
               aspect={aspect}
               interactive={false}
+              metrics={metrics}
               onAspect={onAspect}
               captionSlot={
-                <input
+                <textarea
                   className="polaroid__caption-input"
                   value={draft}
                   maxLength={280}
+                  rows={1}
                   placeholder="Bir şeyler yazın…"
                   aria-label="Altyazı"
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={() => void save()}
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                  }}
                 />
               }
             />
