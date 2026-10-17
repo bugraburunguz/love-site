@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { autoLayout, pageSizes } from './autoLayout'
-import { BOUNDS, DEFAULT_ASPECT } from './geometry'
+import { autoLayout, fillRatio, pageSizes } from './autoLayout'
+import {
+  BOUNDS, DEFAULT_ASPECT, captionFontSize, dateFontSize, frameBottom, polaroidSize,
+} from './geometry'
 import { area, boxOf, boxesOverlap, intersectionArea, polaroidShapes, stickerPoly, tapePoly } from './shapes'
 import type { PageItem, PageLayout } from './types'
 
 const ASPECTS = [9 / 16, 3 / 4, 16 / 9, 1]
 /** The rule from the brief, deliberately not imported from the generator. */
 const MAX_IMAGE_COVER = 0.15
+/** Pages aim for 55% fill; no page may fall below this hard floor (a lone landscape photo cannot physically do better). */
+const MIN_FILL = 0.45
+const TARGET_FILL = 0.55
+/** Scale of a page on a 1440x900 desktop screen (the book fits a 1000x1400 page into roughly 530 px of width). */
+const DESKTOP_SCALE = 0.53
 
 function makeMedia(count: number, seed: number) {
   const media = Array.from({ length: count }, (_, i) => ({ id: `m${seed}-${i}` }))
@@ -39,8 +46,18 @@ function violations(pages: PageLayout[], aspects: Record<string, number>, count:
     const tapes = page.items.filter((i) => i.kind === 'TAPE')
     const stickers = page.items.filter((i) => i.kind === 'STICKER')
 
-    if (count > 1 && (photos.length < 2 || photos.length > 4)) tag(page, `${photos.length} photos on a page`)
-    if (k % 2 === 1 && Math.abs(mediaCount(pages[k - 1]) - photos.length) > 1) tag(page, 'spread is unbalanced')
+    // From 4 photos on every page holds 2-4; with 2 or 3 photos the pages hold 1 or 2.
+    const [min, max] = count >= 4 ? [2, 4] : [1, 2]
+    if (count > 1 && (photos.length < min || photos.length > max)) tag(page, `${photos.length} photos on a page`)
+    // every spread has two pages, both filled, differing by at most one photo
+    if (count > 1) {
+      if (pages.length % 2 !== 0) tag(page, 'odd number of pages')
+      if (k % 2 === 1) {
+        const left = mediaCount(pages[k - 1])
+        if (left === 0 || photos.length === 0) tag(page, 'a page of the spread is empty')
+        if (Math.abs(left - photos.length) > 1) tag(page, 'spread is unbalanced')
+      }
+    }
 
     const shapes = photos.map((p) => shapesOf(p, aspects))
     shapes.forEach((s, i) => {
@@ -49,6 +66,10 @@ function violations(pages: PageLayout[], aspects: Record<string, number>, count:
         tag(page, `photo ${i} leaves the page area ${JSON.stringify(b)}`)
       }
     })
+
+    if (photos.length > 0 && fillRatio(shapes.map((sh) => sh.box)) < MIN_FILL) {
+      tag(page, `page is only ${Math.round(fillRatio(shapes.map((sh) => sh.box)) * 100)}% filled`)
+    }
 
     // z-order: higher zIndex lies on top
     const order = photos.map((p, i) => ({ i, z: p.zIndex })).sort((a, b) => a.z - b.z)
@@ -127,40 +148,92 @@ describe('autoLayout', () => {
     expect(JSON.stringify(autoLayout(media, 'same', aspects))).not.toBe(JSON.stringify(autoLayout(media, 'other', aspects)))
   })
 
-  it('page sizes are 2-4 and neighbouring pages differ by at most one', () => {
-    for (let count = 2; count <= 120; count++) {
+  it('page counts are even, every spread is full and balanced, and an even page count always exists', () => {
+    for (let count = 2; count <= 160; count++) {
       for (let seed = 0; seed < 10; seed++) {
         const sizes = pageSizes(count, `s${seed}`)
         expect(sizes.reduce((a, b) => a + b, 0)).toBe(count)
-        expect(Math.min(...sizes)).toBeGreaterThanOrEqual(2)
-        expect(Math.max(...sizes)).toBeLessThanOrEqual(4)
+        expect(sizes.length % 2).toBe(0)
+        // no page is empty, so both pages of every spread are filled
+        expect(Math.min(...sizes)).toBeGreaterThanOrEqual(1)
         expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1)
+        if (count >= 4) {
+          expect(Math.min(...sizes)).toBeGreaterThanOrEqual(2)
+          expect(Math.max(...sizes)).toBeLessThanOrEqual(4)
+        }
+        for (let k = 0; k < sizes.length; k += 2) {
+          expect(sizes[k]).toBeGreaterThan(0)
+          expect(Math.abs(sizes[k] - sizes[k + 1])).toBeLessThanOrEqual(1)
+        }
       }
     }
+    // the examples from the brief
+    expect(pageSizes(4, 'x')).toEqual([2, 2])
+    expect([...pageSizes(5, 'x')].sort()).toEqual([2, 3])
+    expect(pageSizes(9, 'x').length).toBe(4)
+    expect(pageSizes(2, 'x')).toEqual([1, 1])
     expect(pageSizes(1, 'x')).toEqual([1])
     expect(pageSizes(0, 'x')).toEqual([])
   })
 
-  it('uses roughly the requested widths (shrinks only when needed to avoid covering photos)', () => {
-    let pagesTotal = 0
+  it('treats a half-empty spread as an error', () => {
+    const aspects = {}
+    const full = autoLayout([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }], 'x', aspects)
+    expect(violations(full, aspects, 4)).toEqual([])
+    // drop the second page's photos: the spread now has one empty page
+    const broken = [full[0], { ...full[1], items: [] }]
+    expect(violations(broken, aspects, 4).join('|')).toMatch(/spread is empty|a page of the spread is empty/)
+    // a single page for several photos is an odd page count
+    const odd = [{ pageIndex: 0, items: full.flatMap((p) => p.items) }]
+    expect(violations(odd, aspects, 4).join('|')).toMatch(/odd number of pages/)
+  })
+
+  it('uses the requested widths and fills the page (growing or shrinking only when the rules demand it)', () => {
+    const ranges: Record<number, [number, number]> = { 1: [520, 520], 2: [420, 460], 3: [360, 400], 4: [300, 340] }
+    let photos = 0
     let shrunk = 0
+    let pages = 0
+    let filled = 0
+    const byCount: Record<number, number[]> = {}
     for (let count = 1; count <= 40; count++) {
       for (let seed = 0; seed < 50; seed++) {
         const { media, aspects } = makeMedia(count, seed)
         for (const page of autoLayout(media, `w-${seed}`, aspects)) {
-          const photos = page.items.filter((i) => i.kind === 'MEDIA')
-          const n = photos.length
-          const [lo, hi] = n === 1 ? [520, 520] : n === 2 ? [400, 400] : [300, 340]
-          for (const p of photos) {
-            expect(p.width).toBeLessThanOrEqual(hi * 1.08 + 1e-6)
-            pagesTotal++
-            if (p.width < lo * 0.92 - 1e-6) shrunk++
+          const items = page.items.filter((i) => i.kind === 'MEDIA')
+          const [lo] = ranges[items.length]
+          const fill = fillRatio(items.map((p) => shapesOf(p, aspects).box))
+          ;(byCount[items.length] ??= []).push(fill)
+          pages++
+          if (fill >= TARGET_FILL) filled++
+          for (const p of items) {
+            photos++
+            if (p.width < lo - 1e-6) shrunk++
           }
         }
       }
     }
-    // widths are only reduced for crowded pages of tall photos
-    expect(shrunk / pagesTotal).toBeLessThan(0.35)
+    // the brief's ranges are respected unless a crowded page of tall photos has to shrink them
+    expect(shrunk / photos).toBeLessThan(0.15)
+    // 55% fill: reached by the vast majority of pages
+    expect(filled / pages).toBeGreaterThan(0.95)
+    for (const [n, fills] of Object.entries(byCount)) {
+      expect(Math.min(...fills), `pages with ${n} photos`).toBeGreaterThanOrEqual(MIN_FILL)
+    }
+  })
+
+  it('caption and date text stay readable on a desktop screen', () => {
+    for (let width = 250; width <= 700; width += 10) {
+      // page units (the brief: caption >= 22, date >= 16)
+      expect(captionFontSize(width)).toBeGreaterThanOrEqual(22)
+      expect(dateFontSize(width)).toBeGreaterThanOrEqual(16)
+      // on a 1440x900 screen one page unit is ~0.53 px: about 12 px
+      expect(captionFontSize(width) * DESKTOP_SCALE).toBeGreaterThanOrEqual(12)
+      expect(dateFontSize(width) * DESKTOP_SCALE).toBeGreaterThanOrEqual(11.5)
+      // two caption lines plus the date fit in the strip under the picture
+      const needed = captionFontSize(width) * 1.05 * 2 + dateFontSize(width) * 1.3
+      expect(frameBottom(width)).toBeGreaterThanOrEqual(needed)
+      expect(polaroidSize(width, 9 / 16).height).toBeGreaterThan(frameBottom(width))
+    }
   })
 
   it('does not move a photo when only another page changes', () => {

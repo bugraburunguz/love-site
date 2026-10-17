@@ -3,6 +3,7 @@ package com.lovesite.storage;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -18,11 +19,18 @@ public record StorageProperties(
         String region,
         boolean pathStyle,
         boolean configureCors,
-        List<String> allowedOrigins) {
+        List<String> allowedOrigins,
+        Duration connectTimeout,
+        Duration readTimeout,
+        int maxAttempts) {
 
     public StorageProperties {
         if (region == null || region.isBlank()) region = "auto";
         if (allowedOrigins == null) allowedOrigins = List.of();
+        // Never rely on the SDK defaults (they are long: 2 s connect, 30 s read, plus retries).
+        if (connectTimeout == null) connectTimeout = Duration.ofSeconds(3);
+        if (readTimeout == null) readTimeout = Duration.ofSeconds(10);
+        if (maxAttempts <= 0) maxAttempts = 3;
     }
 
     /**

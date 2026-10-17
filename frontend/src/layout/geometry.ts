@@ -25,6 +25,22 @@ export const FRAME_SIDE = 0.06
 export const FRAME_TOP = 0.06
 export const FRAME_BOTTOM = 0.2
 
+/**
+ * Readability floors, in page units. A desktop screen shows a page at about 0.53x, so 24 and 22 units come out at about
+ * 12.7 px for the caption and 11.7 px for the date (the minimums asked for are 22 and 16 units).
+ */
+export const MIN_CAPTION_FONT = 24
+export const MIN_DATE_FONT = 22
+
+export const captionFontSize = (width: number) => Math.max(MIN_CAPTION_FONT, width * 0.085)
+export const dateFontSize = (width: number) => Math.max(MIN_DATE_FONT, width * 0.05)
+/**
+ * Height of the white strip under the picture: 20% of the width, but never less than two caption lines plus the date
+ * (so the strip is taller than before on narrow polaroids).
+ */
+export const frameBottom = (width: number) =>
+  Math.max(width * FRAME_BOTTOM, captionFontSize(width) * 2.1 + dateFontSize(width) * 1.3 + 8)
+
 /** Washi tape is this many times wider than tall (matches the CSS). */
 export const TAPE_ASPECT = 3.6
 
@@ -37,5 +53,5 @@ export function clampAspect(aspect: number | undefined): number {
 export function polaroidSize(width: number, aspect: number | undefined) {
   const imageWidth = width * (1 - 2 * FRAME_SIDE)
   const imageHeight = imageWidth / clampAspect(aspect)
-  return { imageWidth, imageHeight, height: width * FRAME_TOP + imageHeight + width * FRAME_BOTTOM }
+  return { imageWidth, imageHeight, height: width * FRAME_TOP + imageHeight + frameBottom(width) }
 }

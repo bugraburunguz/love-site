@@ -49,7 +49,9 @@ import java.time.temporal.ChronoUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -121,7 +123,7 @@ class MediaUploadIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired PendingUploadCleanup cleanup;
-    @Autowired StorageService storage;
+    @MockitoSpyBean StorageService storage;
     @MockitoSpyBean MediaService mediaService;
 
     final HttpClient http = HttpClient.newHttpClient();
@@ -538,5 +540,20 @@ class MediaUploadIntegrationTest {
         assertThat(mvc.perform(get("/")).andReturn().getResponse().getHeader("Strict-Transport-Security")).isNull();
         // API responses carry the same headers
         assertThat(mvc.perform(get("/api/albums").with(USER)).andReturn().getResponse().getHeader("Content-Security-Policy")).isEqualTo(csp);
+    }
+
+    @Test
+    void musicEndpointAnswersNoContentWhenTheBucketFails() throws Exception {
+        // a connection error, a timeout and a 5xx from the bucket must all silence the music box, never produce a 5xx
+        for (RuntimeException failure : new RuntimeException[] {
+                software.amazon.awssdk.core.exception.SdkClientException.create("Unable to execute HTTP request: connect timed out"),
+                software.amazon.awssdk.core.exception.ApiCallTimeoutException.create(4000),
+                software.amazon.awssdk.services.s3.model.S3Exception.builder().statusCode(503).message("Service Unavailable").build()}) {
+            doThrow(failure).when(storage).head(eq("audio/theme"), any());
+            mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent());
+        }
+        org.mockito.Mockito.reset(storage);
+        // and it still works afterwards
+        mvc.perform(get("/api/settings/music").with(USER)).andExpect(status().isNoContent()); // no file uploaded
     }
 }

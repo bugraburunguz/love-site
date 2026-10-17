@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { MediaDto } from '../api/albums'
 import { useElementSize } from '../hooks/useElementSize'
-import { DEFAULT_ASPECT, FRAME_BOTTOM, FRAME_SIDE, FRAME_TOP, clampAspect } from '../layout/geometry'
+import { DEFAULT_ASPECT, clampAspect, polaroidSize } from '../layout/geometry'
 import Clay from './Clay'
 import LivingPhoto from './LivingPhoto'
 import './lightbox.css'
@@ -61,9 +61,9 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   if (!media) return null
 
   const aspect = clampAspect(aspects[media.id] ?? (media.width && media.height ? media.width / media.height : DEFAULT_ASPECT))
-  // Biggest frame width that fits the stage: height = w * (top + bottom) + w * (1 - 2 side) / aspect
-  const heightPerWidth = FRAME_TOP + FRAME_BOTTOM + (1 - 2 * FRAME_SIDE) / aspect
-  const frameWidth = Math.max(160, Math.min(stageW - 24, (stageH - 24) / heightPerWidth, 760))
+  // Biggest frame width that fits the stage (the caption strip has a minimum height, so search instead of solving)
+  let frameWidth = Math.max(160, Math.min(stageW - 24, 760))
+  while (frameWidth > 160 && polaroidSize(frameWidth, aspect).height > stageH - 24) frameWidth -= 4
 
   async function save() {
     const value = draft.trim()

@@ -66,6 +66,10 @@ app:
     region: ${S3_REGION:auto}
     path-style: ${S3_PATH_STYLE:false}
     configure-cors: true
+    # explicit HTTP limits for the bucket client
+    connect-timeout: 3s
+    read-timeout: 10s
+    max-attempts: 3
     allowed-origins: ${APP_ALLOWED_ORIGINS:}
   media:
     max-image-size: 30MB

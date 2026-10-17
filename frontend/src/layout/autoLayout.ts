@@ -16,25 +16,40 @@ const MAX_PER_PAGE = 4
 const TAPE_WIDTH = 120
 const TAPE_RESERVE = 40
 const SLACK = 40
-const SHRINK_STEPS = [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.6, 0.5, 0.4]
-const ATTEMPTS = 14
+/** Wider cell overlap when photos are enlarged to fill a sparse page. */
+const GROW_SLACK = 110
+/** Share of the usable page area the polaroids' bounding boxes should add up to. */
+export const TARGET_FILL = 0.55
+const GROW_STEPS = [1.04, 1.08, 1.12, 1.17, 1.22, 1.28, 1.35, 1.42, 1.5, 1.6, 1.7, 1.8, 1.95, 2.1, 2.3]
+const SHRINK_STEPS = [1, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82, 0.79, 0.76, 0.72, 0.68, 0.64, 0.6, 0.55, 0.5, 0.45, 0.4]
+const ATTEMPTS = 24
+/** Growing a page is a search for the largest scale that still obeys every rule, so it tries harder. */
+const GROW_ATTEMPTS = 80
 
 type Rect = { x0: number; y0: number; x1: number; y1: number }
 type Spec = { id: string; aspect: number; baseWidth: number; rotation: number; tape: boolean }
 type Placement = { spec: Spec; x: number; y: number; width: number; shapes: PolaroidShapes }
 
 /**
- * Pages hold 2-4 photos (a lone photo only when the album has just one) and pages are filled evenly, so the two
- * pages of a spread never differ by more than one photo.
+ * An album of 2 or more photos always has an EVEN number of pages, so every spread has two filled pages, and pages are
+ * filled evenly (neighbours differ by at most one photo). From 4 photos on every page holds 2-4; with 2 or 3 photos the
+ * pages hold 1+1 and 2+1. A single photo gets one page.
  */
 export function pageSizes(count: number, seed: string): number[] {
   if (count <= 0) return []
   if (count === 1) return [1]
+  if (count === 2) return [1, 1]
+  if (count === 3) return createRng(`${seed}:pages`).next() < 0.5 ? [2, 1] : [1, 2]
+
   const rng = createRng(`${seed}:pages`)
   const minPages = Math.ceil(count / MAX_PER_PAGE)
   const maxPages = Math.floor(count / MIN_PER_PAGE)
-  const wanted = Math.round(count / rng.range(2.6, 3.6))
-  const pages = Math.min(maxPages, Math.max(minPages, wanted))
+  const choices: number[] = []
+  for (let p = minPages; p <= maxPages; p++) if (p % 2 === 0) choices.push(p)
+  // choices is never empty for count >= 4 (checked by the tests); prefer the page count nearest to ~3 photos per page
+  const wanted = count / rng.range(2.6, 3.6)
+  const pages = choices.reduce((best, p) => (Math.abs(p - wanted) < Math.abs(best - wanted) ? p : best), choices[0])
+
   const base = Math.floor(count / pages)
   const sizes = new Array<number>(pages).fill(base)
   const order = [...sizes.keys()]
@@ -46,27 +61,33 @@ export function pageSizes(count: number, seed: string): number[] {
   return sizes
 }
 
-function targetWidth(n: number, rng: Rng): number {
-  const factor = rng.range(0.92, 1.08)
-  if (n === 1) return 520 * factor
-  if (n === 2) return 400 * factor
-  return rng.range(300, 340) * factor
+/** Frame widths by photos on the page (page units). */
+export const WIDTH_RANGES: Record<number, [number, number]> = {
+  1: [520, 520],
+  2: [420, 460],
+  3: [360, 400],
+  4: [300, 340],
 }
 
-function cellsFor(n: number, arrangement: number): Rect[] {
+function targetWidth(n: number, rng: Rng): number {
+  const [lo, hi] = WIDTH_RANGES[Math.min(n, 4)]
+  return hi > lo ? rng.range(lo, hi) : lo
+}
+
+function cellsFor(n: number, arrangement: number, slack: number): Rect[] {
   const { minX, maxX, minY, maxY } = BOUNDS
   const midX = (minX + maxX) / 2
   const midY = (minY + maxY) / 2
   const full: Rect = { x0: minX, y0: minY, x1: maxX, y1: maxY }
-  const left: Rect = { x0: minX, y0: minY, x1: midX + SLACK, y1: maxY }
-  const right: Rect = { x0: midX - SLACK, y0: minY, x1: maxX, y1: maxY }
-  const top: Rect = { x0: minX, y0: minY, x1: maxX, y1: midY + SLACK }
-  const bottom: Rect = { x0: minX, y0: midY - SLACK, x1: maxX, y1: maxY }
+  const left: Rect = { x0: minX, y0: minY, x1: midX + slack, y1: maxY }
+  const right: Rect = { x0: midX - slack, y0: minY, x1: maxX, y1: maxY }
+  const top: Rect = { x0: minX, y0: minY, x1: maxX, y1: midY + slack }
+  const bottom: Rect = { x0: minX, y0: midY - slack, x1: maxX, y1: maxY }
   const quarter = (col: 0 | 1, row: 0 | 1): Rect => ({
-    x0: col === 0 ? minX : midX - SLACK,
-    x1: col === 0 ? midX + SLACK : maxX,
-    y0: row === 0 ? minY : midY - SLACK,
-    y1: row === 0 ? midY + SLACK : maxY,
+    x0: col === 0 ? minX : midX - slack,
+    x1: col === 0 ? midX + slack : maxX,
+    y0: row === 0 ? minY : midY - slack,
+    y1: row === 0 ? midY + slack : maxY,
   })
   if (n === 1) return [full]
   if (n === 2) return arrangement === 0 ? [left, right] : [top, bottom]
@@ -74,7 +95,7 @@ function cellsFor(n: number, arrangement: number): Rect[] {
     if (arrangement === 0) return [top, quarter(0, 1), quarter(1, 1)]
     if (arrangement === 1) return [quarter(0, 0), quarter(1, 0), bottom]
     const third = (maxX - minX) / 3
-    return [0, 1, 2].map((i) => ({ x0: minX + i * third - SLACK, y0: minY, x1: minX + (i + 1) * third + SLACK, y1: maxY }))
+    return [0, 1, 2].map((i) => ({ x0: minX + i * third - slack, y0: minY, x1: minX + (i + 1) * third + slack, y1: maxY }))
   }
   return [quarter(0, 0), quarter(1, 0), quarter(0, 1), quarter(1, 1)]
 }
@@ -103,8 +124,8 @@ function placementOk(all: Placement[]): boolean {
   return true
 }
 
-function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng): Placement[] | null {
-  const cells = cellsFor(specs.length, arrangement)
+function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng, slack = SLACK): Placement[] | null {
+  const cells = cellsFor(specs.length, arrangement, slack)
   const placed: Placement[] = []
   specs.forEach((spec, i) => {
     const width = spec.baseWidth * scale
@@ -123,6 +144,13 @@ function tryPlace(specs: Spec[], scale: number, arrangement: number, rng: Rng): 
   return placementOk(placed) ? placed : null
 }
 
+const USABLE_AREA = (BOUNDS.maxX - BOUNDS.minX) * (BOUNDS.maxY - BOUNDS.minY)
+
+/** Sum of the polaroids' (rotated) bounding-box areas relative to the usable page area. */
+export function fillRatio(boxes: Box[]): number {
+  return boxes.reduce((sum, b) => sum + (b.maxX - b.minX) * (b.maxY - b.minY), 0) / USABLE_AREA
+}
+
 function placePage(specs: Spec[], rng: Rng): Placement[] {
   const arrangements = arrangementCount(specs.length)
   const order = [...Array(arrangements).keys()]
@@ -130,13 +158,33 @@ function placePage(specs: Spec[], rng: Rng): Placement[] {
     const j = Math.floor(rng.next() * (i + 1))
     ;[order[i], order[j]] = [order[j], order[i]]
   }
-  for (const scale of SHRINK_STEPS) {
+  const attemptAt = (scale: number): Placement[] | null => {
     for (const arrangement of order) {
-      for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-        const result = tryPlace(specs, scale, arrangement, rng)
+      for (let attempt = 0; attempt < (scale > 1 ? GROW_ATTEMPTS : ATTEMPTS); attempt++) {
+        const result = tryPlace(specs, scale, arrangement, rng, scale > 1 ? GROW_SLACK : SLACK)
         if (result) return result
       }
     }
+    return null
+  }
+  const fill = (placed: Placement[]) => fillRatio(placed.map((p) => p.shapes.box))
+
+  const natural = attemptAt(1)
+  if (natural) {
+    if (fill(natural) >= TARGET_FILL) return natural
+    // Too empty (typically wide photos): grow the photos just enough, as long as the rules still hold.
+    let best = natural
+    for (const scale of GROW_STEPS) {
+      const bigger = attemptAt(scale)
+      if (!bigger) continue
+      if (fill(bigger) > fill(best)) best = bigger
+      if (fill(best) >= TARGET_FILL) break
+    }
+    return best
+  }
+  for (const scale of SHRINK_STEPS.slice(1)) {
+    const result = attemptAt(scale)
+    if (result) return result
   }
   // Unreachable in practice (the smallest scale always fits); keep the page usable regardless.
   return tryPlace(specs, SHRINK_STEPS[SHRINK_STEPS.length - 1], 0, rng) ?? []

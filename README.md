@@ -113,14 +113,31 @@ rights to use.
 
 ## Page layout rules
 
-`autoLayout` (frontend/src/layout) places 2-4 photos per page (a lone photo only in a one-photo album) and fills pages
-evenly, so the two pages of a spread never differ by more than one. Photo widths follow the page: ~520 for one, ~400 for two,
-300-340 for three or four (+-8%; shrunk only when a crowded page of tall photos would otherwise cover pictures). Every frame,
-rotated and including its caption strip, stays at least 40 units inside the page and above the page-number strip; an item may
-hide at most 15% of another picture and never a caption; tape sits on a polaroid's top edge and never touches a picture;
-stickers go only into empty space. Unknown aspect ratios default to 9:16; real ratios come from the API (later) or are measured
-in the browser, cached per album in memory, and applied in one batch. `cd frontend && npm test` checks these rules for 1-40
-photos of mixed ratios across 50 seeds.
+`autoLayout` (frontend/src/layout) builds the pages of a book:
+
+- An album of 2+ photos always has an **even number of pages**, so every spread has two filled pages (sizes differ by at most
+  one: 4 photos -> 2+2, 5 -> 3+2, 9 -> 3+2+2+2). From 4 photos on every page holds 2-4; 2 photos give 1+1 and 3 give 2+1;
+  one photo gets a single page.
+- Frame widths: ~520 for one photo, 420-460 for two, 360-400 for three, 300-340 for four. A page whose polaroids add up to
+  less than ~55% of the usable area (bounding boxes) is enlarged until it is full; a crowded page of tall photos is shrunk
+  only as far as the rules require.
+- Every frame, rotated and including its caption strip, stays at least 40 units inside the page and above the page-number
+  strip; an item may hide at most 15% of another picture and never a caption; tape sits on a polaroid's top edge and never
+  touches a picture; stickers go only into empty space.
+- Text: caption >= 24 and date >= 22 page units (about 12-13 px on a desktop screen); the strip under the picture grows
+  to fit two caption lines plus the date.
+- Unknown aspect ratios default to 9:16; real ratios come from the API (later) or are measured in the browser, cached per
+  album in memory, and applied in one batch.
+
+`cd frontend && npm test` checks all of this for 1-40 photos of mixed ratios across 50 seeds, including that a spread with
+one empty page is reported as an error. Measured over those albums: 97.7% of pages reach 55% fill (average 62%, minimum 47%,
+only some lone landscape photos and landscape-plus-portrait pages stay below).
+
+## Bucket client limits
+
+The S3 client does not rely on SDK defaults: `app.storage.connect-timeout` (3s), `read-timeout` (10s, socket inactivity) and
+`max-attempts` (3) are explicit, and the optional music lookup has a 4 s total budget. `GET /api/settings/music` answers
+`204` (no music) for a missing file *and* for any bucket error, logging `Music lookup failed, answering 204` as a warning.
 
 ## Security headers
 

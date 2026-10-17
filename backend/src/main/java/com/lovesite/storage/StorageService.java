@@ -4,6 +4,8 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.awscore.retry.AwsRetryStrategy;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
@@ -73,7 +75,15 @@ public class StorageService {
                 // Non-AWS S3 implementations do not understand the SDK's default CRC checksums.
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
-                .overrideConfiguration(c -> c.addExecutionInterceptor(CONTENT_MD5))
+                .httpClientBuilder(ApacheHttpClient.builder()
+                        .connectionTimeout(properties.connectTimeout())
+                        .socketTimeout(properties.readTimeout())
+                        .connectionAcquisitionTimeout(Duration.ofSeconds(5))
+                        .maxConnections(50))
+                .overrideConfiguration(c -> c
+                        .addExecutionInterceptor(CONTENT_MD5)
+                        .retryStrategy(AwsRetryStrategy.standardRetryStrategy().toBuilder()
+                                .maxAttempts(properties.maxAttempts()).build()))
                 .build();
         this.presigner = S3Presigner.builder()
                 .endpointOverride(endpoint)
@@ -128,8 +138,18 @@ public class StorageService {
 
     /** Empty when the object does not exist. */
     public Optional<HeadObjectResponse> head(String key) {
+        return head(key, null);
+    }
+
+    /**
+     * Like head(key), but gives up after `timeout` in total (all retries included) when it is not null, so optional
+     * lookups on the request path cannot hang.
+     */
+    public Optional<HeadObjectResponse> head(String key, Duration timeout) {
         try {
-            return Optional.of(client.headObject(HeadObjectRequest.builder().bucket(properties.bucket()).key(key).build()));
+            var request = HeadObjectRequest.builder().bucket(properties.bucket()).key(key);
+            if (timeout != null) request.overrideConfiguration(o -> o.apiCallTimeout(timeout));
+            return Optional.of(client.headObject(request.build()));
         } catch (NoSuchKeyException e) {
             return Optional.empty();
         } catch (software.amazon.awssdk.services.s3.model.S3Exception e) {

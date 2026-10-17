@@ -1,7 +1,9 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import type { MediaDto } from '../api/albums'
 import { useHoverCapable, useReducedMotion } from '../hooks/useReducedMotion'
-import { DEFAULT_ASPECT, FRAME_BOTTOM, FRAME_SIDE, FRAME_TOP, clampAspect } from '../layout/geometry'
+import {
+  DEFAULT_ASPECT, FRAME_SIDE, FRAME_TOP, captionFontSize, clampAspect, dateFontSize, frameBottom,
+} from '../layout/geometry'
 import { resolveDisplay } from '../media/display'
 import { useVideoPlayback } from '../media/playback'
 import DevelopingPlaceholder from './DevelopingPlaceholder'
@@ -94,7 +96,7 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
   const imageWidth = width * (1 - 2 * FRAME_SIDE)
   const frameStyle: CSSProperties = {
     width,
-    fontSize: width * 0.085,
+    fontSize: captionFontSize(width),
     padding: `${width * FRAME_TOP}px ${width * FRAME_SIDE}px 0`,
   }
 
@@ -137,9 +139,9 @@ export default function LivingPhoto({ media, width, aspect, interactive = true, 
           <MediaView media={media} onAspect={(ratio) => onAspect?.(media.id, ratio)} />
           <div className="polaroid__grain" aria-hidden="true" />
         </div>
-        <figcaption className="polaroid__caption" style={{ height: width * FRAME_BOTTOM }}>
+        <figcaption className="polaroid__caption" style={{ height: frameBottom(width) }}>
           {captionSlot ?? (media.caption ? <span className="polaroid__text">{media.caption}</span> : null)}
-          <time className="polaroid__date" dateTime={shownDate(media)} style={{ fontSize: width * 0.05 }}>
+          <time className="polaroid__date" dateTime={shownDate(media)} style={{ fontSize: dateFontSize(width) }}>
             {formatDate(shownDate(media))}
           </time>
         </figcaption>

@@ -1,4 +1,4 @@
-import { FRAME_BOTTOM, FRAME_TOP, TAPE_ASPECT, polaroidSize } from './geometry'
+import { FRAME_TOP, TAPE_ASPECT, frameBottom, polaroidSize } from './geometry'
 
 export type Point = { x: number; y: number }
 /** Convex polygon, counter-clockwise in a y-down coordinate system is not required: orientation is normalised. */
@@ -63,7 +63,7 @@ export function polaroidShapes(item: Placed, aspect: number | undefined): Polaro
   return {
     frame,
     image: localRect(-imageWidth / 2, imageTop, imageWidth / 2, imageTop + imageHeight, item),
-    caption: localRect(-hw, hh - item.width * FRAME_BOTTOM, hw, hh, item),
+    caption: localRect(-hw, hh - frameBottom(item.width), hw, hh, item),
     box: boxOf(frame),
   }
 }
