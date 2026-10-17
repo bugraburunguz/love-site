@@ -1,0 +1,51 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 30d
+      cookie:
+        http-only: true
+        secure: ${COOKIE_SECURE:true}
+        same-site: lax
+        max-age: 30d
+
+spring:
+  application:
+    name: love-site
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT:5432}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  session:
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+app:
+  seed:
+    user1:
+      email: ${USER1_EMAIL:}
+      name: ${USER1_NAME:}
+      password: ${USER1_PASSWORD:}
+    user2:
+      email: ${USER2_EMAIL:}
+      name: ${USER2_NAME:}
+      password: ${USER2_PASSWORD:}

@@ -1,0 +1,23 @@
+# Local development: run with SPRING_PROFILES_ACTIVE=local
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:lovesite}
+    username: ${PGUSER:lovesite}
+    password: ${PGPASSWORD:lovesite}
+
+app:
+  seed:
+    user1:
+      email: ${USER1_EMAIL:user1@local.test}
+      name: ${USER1_NAME:User One}
+      password: ${USER1_PASSWORD:local-dev-password-1}
+    user2:
+      email: ${USER2_EMAIL:user2@local.test}
+      name: ${USER2_NAME:User Two}
+      password: ${USER2_PASSWORD:local-dev-password-2}
