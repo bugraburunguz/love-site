@@ -63,7 +63,7 @@ export default function PagePanel({ page, single, onLook, onTheme, onSticker, on
         <strong>Sayfa {page.pageIndex + 1}</strong>
         <Clay size="sm" tone="cream" onClick={onClose}>Kapat</Clay>
       </div>
-      <div className="page-bar__templates" role="tablist">
+      <div className="panel-tabs" role="tablist">
         <Clay size="sm" tone={tab === 'look' ? 'rose' : 'cream'} aria-pressed={tab === 'look'} onClick={() => setTab('look')}>Renk ve doku</Clay>
         <Clay size="sm" tone={tab === 'theme' ? 'rose' : 'cream'} aria-pressed={tab === 'theme'} onClick={() => setTab('theme')}>Sayfa teması</Clay>
         <Clay size="sm" tone={tab === 'stickers' ? 'rose' : 'cream'} aria-pressed={tab === 'stickers'} onClick={() => setTab('stickers')}>Çıkartmalar</Clay>

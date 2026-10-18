@@ -260,3 +260,10 @@
   width: 20px;
   transform: rotate(-6deg);
 }
+
+/* tabs of the page panel: three of them do not fit one line of the 320 px panel, so they wrap instead of running off */
+.panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
