@@ -1,3 +1,4 @@
+import { API_BASE } from '../native/platform'
 import { useEffect, useState } from 'react'
 import { createPartnerInvite, formatBytes, getSpace, type CreatedInvite, type SpaceInfo } from '../api/albums'
 import Clay from './Clay'
@@ -5,7 +6,8 @@ import '../pages/space.css'
 
 /** the server sends an absolute url when APP_PUBLIC_URL is set; otherwise the link is built from where the owner is browsing */
 export function inviteUrl(invite: Pick<CreatedInvite, 'path' | 'url'>): string {
-  return invite.url ?? `${window.location.origin}${invite.path}`
+  // in the store app the page origin is the app itself (capacitor://localhost): links must point at the site
+  return invite.url ?? `${API_BASE || window.location.origin}${invite.path}`
 }
 
 /** Copyable link plus the expiry note; shared by the partner invitation and the admin screen. */

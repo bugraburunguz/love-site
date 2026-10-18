@@ -18,8 +18,11 @@ public class BucketCorsInitializer implements ApplicationRunner {
     private final StorageProperties properties;
     private final StorageService storage;
     private final com.lovesite.role.Roles roles;
+    private final com.lovesite.mobile.MobileProperties mobile;
 
-    public BucketCorsInitializer(StorageProperties properties, StorageService storage, com.lovesite.role.Roles roles) {
+    public BucketCorsInitializer(StorageProperties properties, StorageService storage, com.lovesite.role.Roles roles,
+                                 com.lovesite.mobile.MobileProperties mobile) {
+        this.mobile = mobile;
         this.properties = properties;
         this.storage = storage;
         this.roles = roles;
@@ -42,11 +45,21 @@ public class BucketCorsInitializer implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Bucket is NOT reachable (HeadBucket failed), check S3_* variables: {}", e.toString());
         }
+        // the store apps upload straight to the bucket from their own origins too
+        java.util.List<String> origins = new java.util.ArrayList<>(properties.allowedOrigins());
+        mobile.origins().stream().filter(o -> !origins.contains(o)).forEach(origins::add);
         try {
-            storage.putBucketCors(properties.allowedOrigins());
-            log.info("Bucket CORS configured for origins {}", properties.allowedOrigins());
+            storage.putBucketCors(origins);
+            log.info("Bucket CORS configured for origins {}", origins);
         } catch (Exception e) {
-            log.error("Could not configure bucket CORS (PutBucketCors failed): {}", e.toString());
+            // a provider that refuses a non-http origin (capacitor://) must not break the website's uploads
+            log.warn("PutBucketCors with the app origins failed ({}), retrying with the website origins only", e.toString());
+            try {
+                storage.putBucketCors(properties.allowedOrigins());
+                log.warn("Bucket CORS configured for {} only: uploads from the store apps will fail", properties.allowedOrigins());
+            } catch (Exception again) {
+                log.error("Could not configure bucket CORS (PutBucketCors failed): {}", again.toString());
+            }
         }
     }
 }

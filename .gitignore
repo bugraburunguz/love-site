@@ -7,3 +7,6 @@
 .DS_Store
 postgreslog.json
 websitelog.json
+
+# the store apps' build settings (no secrets: only the public API address)
+!frontend/.env.mobile

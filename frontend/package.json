@@ -7,9 +7,21 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:mobile": "tsc -b && vite build --mode mobile --outDir dist-mobile",
+    "cap:sync": "npm run build:mobile && cap sync",
+    "cap:assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor \"#E9D7B0\" --iconBackgroundColorDark \"#E9D7B0\" --splashBackgroundColor \"#E4D0A9\" --splashBackgroundColorDark \"#E4D0A9\""
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/preferences": "8.0.1",
+    "@capacitor/share": "8.0.3",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4",
     "@fontsource/caveat": "^5.3.0",
     "@fontsource/cinzel": "^5.3.0",
     "@fontsource/cinzel-decorative": "^5.3.0",
@@ -26,6 +38,8 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

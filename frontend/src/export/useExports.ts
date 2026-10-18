@@ -26,8 +26,8 @@ function writeDismissed(ids: Set<string>) {
 export function useExports(albumId: string) {
   const [jobs, setJobs] = useState<ExportJob[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(readDismissed)
-  const jobsRef = useRef(jobs)
-  jobsRef.current = jobs
+  /** jobs started on this page, newest first: their cards stay on top even when the server returns an older, identical job */
+  const started = useRef(new Map<string, number>())
 
   const refresh = useCallback(() => {
     listAlbumExports(albumId).then(setJobs).catch(() => undefined)
@@ -56,6 +56,7 @@ export function useExports(albumId: string) {
 
   const start = useCallback(async (type: ExportType, params: Record<string, unknown>) => {
     const job = await createExport(type, params)
+    started.current.set(job.id, Date.now())
     setJobs((list) => [job, ...list.filter((j) => j.id !== job.id)])
     setDismissed((d) => {
       if (!d.has(job.id)) return d
@@ -75,5 +76,11 @@ export function useExports(albumId: string) {
     })
   }, [])
 
-  return { jobs, cards: jobs.filter((j) => !dismissed.has(j.id)).slice(0, 2), start, dismiss, refresh }
+  const rank = (j: ExportJob) => started.current.get(j.id) ?? 0
+  const cards = jobs
+    .filter((j) => !dismissed.has(j.id))
+    .sort((a, b) => rank(b) - rank(a) || b.createdAt.localeCompare(a.createdAt))
+    // one card at a time: more would cover the book (all of them are listed in the share dialog)
+    .slice(0, 1)
+  return { jobs, cards, start, dismiss, refresh }
 }

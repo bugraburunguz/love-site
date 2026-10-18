@@ -34,8 +34,10 @@ import java.io.IOException;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, StorageProperties storage) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, StorageProperties storage, com.lovesite.mobile.MobileProperties mobile) throws Exception {
         http
+                // the store apps call the API from their own origins (capacitor://localhost, https://localhost)
+                .cors(cors -> cors.configurationSource(mobileCors(mobile)))
                 .headers(headers -> headers
                         // written by hand so the value is exactly "max-age=31536000; includeSubDomains" (Spring's own
                         // writer puts a space before the semicolon); only sent on HTTPS requests
@@ -46,7 +48,11 @@ public class SecurityConfig {
                 // SPA: the token lives in the XSRF-TOKEN cookie and the frontend echoes it in X-XSRF-TOKEN.
                 // The plain (non-XOR) handler accepts the raw cookie value, and CsrfCookieFilter forces
                 // the deferred token to load so the cookie is written even on responses that never read it.
+                // App requests (X-Client: love-site-app) are authenticated only by the X-Auth-Token header, never by the cookie
+                // (MobileSessionConfig), and a page of another site cannot send that header cross-origin without passing CORS,
+                // which only allows the app origins. Nothing ambient to forge, so no CSRF token for them.
                 .csrf(csrf -> csrf
+                        .ignoringRequestMatchers(com.lovesite.mobile.MobileSessionConfig::isApp)
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
@@ -86,6 +92,21 @@ public class SecurityConfig {
                 + "base-uri 'self'; form-action 'self'; object-src 'none'";
     }
 
+    /** CORS only for the API and only for the app origins; the website itself is same-origin and needs none. */
+    static org.springframework.web.cors.CorsConfigurationSource mobileCors(com.lovesite.mobile.MobileProperties mobile) {
+        var config = new org.springframework.web.cors.CorsConfiguration();
+        config.setAllowedOrigins(mobile.origins());
+        config.setAllowedMethods(java.util.List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(java.util.List.of("Content-Type", "Accept", com.lovesite.mobile.MobileProperties.CLIENT_HEADER,
+                com.lovesite.mobile.MobileProperties.TOKEN_HEADER));
+        config.setExposedHeaders(java.util.List.of(com.lovesite.mobile.MobileProperties.TOKEN_HEADER));
+        config.setAllowCredentials(false);
+        config.setMaxAge(3600L);
+        var source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", config);
+        return source;
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -117,7 +138,8 @@ public class SecurityConfig {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
             CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-            if (token != null) {
+            // the store app uses no CSRF token, so it gets no XSRF-TOKEN cookie either
+            if (token != null && !com.lovesite.mobile.MobileSessionConfig.isApp(request)) {
                 token.getToken();
             }
             chain.doFilter(request, response);

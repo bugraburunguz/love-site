@@ -1,4 +1,5 @@
 import type { ExportFile } from '../api/exports'
+import { isNativeApp } from '../native/platform'
 
 /**
  * Handing a finished export to the phone's share sheet (Instagram, WhatsApp ... are picked there; there is no web API to post
@@ -34,8 +35,16 @@ export function shareFiles(files: File[], title?: string): Promise<void> {
   return navigator.share({ files, title })
 }
 
-/** Saves a file: from memory when it was prefetched (blob URL), else through the presigned link (Content-Disposition: attachment). */
-export function download(file: ExportFile, prefetched?: File) {
+/**
+ * Saves a file: from memory when it was prefetched (blob URL), else through the presigned link (Content-Disposition:
+ * attachment). In the store app a web view cannot download, so the file goes to the system share sheet ("Save image",
+ * "Save to Files" ...).
+ */
+export function download(file: Pick<ExportFile, 'url' | 'name' | 'contentType'>, prefetched?: File) {
+  if (isNativeApp) {
+    void import('../native/share').then(({ nativeShare }) => nativeShare([prefetched ?? file], file.name))
+    return
+  }
   const a = document.createElement('a')
   const href = prefetched ? URL.createObjectURL(prefetched) : file.url
   a.href = href

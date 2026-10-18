@@ -106,6 +106,55 @@ def wait_until(check, what: str, timeout: float = 180, every: float = 2):
     raise AssertionError(f"timed out waiting for {what}")
 
 
+def mobile_api_check() -> None:
+    """What the Capacitor apps do (they run on capacitor://localhost / https://localhost and call the API across origins)."""
+    import urllib.error
+    import urllib.request
+
+    def call(method, path, body=None, headers=None, base=BASE):
+        req = urllib.request.Request(base + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                     headers={"Content-Type": "application/json", **(headers or {})})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status, dict(r.headers), r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read()
+
+    app = {"X-Client": "love-site-app", "Origin": "capacitor://localhost"}
+    status, headers, _ = call("OPTIONS", "/api/albums", headers={"Origin": "capacitor://localhost", "Access-Control-Request-Method": "POST",
+                                                                  "Access-Control-Request-Headers": "content-type,x-client,x-auth-token"})
+    assert status == 200 and headers.get("Access-Control-Allow-Origin") == "capacitor://localhost", (status, headers)
+    status, _, _ = call("OPTIONS", "/api/albums", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
+    assert status == 403, f"CORS preflight from a foreign origin gave {status}"
+    status, headers, body = call("POST", "/api/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}, app)
+    assert status == 200, (status, body[:200])
+    token = headers.get("X-Auth-Token")
+    assert token and "SESSION=" not in headers.get("Set-Cookie", "") and "XSRF-TOKEN" not in headers.get("Set-Cookie", ""), headers
+    auth = {**app, "X-Auth-Token": token}
+    status, _, body = call("POST", "/api/albums", {"title": "Telefondan"}, auth)
+    assert status == 201, (status, body[:200])
+    album = json.loads(body)["id"]
+    jpeg = (OUT / "media" / "photo.jpg").read_bytes()
+    status, _, body = call("POST", f"/api/albums/{album}/uploads", {"files": [{"clientId": "1", "filename": "telefon.jpg", "contentType": "image/jpeg",
+                                                                              "sizeBytes": len(jpeg)}]}, auth)
+    item = json.loads(body)["items"][0]
+    assert item["result"] == "PRESIGNED", item
+    # the bucket accepts the app origin for direct uploads (its CORS rule includes the app origins)
+    pre = urllib.request.Request(item["uploadUrl"], method="OPTIONS", headers={"Origin": "https://localhost", "Access-Control-Request-Method": "PUT",
+                                                                               "Access-Control-Request-Headers": "content-type"})
+    with urllib.request.urlopen(pre, timeout=20) as r:
+        assert r.headers.get("Access-Control-Allow-Origin") in ("https://localhost", "*"), dict(r.headers)
+    put = urllib.request.Request(item["uploadUrl"], method="PUT", data=jpeg, headers={"Content-Type": item["contentType"], "Origin": "https://localhost"})
+    with urllib.request.urlopen(put, timeout=30) as r:
+        assert r.status == 200
+    status, _, body = call("POST", f"/api/media/{item['mediaId']}/complete", None, auth)
+    assert status == 200, (status, body[:200])
+    # the token is worthless without the app header, and dead after logout
+    assert call("GET", "/api/albums", headers={"X-Auth-Token": token})[0] == 401
+    assert call("POST", "/api/auth/logout", None, auth)[0] == 204
+    assert call("GET", "/api/albums", headers=auth)[0] == 401
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     photo, video, song = make_media(OUT / "media")
@@ -221,6 +270,9 @@ def main() -> int:
         b.goto("/boyle/bir/sayfa/yok")
         expect(b.get_by_role("heading", name="Bu sayfa bulunamadı")).to_be_visible()
         assert api(b_ctx, "/api/albums").json() == [], "user B sees albums of another space"
+
+        step("store app API: session token in a header, CORS for the app origins only, uploads from the app origin")
+        mobile_api_check()
 
         step("health and headers")
         health = api(b_ctx, "/actuator/health/readiness")

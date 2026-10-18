@@ -20,21 +20,34 @@ function xsrfToken(): string | undefined {
     ?.slice('XSRF-TOKEN='.length)
 }
 
+import { API_BASE, APP_CLIENT, isNativeApp } from '../native/platform'
+import { rememberSessionToken, sessionToken } from '../native/session'
+
 export async function api<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const method = options.method ?? 'GET'
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (method !== 'GET') {
+  if (isNativeApp) {
+    // the store app: the session id travels in a header, no cookies and no CSRF token (see the backend's MobileSessionConfig)
+    headers['X-Client'] = APP_CLIENT
+    const session = sessionToken()
+    if (session) headers['X-Auth-Token'] = session
+  } else if (method !== 'GET') {
     const token = xsrfToken()
     if (token) headers['X-XSRF-TOKEN'] = decodeURIComponent(token)
   }
 
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method,
     headers,
-    credentials: 'same-origin',
+    credentials: isNativeApp ? 'omit' : 'same-origin',
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   })
+  if (isNativeApp) {
+    const renewed = res.headers.get('X-Auth-Token')
+    if (renewed !== null) rememberSessionToken(renewed)
+    if (res.status === 401) rememberSessionToken(null)
+  }
 
   if (!res.ok) {
     // Errors are RFC 9457 problem details; `detail` is a user-facing Turkish message.

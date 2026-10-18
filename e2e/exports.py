@@ -280,6 +280,7 @@ def run(browser, ctx: BrowserContext, page: Page, media_dir: Path) -> None:
     report["formats"]["POLAROID mp4 video share"] = round(moving_picture_visible(pol_mp4, 2, 0.25), 3)
     v = [s for s in probe["streams"] if s["codec_type"] == "video"][0]
     assert v["codec_name"] == "h264" and not [s for s in probe["streams"] if s["codec_type"] == "audio"], probe
+    assert max(v["width"], v["height"]) == 1080, (v["width"], v["height"])
     assert 7.5 <= float(probe["format"]["duration"]) <= 8.5, probe["format"]["duration"]
     report["formats"]["POLAROID mp4"] = f"{v['width']}x{v['height']} h264 {float(probe['format']['duration']):.1f}s silent"
 
@@ -393,11 +394,13 @@ def run(browser, ctx: BrowserContext, page: Page, media_dir: Path) -> None:
     step("lightbox menu and share dialog (desktop)")
     page.set_viewport_size({"width": 1280, "height": 900})
     page.goto(f"/albums/{album_id}")
+    for close in page.get_by_role("button", name="Kartı kapat").all():
+        close.click()
     page.locator(".page .polaroid").first.click()
     page.get_by_role("button", name="Diğer işlemler").click()
     page.screenshot(path=str(OUT / "lightbox-menu.png"))
     page.get_by_role("menuitem", name="Instagram gönderisi").click()
-    card = page.locator(".export-card").first
+    card = page.locator(".export-card", has_text="Instagram gönderisi").first
     expect(card).to_be_visible()
     expect(card.get_by_text("Hazır", exact=True)).to_be_visible(timeout=300_000)
     expect(card.get_by_role("button", name="İndir")).to_be_visible()

@@ -520,3 +520,44 @@ Playwright does not support newer Ubuntu releases yet.
 `POST /api/albums/{id}/pages/theme {pages:[{id,version}] | pageIds, themeId}` applies one theme to several pages in one
 transaction. The album theme keeps the cover, binding, controls, title font and music box; the page theme decides paper,
 frame skin, fasteners and stickers, the caption font, the photo filter, the page's own ambient animation and hover effect.
+
+## Store apps (iOS + Android, Capacitor)
+
+`frontend/` is also a Capacitor project: the same React app, packaged for the App Store and Google Play (`frontend/ios/`,
+`frontend/android/`, `frontend/capacitor.config.ts`). App id `com.hatiradefterim.app`, name "Anılarımız".
+
+How it differs from the website (all in `frontend/src/native/` and the backend's `mobile/` package):
+
+- The app carries its own copy of the SPA (`npm run build:mobile` → `dist-mobile/`) and calls the live API at `VITE_API_BASE`
+  (`frontend/.env.mobile`, today `https://hatiradefterim.up.railway.app`; change it and rebuild the apps after the move to the
+  custom domain).
+- **Session:** the same server-side session as the website, but its id travels in the `X-Auth-Token` header (stored with
+  Capacitor Preferences) instead of a cookie; app requests send `X-Client: love-site-app`. For those requests the backend reads
+  only the header, never the cookie, so they need no CSRF token. CORS (`/api/**`) and the bucket CORS rule allow exactly the
+  app origins `capacitor://localhost` (iOS) and `https://localhost` (Android) (`app.mobile.origins`). If a bucket provider
+  refuses a non-http origin, the website's CORS rule is still applied (warning in the log).
+- **Sharing / saving:** downloads and exports go through the system share sheet (Instagram, WhatsApp, "Save image/video",
+  Files) via `@capacitor/share` + `@capacitor/filesystem`; there is no download in a web view.
+- Status bar over the page (safe areas), splash screen, Android back button; icon and splash from `frontend/resources/`
+  (`npm run cap:assets` regenerates every size).
+
+### Build
+
+```bash
+cd frontend
+npm run cap:sync                      # build:mobile + copy into ios/ and android/
+npx cap open android                  # Android Studio → Run, or: cd android && ./gradlew assembleDebug
+npx cap open ios                      # Xcode (macOS + Xcode 16+) → pick a team → Run
+```
+
+### Publishing (manual)
+
+- **Google Play** (one-time 25 USD account): create the app, generate an upload key (`keytool -genkeypair -v -keystore
+  upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`, keep it safe, never commit it), set it in Android Studio
+  → *Build → Generate Signed App Bundle*, upload the `.aab` to internal testing first. Fill in the store listing, content
+  rating, data safety form (account email, photos/videos the user uploads, no third-party sharing) and a privacy policy URL.
+- **App Store** (Apple Developer Program, 99 USD/year): in Xcode set the team and bundle id, *Product → Archive →
+  Distribute → App Store Connect*, test with TestFlight, then submit. App Review needs a demo account (create a separate test
+  space with the admin screen; do not hand out your own login) and the privacy details (photos, contacts: none, tracking: no).
+- Version numbers: Android `versionCode`/`versionName` in `android/app/build.gradle`, iOS *Marketing Version* / *Build* in Xcode;
+  raise them for every upload.

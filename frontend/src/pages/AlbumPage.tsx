@@ -29,6 +29,7 @@ import SharePanel from '../components/export/SharePanel'
 import '../components/export/export.css'
 import { getOriginal, type ExportType } from '../api/exports'
 import { useExports } from '../export/useExports'
+import { download } from '../export/share'
 import { useAspectProbe } from '../hooks/useAspectProbe'
 import { usePages } from '../hooks/usePages'
 import { effectsAllowed } from '../components/ambient/effects'
@@ -670,13 +671,7 @@ function AlbumView({ id }: { id: string }) {
                 <Clay size="sm" tone="cream" role="menuitem" onClick={() => {
                   close()
                   getOriginal(m.id).then((o) => {
-                    const a = document.createElement('a')
-                    a.href = o.url
-                    a.download = o.filename
-                    a.rel = 'noopener'
-                    document.body.appendChild(a)
-                    a.click()
-                    a.remove()
+                    download({ url: o.url, name: o.filename, contentType: m.contentType })
                   }).catch((e: Error) => setError(e.message))
                 }}>Orijinal dosya</Clay>
               </>

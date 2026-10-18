@@ -44,6 +44,10 @@ describe('export compositions', () => {
     for (const aspect of ASPECTS) for (const bg of ['transparent', 'page'] as const) {
       const l = polaroidLayout('x', aspect, bg)
       expect(Math.max(l.width, l.height)).toBe(POLAROID_LONG_EDGE)
+      expect(l.width % 2 + l.height % 2).toBe(0)
+      const v = polaroidLayout('x', aspect, bg, EXPORT_METRICS, 1080)
+      expect(Math.max(v.width, v.height)).toBe(1080)
+      expect(v.width % 2 + v.height % 2).toBe(0)
       expect(l.polaroid.rotation).toBe(0)
       const box = polaroidShapes(l.polaroid, aspect, EXPORT_METRICS).box
       expect(box.minX).toBeGreaterThanOrEqual(0)

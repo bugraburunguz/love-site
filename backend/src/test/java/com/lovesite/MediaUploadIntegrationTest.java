@@ -301,7 +301,8 @@ class MediaUploadIntegrationTest {
     void bucketCorsIsConfiguredAtStartup() {
         var cors = admin.getBucketCors(GetBucketCorsRequest.builder().bucket(BUCKET).build());
         assertThat(cors.corsRules()).hasSize(1);
-        assertThat(cors.corsRules().get(0).allowedOrigins()).containsExactly("http://localhost:5173");
+        // the website origin plus the store apps (iOS capacitor://localhost, Android https://localhost)
+        assertThat(cors.corsRules().get(0).allowedOrigins()).containsExactly("http://localhost:5173", "capacitor://localhost", "https://localhost");
         assertThat(cors.corsRules().get(0).allowedMethods()).contains("PUT", "GET", "HEAD");
         assertThat(cors.corsRules().get(0).exposeHeaders()).contains("ETag");
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ExportJob } from '../../api/exports'
 import { canShareFiles, download, isTouchDevice, prefetchFiles, shareFiles } from '../../export/share'
+import { isNativeApp } from '../../native/platform'
 import Clay from '../Clay'
 import './export.css'
 
@@ -33,7 +34,7 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
   const total = shareable.reduce((s, f) => s + f.size, 0)
 
   useEffect(() => {
-    if (!ready || !touch || shareable.length === 0 || total > PREFETCH_LIMIT || typeof navigator.canShare !== 'function') return
+    if (isNativeApp || !ready || !touch || shareable.length === 0 || total > PREFETCH_LIMIT || typeof navigator.canShare !== 'function') return
     let cancelled = false
     setState('loading')
     prefetchFiles(shareable)
@@ -69,7 +70,8 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
     <div className={`export-card${compact ? ' export-card--compact' : ''}`} role="status">
       <div className="export-card__head">
         <strong>{EXPORT_LABEL[job.type]}</strong>
-        {onDismiss && (job.status === 'READY' || job.status === 'FAILED') && (
+        {/* hiding a card never cancels the export: it keeps running and stays in the share dialog's list */}
+        {onDismiss && (
           <button type="button" className="export-card__close" aria-label="Kartı kapat" onClick={onDismiss}>✕</button>
         )}
       </div>
@@ -83,7 +85,7 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
           {job.notes.map((n) => <p key={n} className="export-card__note">{n}</p>)}
           {job.type === 'STICKER_PACK' ? (
             <div className="export-card__actions">
-              {zip && <Clay size="sm" onClick={() => download(zip)}>Paketi indir (.zip)</Clay>}
+              {zip && <Clay size="sm" onClick={() => download(zip)}>{isNativeApp ? 'Paketi paylaş / kaydet (.zip)' : 'Paketi indir (.zip)'}</Clay>}
               <details className="export-card__help">
                 <summary>WhatsApp'a nasıl eklenir?</summary>
                 <p>Paketin tamamı için: telefonuna bir sticker maker (sticker oluşturucu) uygulaması kur, zip'teki <code>stickers</code> klasörünü
@@ -95,6 +97,20 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
                   {pngs.map((p) => <button key={p.name} type="button" onClick={() => download(p)}>{p.name}</button>)}
                 </div>
               )}
+            </div>
+          ) : isNativeApp ? (
+            <div className="export-card__actions">
+              <Clay size="sm" disabled={state === 'loading'} onClick={() => {
+                setError(null)
+                setState('loading')
+                void import('../../native/share')
+                  .then(({ nativeShare }) => nativeShare(shareable, EXPORT_LABEL[job.type]))
+                  .catch(() => setError('Paylaşılamadı. Biraz sonra yeniden deneyin.'))
+                  .finally(() => setState('idle'))
+              }}>
+                {state === 'loading' ? 'Hazırlanıyor…' : 'Paylaş / Kaydet'}
+              </Clay>
+              <p className="export-card__note">Açılan menüden Instagram, WhatsApp ya da "Resmi kaydet" / "Videoyu kaydet"i seç.</p>
             </div>
           ) : touch && typeof navigator.canShare === 'function' && total <= PREFETCH_LIMIT ? (
             <div className="export-card__actions">

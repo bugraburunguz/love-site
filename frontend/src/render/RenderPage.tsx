@@ -4,7 +4,7 @@ import type { PageDto } from '../api/pages'
 import PageCanvas from '../components/book/PageCanvas'
 import CoverFace from '../components/CoverFace'
 import { toMetrics } from '../layout/geometry'
-import { CAROUSEL, EXPORT_METRICS, STORY, carouselPageScale, polaroidLayout, stickerLayout, storyLayout, type SceneLayout } from '../layout/exportLayout'
+import { CAROUSEL, EXPORT_METRICS, POLAROID_LONG_EDGE, POLAROID_VIDEO_LONG_EDGE, STORY, carouselPageScale, polaroidLayout, stickerLayout, storyLayout, type SceneLayout } from '../layout/exportLayout'
 import { layoutPage } from '../layout/pageLayout'
 import type { PageLayout } from '../layout/types'
 import { coverSource } from '../media/display'
@@ -226,7 +226,8 @@ function drawScene(payload: Payload, scene: Scene, albumTheme: ReturnType<typeof
     case 'polaroid':
     case 'sticker': {
       const l = scene.kind === 'polaroid'
-        ? polaroidLayout(scene.mediaId!, aspects[scene.mediaId!], scene.background ?? 'transparent')
+        ? polaroidLayout(scene.mediaId!, aspects[scene.mediaId!], scene.background ?? 'transparent', EXPORT_METRICS,
+          scene.motion ? POLAROID_VIDEO_LONG_EDGE : POLAROID_LONG_EDGE)
         : stickerLayout(scene.mediaId!, aspects[scene.mediaId!])
       const bare = scene.kind === 'sticker' || scene.background !== 'page'
       const size = { width: l.width, height: l.height }

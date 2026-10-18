@@ -123,12 +123,15 @@ function placeSticker(area: Box, occupied: Box[], rng: ReturnType<typeof createR
 
 /** Long edge of the polaroid image export. */
 export const POLAROID_LONG_EDGE = 2000
+/** Long edge of the moving polaroid (MP4): the size Instagram uses, and a third of the memory ffmpeg needs at 2000 px. */
+export const POLAROID_VIDEO_LONG_EDGE = 1080
 
 /**
  * The polaroid on its own, never rotated. Transparent: a thin margin for the soft shadow. Page background: the polaroid lies
  * on the theme's paper with a wider margin. Either way the image's long edge is exactly 2000 px.
  */
-export function polaroidLayout(mediaId: string, aspectIn: number | undefined, background: 'transparent' | 'page', m: Metrics = EXPORT_METRICS): SceneLayout {
+export function polaroidLayout(mediaId: string, aspectIn: number | undefined, background: 'transparent' | 'page', m: Metrics = EXPORT_METRICS,
+  longEdge: number = POLAROID_LONG_EDGE): SceneLayout {
   const aspect = clampAspect(aspectIn)
   const margin = background === 'page' ? 0.09 : 0.025
   const size = (w: number) => {
@@ -137,18 +140,19 @@ export function polaroidLayout(mediaId: string, aspectIn: number | undefined, ba
     return { w: w + 2 * pad, h: height + 2 * pad, height, pad }
   }
   let lo = 100
-  let hi = POLAROID_LONG_EDGE
+  let hi = longEdge
   for (let i = 0; i < 50; i++) {
     const mid = (lo + hi) / 2
     const s = size(mid)
-    if (Math.max(s.w, s.h) <= POLAROID_LONG_EDGE) lo = mid
+    if (Math.max(s.w, s.h) <= longEdge) lo = mid
     else hi = mid
   }
   const width = lo
   const s = size(width)
-  // the long side is exactly 2000, the other one rounded
-  const W = s.w >= s.h ? POLAROID_LONG_EDGE : Math.round(s.w)
-  const H = s.h > s.w ? POLAROID_LONG_EDGE : Math.round(s.h)
+  // the long side is exactly longEdge, the other one rounded to an even number (H.264 needs even sizes for the video)
+  const even = (v: number) => Math.max(2, Math.round(v / 2) * 2)
+  const W = s.w >= s.h ? longEdge : even(s.w)
+  const H = s.h > s.w ? longEdge : even(s.h)
   const x = W / 2
   const y = H / 2
   return {

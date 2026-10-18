@@ -96,3 +96,14 @@ button {
   font-style: italic;
   color: var(--ink-soft);
 }
+
+/* store app: the web view runs under the status bar / notch; the album screen and the lightbox pad themselves already */
+.native-app .shelf,
+.native-app .plain-page {
+  padding-top: max(var(--space-5), calc(env(safe-area-inset-top) + var(--space-3)));
+}
+
+.native-app .login {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
