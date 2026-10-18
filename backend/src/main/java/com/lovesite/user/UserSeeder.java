@@ -31,9 +31,12 @@ public class UserSeeder implements ApplicationRunner {
     private final JdbcTemplate jdbc;
     private final SpaceProperties spaceProperties;
     private final String admin;
+    private final com.lovesite.role.Roles roles;
 
     public UserSeeder(SeedProperties properties, AppUserRepository repository, PasswordEncoder passwordEncoder,
-                      JdbcTemplate jdbc, SpaceProperties spaceProperties, @Value("${app.admin-email:}") String admin) {
+                      JdbcTemplate jdbc, SpaceProperties spaceProperties, @Value("${app.admin-email:}") String admin,
+                      com.lovesite.role.Roles roles) {
+        this.roles = roles;
         this.properties = properties;
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
@@ -45,6 +48,7 @@ public class UserSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        if (!roles.runs(com.lovesite.role.Roles.Job.USER_SEED)) return;
         requireComplete();
         AppUser first = seed(properties.user1());
         AppUser second = seed(properties.user2());

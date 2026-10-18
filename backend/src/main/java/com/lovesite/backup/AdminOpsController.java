@@ -40,8 +40,8 @@ public class AdminOpsController {
     public Map<String, Object> run(CurrentUser me) {
         me.requireAdmin();
         if (!backup.enabled()) throw ApiException.conflict("Yedekleme ayarlı değil");
-        if (backup.isRunning()) throw ApiException.conflict("Yedekleme zaten çalışıyor");
-        Thread.ofVirtual().name("backup-manual").start(backup::runAll);
+        if (backup.isBusy()) throw ApiException.conflict("Yedekleme zaten çalışıyor");
+        backup.requestRun(); // the worker starts it within a few seconds
         return Map.of("started", true);
     }
 

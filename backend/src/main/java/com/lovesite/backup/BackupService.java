@@ -65,11 +65,14 @@ public class BackupService {
     private final String dbUser;
     private final String dbPassword;
     private final AtomicBoolean running = new AtomicBoolean();
+    private final com.lovesite.role.Roles roles;
 
     public BackupService(JdbcTemplate jdbc, StorageService storage, BackupTarget target, BackupProperties properties,
                          @Value("${spring.datasource.url}") String dbUrl,
                          @Value("${spring.datasource.username}") String dbUser,
-                         @Value("${spring.datasource.password:}") String dbPassword) {
+                         @Value("${spring.datasource.password:}") String dbPassword,
+                         com.lovesite.role.Roles roles) {
+        this.roles = roles;
         this.jdbc = jdbc;
         this.storage = storage;
         this.target = target;
@@ -88,7 +91,30 @@ public class BackupService {
     /** 04:00, after the 03:30 trash purge has written its records. A failure of one half never skips the other. */
     @Scheduled(cron = "0 0 4 * * *", zone = "Europe/Istanbul")
     public void scheduled() {
-        if (enabled()) runAll();
+        if (roles.runs(com.lovesite.role.Roles.Job.BACKUP) && enabled()) runAll();
+    }
+
+    /**
+     * "Back up now" from the admin screen. The web service runs no jobs, so the request is a row the worker picks up
+     * (OpsRequestPoller); in the all-in-one process the same poller runs it a few seconds later.
+     */
+    public void requestRun() {
+        jdbc.update("INSERT INTO ops_request (kind) SELECT 'BACKUP' WHERE NOT EXISTS (SELECT 1 FROM ops_request WHERE kind = 'BACKUP')");
+    }
+
+    /** Requested, running in this process, or running in another one (the worker) according to the run records. */
+    public boolean isBusy() {
+        if (running.get()) return true;
+        Integer n = jdbc.queryForObject("SELECT (SELECT count(*) FROM ops_request WHERE kind = 'BACKUP') "
+                + "+ (SELECT count(*) FROM backup_run WHERE status = 'RUNNING' AND started_at > now() - interval '12 hours')", Integer.class);
+        return n != null && n > 0;
+    }
+
+    /** Worker side: takes the pending requests (one run covers all of them). */
+    public boolean takeRequests() {
+        Integer taken = jdbc.queryForObject("WITH t AS (DELETE FROM ops_request WHERE id IN "
+                + "(SELECT id FROM ops_request WHERE kind = 'BACKUP' FOR UPDATE SKIP LOCKED) RETURNING 1) SELECT count(*) FROM t", Integer.class);
+        return taken != null && taken > 0;
     }
 
     /** Both halves, one after the other. Returns false when a run is already in progress or backup is off. */

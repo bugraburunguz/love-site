@@ -44,7 +44,10 @@ services:
         exit 1
     restart: "no"
 
+  # The same image twice, as in production: `app` is the web service (API + SPA), `worker` runs the queues, the scheduled jobs
+  # and the export renderer. The worker publishes no port (its render endpoint listens on 127.0.0.1 inside the container).
   app:
+    image: love-site-e2e:latest
     build:
       context: ..
       dockerfile: Dockerfile
@@ -53,7 +56,8 @@ services:
         condition: service_healthy
       s3-init:
         condition: service_completed_successfully
-    environment:
+    environment: &app-env
+      APP_ROLE: web
       PGHOST: postgres
       PGDATABASE: love
       PGUSER: postgres
@@ -78,6 +82,15 @@ services:
     ports:
       - "18081:8080"
 
+  worker:
+    image: love-site-e2e:latest
+    depends_on:
+      - app
+    environment:
+      <<: *app-env
+      APP_ROLE: worker
+      JAVA_MAX_RAM_PERCENTAGE: "50"
+
   runner:
     image: mcr.microsoft.com/playwright/python:v1.55.0-noble
     profiles: ["run"]
@@ -91,4 +104,6 @@ services:
       ADMIN_EMAIL: admin@e2e.test
       ADMIN_PASSWORD: e2e-admin-password
       OUTPUT_DIR: /e2e/output
+      WORKER_URL: http://worker:8080
+      SCRIPT: ${SCRIPT:-smoke.py}
     command: ["bash", "/e2e/runner.sh"]

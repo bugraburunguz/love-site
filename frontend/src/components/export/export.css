@@ -1,0 +1,196 @@
+/* ---- export progress cards (bottom left, in the album theme's colours) ---- */
+.export-cards {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: calc(var(--z-controls) + 1);
+  display: grid;
+  gap: 8px;
+  width: min(300px, calc(100vw - 100px));
+}
+
+.export-card {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--paper-cream, #fbf3e6);
+  border: 1px solid color-mix(in srgb, var(--rose-deep, #a65f70) 35%, transparent);
+  box-shadow: 0 6px 18px rgba(40, 20, 10, 0.28);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+
+.export-card--compact {
+  box-shadow: none;
+}
+
+.export-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-display);
+}
+
+.export-card__close {
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.export-card__progress,
+.export-card__ready,
+.export-card__note,
+.export-card__error {
+  margin: 4px 0;
+}
+
+.export-card__ready {
+  color: var(--rose-deep);
+  font-weight: 600;
+}
+
+.export-card__note {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.export-card__error {
+  color: #9b2c2c;
+}
+
+.export-card__dots {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: export-pulse 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes export-pulse {
+  from { opacity: 0.3; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-card__dots { animation: none; }
+}
+
+.export-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.export-card__help {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.export-card__help p {
+  margin: 4px 0;
+}
+
+.export-card__pngs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.export-card__pngs button {
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+/* ---- share dialog ---- */
+.share-panel {
+  display: grid;
+  gap: 10px;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+
+.share-panel__options {
+  display: grid;
+  gap: 8px;
+}
+
+.share-panel__subtitle {
+  margin: 8px 0 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.share-panel__list {
+  display: grid;
+  gap: 8px;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+}
+
+.export-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  font-size: 0.9rem;
+}
+
+.export-picker {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  max-height: 40vh;
+}
+
+.export-picker .tray__item {
+  touch-action: manipulation;
+}
+
+.export-picker__badge {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: var(--rose-deep, #a65f70);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 20px;
+  text-align: center;
+}
+
+.export-picker__live {
+  position: absolute;
+  bottom: 3px;
+  right: 4px;
+  color: #fff;
+  font-size: 0.7rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* lightbox "İndir / Paylaş" entries */
+.lightbox__dropdown {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.lightbox__menu-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}

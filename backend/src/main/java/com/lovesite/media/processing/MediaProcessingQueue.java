@@ -26,13 +26,15 @@ public class MediaProcessingQueue {
 
     private final MediaProcessingService service;
     private final ProcessingProperties properties;
+    private final com.lovesite.role.Roles roles;
     private final Semaphore permits;
     private final ExecutorService workers;
     private final ExecutorService kicker = Executors.newSingleThreadExecutor(namedDaemon("media-kick"));
 
-    public MediaProcessingQueue(MediaProcessingService service, ProcessingProperties properties) {
+    public MediaProcessingQueue(MediaProcessingService service, ProcessingProperties properties, com.lovesite.role.Roles roles) {
         this.service = service;
         this.properties = properties;
+        this.roles = roles;
         int concurrency = Math.max(1, properties.concurrency());
         this.permits = new Semaphore(concurrency);
         this.workers = Executors.newFixedThreadPool(concurrency, namedDaemon("media-worker"));
@@ -40,7 +42,7 @@ public class MediaProcessingQueue {
 
     @Scheduled(initialDelay = 5_000, fixedDelayString = "${app.processing.poll-interval:3s}")
     void scheduledPoll() {
-        if (!properties.autoPoll()) return;
+        if (!enabled()) return;
         try {
             pollOnce();
         } catch (RuntimeException e) {
@@ -50,7 +52,12 @@ public class MediaProcessingQueue {
 
     /** Called after an upload is verified so processing starts without waiting for the next poll. */
     public void kick() {
-        if (properties.autoPoll()) kicker.execute(this::scheduledPoll);
+        if (enabled()) kicker.execute(this::scheduledPoll);
+    }
+
+    /** Only the worker (or the single all-in-one process) polls; the web role never claims a job. */
+    public boolean enabled() {
+        return properties.autoPoll() && roles.runs(com.lovesite.role.Roles.Job.MEDIA_QUEUE);
     }
 
     /** Claims and starts as many jobs as there are free workers. Returns how many were started. */

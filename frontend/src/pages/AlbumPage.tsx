@@ -24,6 +24,11 @@ import PagePanel from '../components/edit/PagePanel'
 import Tray from '../components/edit/Tray'
 import UploadSetupDialog from '../components/edit/UploadSetupDialog'
 import UploadPanel from '../components/UploadPanel'
+import ExportCard from '../components/export/ExportCard'
+import SharePanel from '../components/export/SharePanel'
+import '../components/export/export.css'
+import { getOriginal, type ExportType } from '../api/exports'
+import { useExports } from '../export/useExports'
 import { useAspectProbe } from '../hooks/useAspectProbe'
 import { usePages } from '../hooks/usePages'
 import { effectsAllowed } from '../components/ambient/effects'
@@ -85,6 +90,8 @@ function AlbumView({ id }: { id: string }) {
   const [settingsOpen, setSettingsOpen] = useState(() => search.get('ayarlar') === '1')
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const exportsState = useExports(id)
   const [ambientOn, setAmbientOn] = useAmbientPreference()
   const reduced = useReducedMotion()
   const hoverCapable = useHoverCapable()
@@ -522,6 +529,9 @@ function AlbumView({ id }: { id: string }) {
               ✦
             </Clay>
           )}
+          <Clay shape="round" size="sm" tone="cream" onClick={() => setShareOpen(true)} aria-label="Paylaş" title="Paylaş" disabled={!album || editing}>
+            ⇪
+          </Clay>
           <Clay shape="round" size="sm" tone="cream" onClick={() => setSettingsOpen(true)} aria-label="Albüm ayarları" title="Albüm ayarları" disabled={!album}>
             ⚙
           </Clay>
@@ -641,7 +651,59 @@ function AlbumView({ id }: { id: string }) {
           onRetry={retryProcessing}
           onAspect={onAspect}
           themeOf={themeOfMedia}
+          menuExtra={(m, close) => {
+            const ready = m.status === 'READY'
+            const run = (type: ExportType, params: Record<string, unknown>) => {
+              close()
+              exportsState.start(type, { mediaId: m.id, ...params })
+                .then(() => setOpenId(null))
+                .catch((e: Error) => setError(e.message))
+            }
+            return (
+              <>
+                <p className="lightbox__menu-title">İndir / Paylaş</p>
+                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</Clay>
+                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</Clay>
+                {m.loopUrl && <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { motion: true })}>Hareketli polaroid (video)</Clay>}
+                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('STORY', {})}>Instagram Story</Clay>
+                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POST', {})}>Instagram gönderisi</Clay>
+                <Clay size="sm" tone="cream" role="menuitem" onClick={() => {
+                  close()
+                  getOriginal(m.id).then((o) => {
+                    const a = document.createElement('a')
+                    a.href = o.url
+                    a.download = o.filename
+                    a.rel = 'noopener'
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                  }).catch((e: Error) => setError(e.message))
+                }}>Orijinal dosya</Clay>
+              </>
+            )
+          }}
         />
+      )}
+
+      {shareOpen && album && (
+        <SharePanel
+          album={album}
+          pages={pages}
+          media={items.filter((m) => m.status === 'READY')}
+          mediaById={mediaById}
+          jobs={exportsState.jobs}
+          onStart={async (type, params) => {
+            await exportsState.start(type, params)
+            setShareOpen(false)
+          }}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {exportsState.cards.length > 0 && !editing && (
+        <div className="export-cards">
+          {exportsState.cards.map((job) => <ExportCard key={job.id} job={job} onDismiss={() => exportsState.dismiss(job.id)} />)}
+        </div>
       )}
 
       {toDelete && (

@@ -17,8 +17,10 @@ public class PendingUploadCleanup {
     private final MediaRepository media;
     private final StorageService storage;
     private final MediaProperties properties;
+    private final com.lovesite.role.Roles roles;
 
-    public PendingUploadCleanup(MediaRepository media, StorageService storage, MediaProperties properties) {
+    public PendingUploadCleanup(MediaRepository media, StorageService storage, MediaProperties properties, com.lovesite.role.Roles roles) {
+        this.roles = roles;
         this.media = media;
         this.storage = storage;
         this.properties = properties;
@@ -26,6 +28,7 @@ public class PendingUploadCleanup {
 
     @Scheduled(initialDelayString = "PT5M", fixedDelayString = "PT1H")
     public void scheduledCleanup() {
+        if (!roles.runs(com.lovesite.role.Roles.Job.PENDING_UPLOAD_CLEANUP)) return;
         cleanup(Instant.now());
     }
 

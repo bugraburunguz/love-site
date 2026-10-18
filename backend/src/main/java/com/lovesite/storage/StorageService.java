@@ -124,6 +124,29 @@ public class StorageService {
         });
     }
 
+    /**
+     * Presigned GET that makes the browser save the file (Content-Disposition: attachment) under `filename` (UTF-8 safe, with
+     * an ASCII fallback for old clients). Same key + name gives the same URL for 50 min, like presignGet.
+     */
+    public String presignDownload(String key, String filename, String contentType) {
+        String disposition = contentDisposition(filename);
+        return getUrlCache.get("dl|" + key + "|" + disposition + "|" + contentType, k -> {
+            var builder = GetObjectRequest.builder().bucket(properties.bucket()).key(key)
+                    .responseCacheControl(GET_CACHE_CONTROL).responseContentDisposition(disposition);
+            if (contentType != null && !contentType.isBlank()) builder.responseContentType(contentType);
+            return presigner.presignGetObject(GetObjectPresignRequest.builder()
+                    .signatureDuration(GET_URL_TTL).getObjectRequest(builder.build()).build()).url().toString();
+        });
+    }
+
+    static String contentDisposition(String filename) {
+        String name = filename == null || filename.isBlank() ? "dosya" : filename.replaceAll("[\\r\\n\"\\\\/]", "_");
+        String ascii = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD).replaceAll("[^\\x20-\\x7E]", "");
+        if (ascii.isBlank()) ascii = "dosya";
+        String encoded = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"" + ascii + "\"; filename*=UTF-8''" + encoded;
+    }
+
     /** Server-side upload (e.g. variants written by the media worker). */
     public void putObject(String key, String contentType, byte[] data) {
         client.putObject(PutObjectRequest.builder().bucket(properties.bucket()).key(key).contentType(contentType).build(),
@@ -174,6 +197,16 @@ public class StorageService {
             if (e.statusCode() == 404) return Optional.empty();
             throw e;
         }
+    }
+
+    /** Lists every key under a prefix (export cleanup). */
+    public List<String> list(String prefix) {
+        List<String> keys = new ArrayList<>();
+        var request = software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder().bucket(properties.bucket()).prefix(prefix).build();
+        for (var page : client.listObjectsV2Paginator(request)) {
+            page.contents().forEach(o -> keys.add(o.key()));
+        }
+        return keys;
     }
 
     /** Deleting a missing object is not an error in S3. */

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import Clay from './Clay'
 import './dialog.css'
 
-function Frame({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Frame({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)

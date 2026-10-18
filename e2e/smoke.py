@@ -204,6 +204,11 @@ def main() -> int:
         assert mine["musicUrl"], "album has no music after the upload"
         settings.get_by_role("button", name="Kapat").click()
 
+        step("Phase 7: exports (formats, visual comparison, roles, mixed page themes)")
+        import exports
+        exports.run(browser, a_ctx, a, OUT / "media-exports")
+        a.set_viewport_size({"width": 1280, "height": 900})
+
         step("a user of another space gets 404")
         b_ctx, b = new_user_context(browser, "user B")
         register(b, invite_b, "Ali", f"ali-{tag}@e2e.test")

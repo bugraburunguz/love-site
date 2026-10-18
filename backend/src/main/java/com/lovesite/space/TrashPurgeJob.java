@@ -36,9 +36,12 @@ public class TrashPurgeJob {
     private final StorageService storage;
     private final SpaceProperties properties;
     private final PurgeLog purgeLog;
+    private final com.lovesite.role.Roles roles;
 
-    public TrashPurgeJob(JdbcTemplate jdbc, StorageService storage, SpaceProperties properties, PurgeLog purgeLog) {
+    public TrashPurgeJob(JdbcTemplate jdbc, StorageService storage, SpaceProperties properties, PurgeLog purgeLog,
+                         com.lovesite.role.Roles roles) {
         this.purgeLog = purgeLog;
+        this.roles = roles;
         this.jdbc = jdbc;
         this.storage = storage;
         this.properties = properties;
@@ -46,6 +49,7 @@ public class TrashPurgeJob {
 
     @Scheduled(cron = "0 30 3 * * *", zone = "Europe/Istanbul")
     public void scheduledPurge() {
+        if (!roles.runs(com.lovesite.role.Roles.Job.TRASH_PURGE)) return;
         try {
             purge(Instant.now());
         } catch (RuntimeException e) {

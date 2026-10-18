@@ -99,6 +99,16 @@
   background: linear-gradient(to right, color-mix(in srgb, var(--page-shadow, #5a3714) 20%, transparent) 0, transparent 8%);
 }
 
+/* export scenes: a flat sheet without spine shading; "bare" has no paper at all (transparent images) */
+.page--flat::after {
+  background: none;
+}
+
+.page--bare {
+  background: none;
+  isolation: auto;
+}
+
 /* ---- the open book ---- */
 .book {
   position: relative;

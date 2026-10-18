@@ -60,6 +60,11 @@ public class MediaController {
         return mediaService.reprocess(me, id);
     }
 
+    @GetMapping("/api/media/{id}/original")
+    public MediaService.OriginalDownload original(CurrentUser me, @PathVariable UUID id) {
+        return mediaService.originalDownload(me, id);
+    }
+
     @PostMapping("/api/media/{id}/complete")
     public MediaResponse complete(CurrentUser me, @PathVariable UUID id) {
         return mediaService.complete(me, id);

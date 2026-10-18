@@ -17,14 +17,17 @@ public class BucketCorsInitializer implements ApplicationRunner {
 
     private final StorageProperties properties;
     private final StorageService storage;
+    private final com.lovesite.role.Roles roles;
 
-    public BucketCorsInitializer(StorageProperties properties, StorageService storage) {
+    public BucketCorsInitializer(StorageProperties properties, StorageService storage, com.lovesite.role.Roles roles) {
         this.properties = properties;
         this.storage = storage;
+        this.roles = roles;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!roles.runs(com.lovesite.role.Roles.Job.BUCKET_CORS)) return;
         if (!properties.configureCors()) {
             log.info("Bucket CORS configuration disabled");
             return;

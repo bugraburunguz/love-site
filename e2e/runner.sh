@@ -5,7 +5,7 @@ set -euo pipefail
 
 apt-get update -qq > /dev/null
 apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
-pip install --quiet playwright==1.55.0
+pip install --quiet playwright==1.55.0 pillow==11.3.0
 
 echo "waiting for the app at ${BASE_URL}"
 for i in $(seq 1 90); do
@@ -23,4 +23,4 @@ PY
 done
 
 mkdir -p "${OUTPUT_DIR}"
-exec python /e2e/smoke.py
+exec python /e2e/${SCRIPT:-smoke.py}

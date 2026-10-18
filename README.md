@@ -441,3 +441,82 @@ anything the client sends is to its left).
   the look of the current theme (`components/ErrorScreen.tsx`, `ErrorBoundary.tsx`). The server still answers `200` for these SPA
   routes (the React router decides); API errors keep their proper status codes.
 - **Browser smoke test**: see [e2e/README.md](e2e/README.md).
+
+## Exports and the worker service (Phase 7)
+
+### Two services from one image (`APP_ROLE`)
+
+The same image runs as two Railway services. `APP_ROLE` decides what a process does; **without it everything runs in one
+process** exactly as before (local development, a single small service keeps working).
+
+| `APP_ROLE` | runs | public port |
+|---|---|---|
+| `web` | API + SPA | the site |
+| `worker` | media processing queue, export queue + Chromium renderer, nightly backup, trash purge, pending-upload cleanup, export cleanup | only `/actuator/health/**` (everything else is 404) |
+| empty | everything | the site |
+
+What runs where is defined in one place, `backend/src/main/java/com/lovesite/role/Roles.java` (table in the class comment and
+in `docs/reports/faz-7.md`). The admin's "Şimdi yedekle" button only writes a request row (`ops_request`); the worker starts
+the backup within ~5 s.
+
+#### Adding the worker on Railway, step by step
+
+1. In the project: **New → GitHub Repo → the same repository** (same branch). Railway builds the same root `Dockerfile`.
+2. Name it e.g. `worker`. **Variables**: copy every variable of the web service (Railway: *Raw Editor* → paste), i.e. the
+   `PG*` references to the Postgres service, all `S3_*` bucket references, `APP_PUBLIC_URL`, `BACKUP_S3_*` (backup runs here),
+   `ADMIN_EMAIL`, the `USER*` variables may stay or go (the worker does not seed users). Then add:
+   - `APP_ROLE=worker`
+   - `JAVA_MAX_RAM_PERCENTAGE=50` (the JVM shares the container with Chromium and ffmpeg)
+3. **Settings → Networking**: do **not** generate a public domain for the worker (it needs none; its public port only answers
+   the health check anyway).
+4. **Settings → Deploy → Healthcheck path**: `/actuator/health/liveness` (same as the web service).
+5. On the **web** service add `APP_ROLE=web` and redeploy. From now on the web service runs no poller and no scheduled job.
+6. Check the logs: web `APP_ROLE=WEB (...)`, worker `APP_ROLE=WORKER (...)` and `Render endpoint listening on 127.0.0.1:8099`.
+   Upload a photo (the worker processes it), make a polaroid export from the lightbox.
+7. Memory: give the worker at least **1.5 GB** (Chromium ~300-450 MB while rendering, ffmpeg for reels up to ~400 MB, JVM).
+   Optional: `EXPORT_CONCURRENCY` (default 1), `EXPORT_DAILY_LIMIT` (per space, default 40).
+
+Only one worker instance: the queues are safe with several (`FOR UPDATE SKIP LOCKED`), but the nightly backup and the rate
+limits are not meant for that.
+
+### Export formats
+
+Lightbox ⋯ → "İndir / Paylaş"; album header ⇪ → carousel, Reels, WhatsApp sticker pack (and the exports of the last 24 h).
+
+| type | result |
+|---|---|
+| `POLAROID` | transparent PNG (long edge 2000 px, not rotated) or JPEG on the page's paper (quality 92); `motion: true`: MP4 of the moving polaroid (~8 s, silent) |
+| `STORY` | 1080 x 1920 JPEG (MP4 ~10 s for moving media); top and bottom 250 px kept free for Instagram's controls |
+| `POST` | 1080 x 1350, same composition |
+| `CAROUSEL` | up to 20 album pages (+ cover) as 1080 x 1350 JPEGs, plus a zip; videos show their poster frame |
+| `REELS` | 1080 x 1920 H.264, 30 fps, faststart: cover 1.5 s → each media 2.5 s in story composition (moving media play) → closing card; slide transitions; ≤ 30 media, ≤ 90 s; silent unless `includeAlbumMusic` |
+| `STICKER_PACK` | zip: 512 x 512 WebP stickers (static ≤ 100 KB, animated ≤ 500 KB, 10 fps, 3 s loop), `tray.png` 96 x 96 ≤ 50 KB, `OKU.txt`, single transparent PNGs |
+
+Every export uses the theme of the page the media is on (carousel pages their own theme). A small faint watermark (the host of
+`APP_PUBLIC_URL`) is on by default and can be switched off. Results live under `spaces/{space}/exports/{job}/` for 24 hours,
+never count against the quota; the same request with the same content within 24 h returns the existing result.
+
+API: `POST /api/exports {type, params}` → job (202), `GET /api/exports/{id}` (status + presigned download links when READY),
+`GET /api/albums/{id}/exports`, `GET /api/media/{id}/original` (presigned download of the original under its own name).
+Limits: 3 queued/running exports per space, `EXPORT_DAILY_LIMIT` per day.
+
+### How rendering works
+
+The worker keeps one Node process (`renderer/driver.mjs`, playwright-core) with one headless Chromium. For a job it opens the
+SPA's hidden route `/render/{job}` on its **loopback-only** connector (`127.0.0.1:${RENDER_PORT:-8099}`); the page loads the
+job's data from `/internal/render/{job}` with an HMAC token valid for 2 minutes (random key per worker process; the web role
+has neither the connector nor a key). The route draws with the site's own components (PageCanvas, LivingPhoto, fasteners,
+stickers, layout engine) with animations off, after fonts and images are loaded. Moving media are left as transparent windows;
+the page reports their position, size and rotation, and ffmpeg lays the loops (with the theme's photo filter) under the PNG.
+Chromium and the export ffmpeg runs have niceness 10, so the web requests and the media queue get the CPU first.
+
+The image adds Node, Playwright's Chromium headless shell and Noto fonts (incl. colour emoji); the build fails unless Chromium
+starts as the app user and draws emoji in colour. The runtime base is pinned to Ubuntu 24.04 (`eclipse-temurin:21-jre-noble`):
+Playwright does not support newer Ubuntu releases yet.
+
+### Per-page themes
+
+`page.theme_id` (null = the album's theme). `PATCH /api/pages/{id}` takes `themeId` (`null` = back to the album theme);
+`POST /api/albums/{id}/pages/theme {pages:[{id,version}] | pageIds, themeId}` applies one theme to several pages in one
+transaction. The album theme keeps the cover, binding, controls, title font and music box; the page theme decides paper,
+frame skin, fasteners and stickers, the caption font, the photo filter, the page's own ambient animation and hover effect.

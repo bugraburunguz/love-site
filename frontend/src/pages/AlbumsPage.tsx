@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
 import { ConfirmDialog, PromptDialog } from '../components/Dialog'
 import NewAlbumDialog from '../components/NewAlbumDialog'
-import { assetUrl } from '../themes/assets'
+import CoverFace from '../components/CoverFace'
 import { themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
@@ -24,7 +24,6 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
   const [still, setStill] = useState<CoverSource | null>(null)
   const [menu, setMenu] = useState(false)
   const theme = getTheme(album.themeId)
-  const ornament = assetUrl(theme.id, theme.cover.ornament)
 
   // the cover is lettered in the theme's own font, which loads only for themes that are on the shelf
   useEffect(() => {
@@ -65,27 +64,7 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
   return (
     <article className="album-cover" style={themeVars(theme)}>
       <Link to={`/albums/${album.id}`} className="album-cover__link" aria-label={`${album.title} albümünü aç`}>
-        <div className="album-cover__book">
-          <div className="album-cover__pages" aria-hidden="true" />
-          <div className="album-cover__face leather">
-            {ornament && <img className="album-cover__ornament" src={ornament} alt="" draggable={false} />}
-            <div className="album-cover__window">
-              {still ? (
-                still.kind === 'video' ? (
-                  <video src={`${still.src}#t=0.001`} muted playsInline preload="metadata" aria-hidden="true" />
-                ) : (
-                  <img src={still.src} alt="" loading="lazy" decoding="async" />
-                )
-              ) : (
-                <span className="gold-foil">✦</span>
-              )}
-            </div>
-            <h2 className="emboss album-cover__title">{album.title}</h2>
-            <div className="gold-foil album-cover__year">
-              {new Date(album.createdAt).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}
-            </div>
-          </div>
-        </div>
+        <CoverFace theme={theme} title={album.title} createdAt={album.createdAt} still={still} />
       </Link>
 
       <div className="album-cover__menu" onPointerDown={(e) => e.stopPropagation()}>

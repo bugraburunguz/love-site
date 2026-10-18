@@ -1,0 +1,144 @@
+/* Export render route (Chromium in the worker). Nothing moves, nothing reacts to a pointer, the page itself is transparent. */
+html.render-mode,
+html.render-mode body {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.render-mode *,
+.render-mode *::before,
+.render-mode *::after {
+  animation: none !important;
+  transition: none !important;
+  cursor: none !important;
+  caret-color: transparent !important;
+}
+
+.render-root {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.render-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+/* a moving media item: a fully transparent hole (ffmpeg puts the loop underneath) with three corner markers */
+/* painted in a key colour; the driver shoots the scene twice (two keys) and the worker computes the real alpha from the difference */
+.polaroid__window {
+  position: absolute;
+  inset: 0;
+  background: var(--window-key, transparent);
+}
+
+.polaroid__window i {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.polaroid__window [data-corner='tl'] { left: 0; top: 0; }
+.polaroid__window [data-corner='tr'] { right: 0; top: 0; }
+.polaroid__window [data-corner='bl'] { left: 0; bottom: 0; }
+
+.render-mode .polaroid__image:has(.polaroid__window) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.render-watermark {
+  position: absolute;
+  z-index: 50;
+  font-family: var(--font-body);
+  font-style: italic;
+  letter-spacing: 0.04em;
+  opacity: 0.45;
+  white-space: nowrap;
+}
+
+.render-polaroid-mark {
+  position: absolute;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.render-polaroid-mark span {
+  position: absolute;
+  font-family: var(--font-body);
+  font-style: italic;
+  opacity: 0.45;
+  white-space: nowrap;
+}
+
+/* carousel: the album page on the album's leather */
+.render-scene--cover {
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.render-scene--cover::before {
+  inset: 14px;
+}
+
+.render-scene__page {
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(60, 35, 20, 0.35), 0 10px 26px rgba(30, 15, 5, 0.45);
+}
+
+.render-cover {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 300px;
+  transform-origin: 50% 50%;
+}
+
+.render-closing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 0 90px;
+  text-align: center;
+  color: var(--page-ink);
+}
+
+.render-closing img {
+  width: 62%;
+  opacity: 0.85;
+}
+
+.render-closing h1 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 96px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.render-closing p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 40px;
+  opacity: 0.6;
+}
+
+/*
+ * The film grain and the paper fibres of the frame lie over the picture with multiply. Over a transparent window they would
+ * turn into a half-opaque cream veil that hides the video ffmpeg puts underneath, so a polaroid with a window drops both
+ * (its frame then misses the faint fibres; corners and everything else stay).
+ */
+.render-mode .polaroid__tilt:has(.polaroid__window)::after,
+.render-mode .polaroid__image:has(.polaroid__window) .polaroid__grain {
+  display: none;
+}

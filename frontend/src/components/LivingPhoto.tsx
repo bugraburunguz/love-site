@@ -7,6 +7,7 @@ import {
 } from '../layout/geometry'
 import { resolveDisplay } from '../media/display'
 import { useVideoPlayback } from '../media/playback'
+import { useRenderMode } from '../render/renderMode'
 import Clay from './Clay'
 import DevelopingPlaceholder from './DevelopingPlaceholder'
 import './photo.css'
@@ -139,7 +140,20 @@ function MediaView({
 }) {
   const display = resolveDisplay(media)
   const [failed, setFailed] = useState(false)
+  const render = useRenderMode()
   const label = media.caption || media.originalFilename
+  if (render.active && display.mode !== 'failed' && display.mode !== 'placeholder') {
+    // exports: a moving item is a transparent window ffmpeg fills; everything else is a still from the large variant
+    if (render.motion.has(media.id) && (display.mode === 'video' || display.live)) {
+      return (
+        <div className="polaroid__window" data-video-window={media.id}>
+          <i data-corner="tl" /><i data-corner="tr" /><i data-corner="bl" />
+        </div>
+      )
+    }
+    const still = display.mode === 'video' ? display.poster : display.src
+    return still ? <img className="polaroid__media" src={still} alt={label} loading="eager" decoding="sync" draggable={false} /> : <DevelopingPlaceholder />
+  }
   if (display.mode === 'failed') return <FailedView media={media} onRetry={onRetry} metrics={metrics} imageWidth={imageWidth} />
   if (display.mode === 'placeholder' || failed) return <DevelopingPlaceholder />
   if (display.mode === 'video') {

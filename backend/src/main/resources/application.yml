@@ -49,6 +49,20 @@ management:
           include: readinessState
 
 app:
+  # web | worker | empty (= everything in one process). Same image, two services; see README "Two services".
+  role: ${APP_ROLE:}
+  # loopback-only port of the render endpoint (worker / all-in-one)
+  render:
+    port: ${RENDER_PORT:8099}
+  export:
+    concurrency: ${EXPORT_CONCURRENCY:1}
+    max-active-per-space: 3
+    daily-limit: ${EXPORT_DAILY_LIMIT:40}
+    ttl: 24h
+    page-timeout: 60s
+    nice: 10
+    node: ${RENDER_NODE:node}
+    driver: ${RENDER_DRIVER:/app/renderer/driver.mjs}
   # the app's public address, e.g. https://example.com (no path). Invite links, the default bucket CORS origin and the
   # optional redirect from *.up.railway.app derive from it.
   public-url: ${APP_PUBLIC_URL:}

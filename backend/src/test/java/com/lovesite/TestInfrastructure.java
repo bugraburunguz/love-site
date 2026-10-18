@@ -81,5 +81,8 @@ public final class TestInfrastructure {
         r.add("app.storage.allowed-origins", () -> "http://localhost:5173");
         // tests drive the processing queue by hand
         r.add("app.processing.auto-poll", () -> "false");
+        r.add("app.export.auto-poll", () -> "false");
+        // a free port for the loopback render connector of tests that start a real server
+        r.add("app.render.port", () -> "0");
     }
 }

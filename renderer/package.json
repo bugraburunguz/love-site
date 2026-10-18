@@ -1,0 +1,10 @@
+{
+  "name": "love-site-renderer",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Render driver of the export worker: one long-lived headless Chromium driven over stdin/stdout by the Java worker",
+  "dependencies": {
+    "playwright-core": "1.55.0"
+  }
+}

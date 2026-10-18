@@ -226,3 +226,20 @@
     color: #3a2418;
   }
 }
+
+/*
+ * Emoji in captions come from the system's colour emoji font. Their glyphs are taller than the caption's line height (1.05),
+ * so the top of an emoji on a clamped (hidden) third line peeked out under the second line. This face is the same system font,
+ * only for emoji code points and slightly smaller, so emoji fit the line like letters do. local() loads nothing over the network.
+ */
+@font-face {
+  font-family: 'Caption Emoji';
+  src: local('Noto Color Emoji'), local('Apple Color Emoji'), local('Segoe UI Emoji'), local('NotoColorEmoji');
+  size-adjust: 82%;
+  unicode-range: U+1F000-1FAFF, U+2600-27BF, U+2B00-2BFF, U+2190-21FF, U+2300-23FF, U+FE0F, U+200D;
+}
+
+.polaroid__text,
+.polaroid__caption-input {
+  font-family: 'Caption Emoji', var(--font-hand);
+}

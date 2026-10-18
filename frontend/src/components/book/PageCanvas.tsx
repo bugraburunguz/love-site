@@ -24,7 +24,7 @@ interface Props {
   scale: number
   /** text size rules for this screen; the same metrics the layout was generated with */
   metrics: Metrics
-  side: 'left' | 'right' | 'single'
+  side: 'left' | 'right' | 'single' | 'flat'
   /** 1-based number printed at the bottom, omitted for blank sheets */
   pageNumber?: number
   interactive?: boolean
@@ -38,6 +38,10 @@ interface Props {
   endNote?: string
   /** share of the theme's ambient particles this page gets (a page of a two-page spread is half the screen) */
   ambientShare?: number
+  /** a surface of another size than an album page (export scenes: a story is 1080 x 1920 units) */
+  size?: { width: number; height: number }
+  /** no paper at all: only the items (transparent export images) */
+  bare?: boolean
 }
 
 function EditableItem({
@@ -74,8 +78,10 @@ function EditableItem({
  */
 export default function PageCanvas({
   layout, mediaById, aspects, scale, metrics, side, pageNumber, interactive = true, emptyHint, onOpen, onRetry, onAspect, editor, endNote,
-  ambientShare = 1,
+  ambientShare = 1, size, bare,
 }: Props) {
+  const W = size?.width ?? PAGE_W
+  const H = size?.height ?? PAGE_H
   // everything on the page follows the page's theme; the album theme stays outside (cover, binding, controls)
   const albumTheme = useTheme()
   const theme = resolvePageTheme(layout?.themeId, albumTheme)
@@ -103,13 +109,16 @@ export default function PageCanvas({
     <ThemeContext.Provider value={theme}>
     <div
       ref={pageRef}
-      className={`page page--${side}${editing ? ' page--editing' : ''}${wiggle ? ' themed-wiggle' : ''}`}
+      className={`page page--${side}${editing ? ' page--editing' : ''}${wiggle ? ' themed-wiggle' : ''}${bare ? ' page--bare' : ''}`}
       data-page-theme={theme.id}
-      style={{ width: PAGE_W * scale, height: PAGE_H * scale, ...pageThemeVars(theme), ...pageVars(theme, layout?.swatch, layout?.paper) }}
+      style={{
+        width: W * scale, height: H * scale, ...pageThemeVars(theme), ...pageVars(theme, layout?.swatch, layout?.paper),
+        ...(bare ? { '--perf-color': 'transparent' } as React.CSSProperties : {}),
+      }}
     >
       <div
         className="page__inner"
-        style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}
+        style={{ width: W, height: H, transform: `scale(${scale})` }}
         data-page-surface={editing ? layout?.pageId : undefined}
         onPointerDown={editing ? (e) => {
           if (e.target === e.currentTarget) editor.onSelect(null)
@@ -190,7 +199,7 @@ export default function PageCanvas({
         {pageNumber !== undefined && <div className="page__number">{pageNumber}</div>}
       </div>
       {interactive && layout && (
-        <PageAmbient theme={theme} width={PAGE_W * scale} height={PAGE_H * scale} share={ambientShare}
+        <PageAmbient theme={theme} width={W * scale} height={H * scale} share={ambientShare}
           seed={layout.pageId ?? String(layout.pageIndex)} handle={ambientRef} />
       )}
     </div>

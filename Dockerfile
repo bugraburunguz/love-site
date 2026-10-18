@@ -18,8 +18,16 @@ COPY backend/src ./src
 COPY --from=frontend /frontend/dist ./src/main/resources/static
 RUN ./mvnw -B -q -DskipTests package
 
-# ---- 3. Runtime: JRE + media tools for the processing pipeline ----
-FROM eclipse-temurin:21-jre
+# ---- 3. Render driver (Node + playwright-core; the Chromium itself is installed in the runtime image) ----
+FROM node:22-slim AS renderer
+WORKDIR /renderer
+COPY renderer/package.json renderer/package-lock.json ./
+RUN npm ci --omit=dev
+COPY renderer/driver.mjs ./
+
+# ---- 4. Runtime: JRE + media tools + headless Chromium for the exports ----
+# Pinned to Ubuntu 24.04 (noble): Playwright (the export renderer) does not support newer Ubuntu releases yet
+FROM eclipse-temurin:21-jre-noble
 # pg_dump must be at least as new as the Postgres server it dumps (the nightly database backup). The distro package is
 # older than the server Railway runs, so the client comes from the PostgreSQL apt repository. Bump PG_CLIENT_MAJOR together
 # with the database version.
@@ -45,9 +53,31 @@ RUN set -e; \
 # Print the client version in the build log and fail when it is not the major we asked for.
 RUN pg_dump --version | tee /dev/stderr | grep -q "pg_dump (PostgreSQL) ${PG_CLIENT_MAJOR}\." \
     || { echo "BUILD CHECK FAILED: pg_dump is not version ${PG_CLIENT_MAJOR}"; exit 1; }
+# Exports (worker role): Node runs the render driver, which drives one headless Chromium (Playwright's headless shell).
+# Fonts: Noto covers Turkish letters in fallback fonts, Noto Color Emoji draws emoji in captions in colour. The SPA's own
+# fonts (Caveat, Playfair ...) are self-hosted files the page loads itself.
+COPY --from=renderer /usr/local/bin/node /usr/local/bin/node
+COPY --from=renderer /renderer /app/renderer
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-color-emoji fonts-noto-core fonts-dejavu-core fontconfig \
+    && node /app/renderer/node_modules/playwright-core/cli.js install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/* /root/.cache \
+    && chmod -R a+rX /ms-playwright /app/renderer
+RUN set -e; \
+    fail() { echo "BUILD CHECK FAILED: $1"; exit 1; }; \
+    node --version > /dev/null                                   || fail "node missing"; \
+    fc-list | grep -qi "Noto Color Emoji"                        || fail "no colour emoji font"; \
+    ffmpeg -hide_banner -encoders | grep -q libwebp_anim         || fail "ffmpeg has no libwebp_anim encoder (animated stickers)"; \
+    ffmpeg -hide_banner -filters | grep -q ' xfade '             || fail "ffmpeg has no xfade filter (reels transitions)"; \
+    vips -l | grep -q webpsave                                   || fail "vips has no webpsave (stickers)"
 RUN useradd --system --create-home app
 USER app
+# Chromium must start as the user the app runs as and draw colour emoji; the build fails otherwise
+RUN node /app/renderer/driver.mjs --selftest
 WORKDIR /app
 COPY --from=backend /backend/target/app.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+# The worker shares its memory with Chromium + ffmpeg: give the JVM less there (README: JAVA_MAX_RAM_PERCENTAGE=50 on the worker).
+ENV JAVA_MAX_RAM_PERCENTAGE=75
+ENTRYPOINT ["sh", "-c", "exec java -XX:MaxRAMPercentage=${JAVA_MAX_RAM_PERCENTAGE} -jar app.jar"]

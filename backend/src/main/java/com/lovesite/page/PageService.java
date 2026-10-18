@@ -72,6 +72,16 @@ public class PageService {
         return build(spaceId, albumId);
     }
 
+    /**
+     * The pages of an album of the given space, for system-level readers (exports). Callers pass the space of the signed-in
+     * user or of the job row they claimed, never an id from a request; another space's album is a 404 like everywhere.
+     */
+    @Transactional(readOnly = true)
+    public PagesView viewOfSpace(UUID spaceId, UUID albumId) {
+        requireAlbum(spaceId, albumId, false);
+        return build(spaceId, albumId);
+    }
+
     private PagesView build(UUID spaceId, UUID albumId) {
         List<PageRow> rows = jdbc.query(
                 "SELECT id, album_id, space_id, page_index, template, version FROM page WHERE album_id = ? AND space_id = ? ORDER BY page_index",

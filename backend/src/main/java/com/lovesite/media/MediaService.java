@@ -294,6 +294,20 @@ public class MediaService {
         pages.removeMedia(m.getSpaceId(), m.getId());
     }
 
+    public record OriginalDownload(String url, String filename) {
+    }
+
+    /**
+     * "Orijinal dosya" in the lightbox: a short-lived presigned link that downloads the original under its own file name. Only
+     * the caller's own live media (the same 404 for another space's ids).
+     */
+    public OriginalDownload originalDownload(CurrentUser me, UUID mediaId) {
+        Media m = find(me, mediaId);
+        if (!LISTED.contains(m.getStatus())) throw ApiException.notFound("Medya bulunamadı");
+        return new OriginalDownload(storage.presignDownload(m.getOriginalKey(), m.getOriginalFilename(), m.getContentType()),
+                m.getOriginalFilename());
+    }
+
     private Media find(CurrentUser me, UUID mediaId) {
         return media.findByIdAndSpaceIdAndDeletedAtIsNull(mediaId, me.requireSpace())
                 .orElseThrow(() -> ApiException.notFound("Medya bulunamadı"));

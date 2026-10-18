@@ -14,14 +14,18 @@ public class BackupStartup implements ApplicationRunner {
 
     private final BackupProperties properties;
     private final BackupService backup;
+    private final com.lovesite.role.Roles roles;
 
-    public BackupStartup(BackupProperties properties, BackupService backup) {
+    public BackupStartup(BackupProperties properties, BackupService backup, com.lovesite.role.Roles roles) {
         this.properties = properties;
         this.backup = backup;
+        this.roles = roles;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        // only the process that runs backups may declare a RUNNING record dead (a web restart must not touch the worker's run)
+        if (!roles.runs(com.lovesite.role.Roles.Job.BACKUP_RECOVERY)) return;
         backup.markInterruptedRuns();
         if (properties.enabled()) {
             log.info("Backup is ON: nightly at 04:00 (Europe/Istanbul) to bucket '{}'", properties.bucket());
