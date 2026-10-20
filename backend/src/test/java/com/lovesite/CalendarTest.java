@@ -208,4 +208,51 @@ class CalendarTest {
         assertThat((List<Object>) JsonPath.read(ok(get("/api/special-days"), null), "$")).isEmpty();
         assertThat(Map.of()).isEmpty();
     }
+
+    @Test
+    void dayNotesOnePerPersonReadableByThePartner() throws Exception {
+        String partnerEmail = "cal-partner-" + UUID.randomUUID().toString().substring(0, 8) + "@x.io";
+        TenantFixtures.member(jdbc, space, TenantFixtures.user(jdbc, partnerEmail, "Ali", false), "MEMBER");
+        RequestPostProcessor partner = user(partnerEmail);
+
+        // a day with notes and no photos
+        String mine = ok(put("/api/day-notes/2026-08-15"), "{\"body\":\"  Bugün sahilde yürüdük 🌊  \"}");
+        assertThat((String) JsonPath.read(mine, "$.body")).isEqualTo("Bugün sahilde yürüdük 🌊");
+        assertThat((Boolean) JsonPath.read(mine, "$.mine")).isTrue();
+        assertThat(send(put("/api/day-notes/2026-08-15"), partner, "{\"body\":\"Akşam yemeği harikaydı\"}").getResponse().getStatus()).isEqualTo(200);
+
+        // each sees both, own note first and marked as theirs
+        String day = ok(get("/api/calendar/day?date=2026-08-15"), null);
+        assertThat((List<String>) JsonPath.read(day, "$.notes[*].body")).containsExactly("Bugün sahilde yürüdük 🌊", "Akşam yemeği harikaydı");
+        assertThat((List<Boolean>) JsonPath.read(day, "$.notes[*].mine")).containsExactly(true, false);
+        assertThat((String) JsonPath.read(day, "$.notes[1].authorName")).isEqualTo("Ali");
+        String partnersView = send(get("/api/calendar/day?date=2026-08-15"), partner, null).getResponse().getContentAsString();
+        assertThat((List<String>) JsonPath.read(partnersView, "$.notes[*].body")).containsExactly("Akşam yemeği harikaydı", "Bugün sahilde yürüdük 🌊");
+
+        // writing again replaces only one's own note; an empty text removes it
+        ok(put("/api/day-notes/2026-08-15"), "{\"body\":\"Sahil, dondurma, gün batımı\"}");
+        assertThat((List<String>) JsonPath.read(ok(get("/api/calendar/day?date=2026-08-15"), null), "$.notes[*].body"))
+                .containsExactly("Sahil, dondurma, gün batımı", "Akşam yemeği harikaydı");
+
+        // month: the day is listed with its notes even without photos; months list and year know it too
+        String month = ok(get("/api/calendar/month?month=2026-08"), null);
+        assertThat((List<String>) JsonPath.read(month, "$.days[*].date")).containsExactly("2026-08-15");
+        assertThat((Integer) JsonPath.read(month, "$.days[0].notes")).isEqualTo(2);
+        assertThat((Integer) JsonPath.read(month, "$.days[0].count")).isZero();
+        assertThat((List<String>) JsonPath.read(ok(get("/api/calendar/months"), null), "$[*].month")).contains("2026-08");
+        assertThat((List<String>) JsonPath.read(ok(get("/api/calendar/year?year=2026"), null), "$.noteDays")).containsExactly("2026-08-15");
+        // the album filter does not hide notes (they belong to the day)
+        assertThat((Integer) JsonPath.read(ok(get("/api/calendar/month?month=2026-08&albumId=" + album), null), "$.days[0].notes")).isEqualTo(2);
+        // "a year ago today"
+        assertThat((List<String>) JsonPath.read(ok(get("/api/calendar/on-this-day?date=2027-08-15"), null), "$.past[0].notes[*].body"))
+                .containsExactly("Sahil, dondurma, gün batımı", "Akşam yemeği harikaydı");
+
+        // another space sees nothing; limits
+        assertThat((List<Object>) JsonPath.read(send(get("/api/calendar/day?date=2026-08-15"), outsider, null).getResponse().getContentAsString(), "$.notes")).isEmpty();
+        assertThat(send(put("/api/day-notes/2026-08-15"), me, "{\"body\":\"" + "a".repeat(5001) + "\"}").getResponse().getStatus()).isEqualTo(400);
+        assertThat(send(put("/api/day-notes/yarin"), me, "{\"body\":\"x\"}").getResponse().getStatus()).isEqualTo(400);
+
+        assertThat(send(put("/api/day-notes/2026-08-15"), me, "{\"body\":\"   \"}").getResponse().getStatus()).isEqualTo(204);
+        assertThat((List<String>) JsonPath.read(ok(get("/api/calendar/day?date=2026-08-15"), null), "$.notes[*].body")).containsExactly("Akşam yemeği harikaydı");
+    }
 }

@@ -579,5 +579,10 @@ the lightbox and "Albümde göster" (opens the album at the photo's page, `/albu
 - **Special days:** `GET/POST /api/special-days`, `PUT/DELETE /api/special-days/{id}` (`title`, `day`, `icon`
   heart|ring|cake|plane|star|home, `yearly`). Yearly days repeat from their first year on (29 February falls on the 28th in other
   years) and show "3. yıl".
+- **Day notes (diary):** every day of the calendar opens, also without photos. Each partner writes their own note for a day
+  (saved by itself a moment after typing stops) and reads the other's; an empty text removes one's note.
+  `PUT /api/day-notes/{YYYY-MM-DD} {body}` (≤ 5000 characters; 204 when removed). Notes come with the day view (`notes`, own
+  note first, `mine`), the month view (`notes` count per day, days with only notes included), the year view (`noteDays`) and
+  "n years ago today". They belong to the day, not to an album, so the album filter does not hide them.
 - **API:** `GET /api/calendar/months`, `/month?month=`, `/year?year=`, `/day?date=`, `/on-this-day[?date=]`, all with an
   optional `albumId`. Scoped by space like everything else (another space's album is a 404).

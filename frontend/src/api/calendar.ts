@@ -22,9 +22,20 @@ export interface Occurrence {
   years: number
 }
 
+export interface DayNote {
+  authorId: string
+  authorName: string
+  body: string
+  updatedAt: string
+  /** written by me (editable); the partner's note is read-only */
+  mine: boolean
+}
+
 export interface DaySummary {
   date: string
+  /** photos / videos (a day can have only notes) */
   count: number
+  notes: number
   uncertain: boolean
   cover: { id: string; type: 'IMAGE' | 'VIDEO'; thumbUrl: string | null } | null
 }
@@ -39,6 +50,7 @@ export interface YearView {
   year: number
   days: Record<string, number>
   specialDays: Occurrence[]
+  noteDays: string[]
 }
 
 export interface DayMedia {
@@ -50,6 +62,7 @@ export interface DayView {
   date: string
   media: DayMedia[]
   specialDays: Occurrence[]
+  notes: DayNote[]
 }
 
 export interface PastDay {
@@ -57,6 +70,7 @@ export interface PastDay {
   date: string
   count: number
   media: DayMedia[]
+  notes: DayNote[]
 }
 
 export interface OnThisDay {
@@ -78,3 +92,7 @@ export const listSpecialDays = () => api<SpecialDay[]>('/api/special-days')
 export const createSpecialDay = (d: Omit<SpecialDay, 'id'>) => api<SpecialDay>('/api/special-days', { method: 'POST', body: d })
 export const updateSpecialDay = (id: string, d: Omit<SpecialDay, 'id'>) => api<SpecialDay>(`/api/special-days/${id}`, { method: 'PUT', body: d })
 export const deleteSpecialDay = (id: string) => api<void>(`/api/special-days/${id}`, { method: 'DELETE' })
+
+/** Saves my note of that day; an empty text removes it (then null comes back). */
+export const saveDayNote = (date: string, body: string) =>
+  api<DayNote | undefined>(`/api/day-notes/${date}`, { method: 'PUT', body: { body } }).then((n) => n ?? null)

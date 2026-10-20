@@ -45,23 +45,24 @@ public class CalendarService {
     public record Cover(UUID id, String type, String thumbUrl) {
     }
 
-    public record DaySummary(LocalDate date, int count, boolean uncertain, Cover cover) {
+    /** count: photos / videos; notes: day notes (a day can have notes and no photos) */
+    public record DaySummary(LocalDate date, int count, boolean uncertain, Cover cover, int notes) {
     }
 
     public record MonthView(String month, List<DaySummary> days, List<Occurrence> specialDays) {
     }
 
-    public record YearView(int year, Map<LocalDate, Integer> days, List<Occurrence> specialDays) {
+    public record YearView(int year, Map<LocalDate, Integer> days, List<Occurrence> specialDays, List<LocalDate> noteDays) {
     }
 
     public record DayMedia(MediaResponse media, String albumTitle) {
     }
 
-    public record DayView(LocalDate date, List<DayMedia> media, List<Occurrence> specialDays) {
+    public record DayView(LocalDate date, List<DayMedia> media, List<Occurrence> specialDays, List<DayNoteService.Note> notes) {
     }
 
     /** "n years ago today": a few photos of that day, how many there are in total */
-    public record PastDay(int yearsAgo, LocalDate date, int count, List<DayMedia> media) {
+    public record PastDay(int yearsAgo, LocalDate date, int count, List<DayMedia> media, List<DayNoteService.Note> notes) {
     }
 
     public record OnThisDay(LocalDate date, List<PastDay> past, List<Occurrence> specialDays) {
@@ -75,10 +76,12 @@ public class CalendarService {
     private final MediaService mediaService;
     private final StorageService storage;
     private final SpecialDayService specialDays;
+    private final DayNoteService notes;
     private final ZoneId zone;
 
     public CalendarService(JdbcTemplate jdbc, MediaRepository mediaRepository, MediaService mediaService, StorageService storage,
-                           SpecialDayService specialDays, ProcessingProperties processing) {
+                           SpecialDayService specialDays, DayNoteService notes, ProcessingProperties processing) {
+        this.notes = notes;
         this.jdbc = jdbc;
         this.mediaRepository = mediaRepository;
         this.mediaService = mediaService;
@@ -97,8 +100,12 @@ public class CalendarService {
     public List<MonthCount> months(CurrentUser me, UUID albumId) {
         UUID spaceId = me.requireSpace();
         Filter f = filter(spaceId, albumId);
-        return jdbc.query("SELECT to_char(" + SHOWN + " AT TIME ZONE ?, 'YYYY-MM') AS month, count(*) " + from(f) + " GROUP BY 1 ORDER BY 1",
-                (rs, i) -> new MonthCount(rs.getString(1), rs.getInt(2)), args(f, zone.getId()));
+        Map<String, Integer> counts = new java.util.TreeMap<>();
+        jdbc.query("SELECT to_char(" + SHOWN + " AT TIME ZONE ?, 'YYYY-MM') AS month, count(*) " + from(f) + " GROUP BY 1 ORDER BY 1",
+                rs -> { counts.put(rs.getString(1), rs.getInt(2)); }, args(f, zone.getId()));
+        // months with day notes are memories too (count 0 photos)
+        for (String m : notes.months(me)) counts.putIfAbsent(m, 0);
+        return counts.entrySet().stream().map(e -> new MonthCount(e.getKey(), e.getValue())).toList();
     }
 
     public MonthView month(CurrentUser me, String month, UUID albumId) {
@@ -108,8 +115,13 @@ public class CalendarService {
         List<Row> rows = rows(f, ym.atDay(1), ym.atEndOfMonth());
         Map<LocalDate, List<Row>> byDay = new LinkedHashMap<>();
         for (Row r : rows) byDay.computeIfAbsent(r.shown().atZone(zone).toLocalDate(), d -> new ArrayList<>()).add(r);
+        Map<LocalDate, List<DayNoteService.Note>> noted = notes.between(me, ym.atDay(1), ym.atEndOfMonth());
         List<DaySummary> days = new ArrayList<>();
-        byDay.forEach((date, list) -> days.add(new DaySummary(date, list.size(), list.stream().anyMatch(Row::uncertain), cover(list))));
+        byDay.forEach((date, list) -> days.add(new DaySummary(date, list.size(), list.stream().anyMatch(Row::uncertain), cover(list),
+                noted.getOrDefault(date, List.of()).size())));
+        noted.forEach((date, list) -> {
+            if (!byDay.containsKey(date)) days.add(new DaySummary(date, 0, false, null, list.size()));
+        });
         days.sort(Comparator.comparing(DaySummary::date));
         return new MonthView(ym.toString(), days, SpecialDayService.occurrences(specialDays.all(spaceId), ym.atDay(1), ym.atEndOfMonth()));
     }
@@ -124,14 +136,15 @@ public class CalendarService {
         jdbc.query("SELECT (" + SHOWN + " AT TIME ZONE ?)::date AS d, count(*) " + from(f) + " AND " + SHOWN + " >= ? AND " + SHOWN + " < ? GROUP BY 1 ORDER BY 1",
                 rs -> { days.put(rs.getObject(1, LocalDate.class), rs.getInt(2)); },
                 args(f, zone.getId(), start(first), start(last.plusDays(1))));
-        return new YearView(year, days, SpecialDayService.occurrences(specialDays.all(spaceId), first, last));
+        return new YearView(year, days, SpecialDayService.occurrences(specialDays.all(spaceId), first, last),
+                new ArrayList<>(notes.between(me, first, last).keySet()));
     }
 
     public DayView day(CurrentUser me, LocalDate date, UUID albumId) {
         UUID spaceId = me.requireSpace();
         Filter f = filter(spaceId, albumId);
         List<DayMedia> media = mediaOf(spaceId, rows(f, date, date), Integer.MAX_VALUE);
-        return new DayView(date, media, SpecialDayService.occurrences(specialDays.all(spaceId), date, date));
+        return new DayView(date, media, SpecialDayService.occurrences(specialDays.all(spaceId), date, date), notes.on(me, date));
     }
 
     /** The same month and day in earlier years (29 February also shows on 28 February in other years). */
@@ -141,12 +154,15 @@ public class CalendarService {
         List<Row> rows = jdbc.query("SELECT " + ROW_COLUMNS + " " + from(f)
                         + " AND to_char(" + SHOWN + " AT TIME ZONE ?, 'MM-DD') = ? AND " + SHOWN + " < ? ORDER BY " + SHOWN,
                 (rs, i) -> row(rs), args(f, null, zone.getId(), String.format("%02d-%02d", today.getMonthValue(), today.getDayOfMonth()), start(today.withDayOfYear(1))));
-        Map<Integer, List<Row>> byYear = new LinkedHashMap<>();
+        Map<Integer, List<Row>> byYear = new java.util.TreeMap<>(java.util.Comparator.reverseOrder());
         for (Row r : rows) byYear.computeIfAbsent(r.shown().atZone(zone).getYear(), y -> new ArrayList<>()).add(r);
+        Map<LocalDate, List<DayNoteService.Note>> pastNotes = notes.sameDayBefore(me, today);
+        for (LocalDate d : pastNotes.keySet()) byYear.putIfAbsent(d.getYear(), new ArrayList<>());
         List<PastDay> past = new ArrayList<>();
-        byYear.entrySet().stream().sorted(Map.Entry.<Integer, List<Row>>comparingByKey().reversed()).forEach(e -> {
-            LocalDate on = today.withYear(e.getKey());
-            past.add(new PastDay(today.getYear() - e.getKey(), on, e.getValue().size(), mediaOf(spaceId, e.getValue(), 8)));
+        byYear.forEach((y, list) -> {
+            LocalDate on = list.isEmpty() ? pastNotes.keySet().stream().filter(d -> d.getYear() == y).findFirst().orElse(today.withYear(y))
+                    : list.get(0).shown().atZone(zone).toLocalDate();
+            past.add(new PastDay(today.getYear() - y, on, list.size(), mediaOf(spaceId, list, 8), pastNotes.getOrDefault(on, List.of())));
         });
         return new OnThisDay(today, past, SpecialDayService.occurrences(specialDays.all(spaceId), today, today));
     }

@@ -24,10 +24,20 @@ public class CalendarController {
 
     private final CalendarService calendar;
     private final SpecialDayService specialDays;
+    private final DayNoteService notes;
 
-    public CalendarController(CalendarService calendar, SpecialDayService specialDays) {
+    public CalendarController(CalendarService calendar, SpecialDayService specialDays, DayNoteService notes) {
         this.calendar = calendar;
         this.specialDays = specialDays;
+        this.notes = notes;
+    }
+
+    /** The caller's own note of that day; an empty text removes it (204). */
+    @PutMapping("/api/day-notes/{date}")
+    public org.springframework.http.ResponseEntity<DayNoteService.Note> saveNote(CurrentUser me, @PathVariable String date,
+                                                                                 @RequestBody DayNoteService.NoteRequest request) {
+        DayNoteService.Note saved = notes.save(me, parse(date), request == null ? null : request.body());
+        return saved == null ? org.springframework.http.ResponseEntity.noContent().build() : org.springframework.http.ResponseEntity.ok(saved);
     }
 
     @GetMapping("/api/calendar/months")

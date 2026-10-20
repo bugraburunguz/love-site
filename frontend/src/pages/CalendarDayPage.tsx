@@ -10,6 +10,7 @@ import Lightbox from '../components/Lightbox'
 import LivingPhoto from '../components/LivingPhoto'
 import DateEditDialog from '../components/calendar/DateEditDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
+import DayNotes from '../components/calendar/DayNotes'
 import BottomTabs from '../components/BottomTabs'
 import { pageThemeVars, pageVars, themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
@@ -74,6 +75,7 @@ export default function CalendarDayPage() {
         <p key={o.id} className="calendar__today-special"><SpecialIcon icon={o.icon} /> {occurrenceLabel(o.title, o.yearly, o.years)}</p>
       ))}
       {error && <p role="alert" className="calendar__error">{error}</p>}
+      {day && <DayNotes key={day.date} date={day.date} notes={day.notes} onChange={load} />}
       {day === null ? <p className="calendar__empty">Açılıyor…</p> : day.media.length === 0 ? (
         <p className="calendar__empty">Bu günde fotoğraf yok.</p>
       ) : (

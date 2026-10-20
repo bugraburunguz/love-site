@@ -106,4 +106,5 @@ services:
       OUTPUT_DIR: /e2e/output
       WORKER_URL: http://worker:8080
       SCRIPT: ${SCRIPT:-smoke.py}
+      SKIP_EXPORTS: ${SKIP_EXPORTS:-0}
     command: ["bash", "/e2e/runner.sh"]

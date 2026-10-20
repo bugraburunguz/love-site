@@ -545,3 +545,106 @@ a.calendar__cell:focus-visible {
     display: none;
   }
 }
+
+/* ---- day notes: each partner's diary line on a piece of paper ---- */
+.day-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin: 0 auto var(--space-5);
+  max-width: 860px;
+}
+
+.day-note {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 14px 18px 10px;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 29px, color-mix(in srgb, var(--page-ink, #4a2f23) 14%, transparent) 29px 30px),
+    var(--frame-paper, #fffaf0);
+  box-shadow: 0 1px 2px rgba(60, 35, 20, 0.2), 0 8px 18px rgba(60, 35, 20, 0.14);
+  transform: rotate(-0.6deg);
+}
+
+.day-note:nth-child(even) {
+  transform: rotate(0.8deg);
+}
+
+.day-note__author {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  color: var(--rose-deep, #a65f70);
+}
+
+.day-note__text {
+  margin: 0;
+  min-height: 120px;
+  font-family: var(--font-hand);
+  font-size: 1.35rem;
+  line-height: 30px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+textarea.day-note__text {
+  width: 100%;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  outline: none;
+  padding: 0;
+}
+
+textarea.day-note__text::placeholder {
+  color: color-mix(in srgb, var(--ink-soft, #7a5a48) 70%, transparent);
+}
+
+.day-note__state {
+  min-height: 1.2em;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.day-note__error {
+  color: #9b2c2c;
+}
+
+/* calendar cells: a day with a note */
+.calendar__note-mark {
+  position: absolute;
+  right: 3px;
+  top: 20px;
+  z-index: 3;
+  color: var(--rose-deep, #a65f70);
+}
+
+.calendar__note-only {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--rose-deep, #a65f70) 75%, transparent);
+}
+
+.calendar__note-only svg {
+  width: 45%;
+  height: 45%;
+}
+
+.calendar__dot--note {
+  background-image: radial-gradient(circle at 50% 50%, var(--gold, #e5c158) 0 28%, transparent 32%);
+}
+
+.calendar__past-note {
+  max-width: 240px;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+}

@@ -164,12 +164,25 @@ def calendar_check(page: Page, ctx: BrowserContext) -> None:
     page.screenshot(path=str(OUT / "calendar-special.png"))
     cell.click()
     expect(page.get_by_text("Sevgililer günü")).to_be_visible()
+
+    # the diary: my own note on the day, saved by itself, still there after a reload
+    note = page.get_by_label("Benim notum")
+    note.fill("Bugün sahilde yürüdük, akşam da en sevdiğimiz yerde yemek yedik 🌅")
+    expect(page.get_by_text("Kaydedildi")).to_be_visible(timeout=10_000)
+    page.reload()
+    expect(page.get_by_label("Benim notum")).to_have_value("Bugün sahilde yürüdük, akşam da en sevdiğimiz yerde yemek yedik 🌅")
+    notes = api(ctx, "/api/calendar/day?date=2024-02-14").json()["notes"]
+    assert len(notes) == 1 and notes[0]["mine"], notes
+    page.screenshot(path=str(OUT / "calendar-day-note.png"))
     page.get_by_role("button", name="Albümde göster").first.click()
     page.wait_for_url("**/albums/**")
     expect(page.locator(".page .polaroid").first).to_be_visible()
 
+    page.goto("/takvim?ay=2024-02")
+    expect(page.locator('a.calendar__cell[href^="/takvim/gun/2024-02-14"] .calendar__note-mark')).to_be_visible()
     page.goto("/takvim?yil=2024")
     expect(page.locator(".calendar__dot--special")).to_have_count(1)
+    expect(page.locator(".calendar__dot--note")).to_have_count(1)
     page.screenshot(path=str(OUT / "calendar-year.png"))
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto(f"/takvim?ay={today:%Y-%m}")
@@ -325,9 +338,10 @@ def main() -> int:
         assert mine["musicUrl"], "album has no music after the upload"
         settings.get_by_role("button", name="Kapat").click()
 
-        step("Phase 7: exports (formats, visual comparison, roles, mixed page themes)")
-        import exports
-        exports.run(browser, a_ctx, a, OUT / "media-exports")
+        if os.environ.get("SKIP_EXPORTS") != "1":  # SKIP_EXPORTS=1: a quicker run without the export checks
+            step("Phase 7: exports (formats, visual comparison, roles, mixed page themes)")
+            import exports
+            exports.run(browser, a_ctx, a, OUT / "media-exports")
         a.set_viewport_size({"width": 1280, "height": 900})
 
         step("a user of another space gets 404")

@@ -11,6 +11,7 @@ import Clay from '../components/Clay'
 import SpecialDaysDialog from '../components/calendar/SpecialDaysDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
 import BottomTabs from '../components/BottomTabs'
+import { NoteIcon } from '../components/calendar/DayNotes'
 import { themeVars, pageVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
@@ -131,7 +132,8 @@ export function CalendarBoard({ state, onChange, embedded = false }: {
                   return src ? <img key={m.media.id} src={src} alt="" style={{ '--tilt': `${(i % 2 ? 1 : -1) * (2 + i)}deg` } as CSSProperties} /> : null
                 })}
               </span>
-              <span className="calendar__past-count">{p.count} anı</span>
+              {p.count > 0 ? <span className="calendar__past-count">{p.count} anı</span> : null}
+              {p.notes[0] && <span className="calendar__past-note">“{p.notes[0].body.slice(0, 60)}{p.notes[0].body.length > 60 ? '…' : ''}”</span>}
             </Link>
           ))}
         </section>
@@ -201,12 +203,14 @@ function MonthGrid({ view, year, month, today, dayHref }: {
         const date = dayKey(year, month, d)
         const info = byDay.get(date)
         const sp = specials.get(date) ?? []
-        const label = `${d} ${MONTHS[month - 1]}${info ? `, ${info.count} anı` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
+        const label = `${d} ${MONTHS[month - 1]}${info?.count ? `, ${info.count} anı` : ''}${info?.notes ? `, ${info.notes} not` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
         const content = (
           <>
             <span className="calendar__day-number">{d}</span>
             {info?.cover?.thumbUrl && <img className="calendar__thumb" src={info.cover.thumbUrl} alt="" loading="lazy" />}
-            {info && !info.cover?.thumbUrl && <span className="calendar__thumb calendar__thumb--blank" />}
+            {info && info.count > 0 && !info.cover?.thumbUrl && <span className="calendar__thumb calendar__thumb--blank" />}
+            {info && info.count === 0 && info.notes > 0 && <span className="calendar__note-only" aria-hidden="true"><NoteIcon /></span>}
+            {info && info.count > 0 && info.notes > 0 && <span className="calendar__note-mark" title="Günlük notu var"><NoteIcon /></span>}
             {info && info.count > 1 && <span className="calendar__count">{info.count}</span>}
             {info?.uncertain && <span className="calendar__uncertain" title="Tarihi belirsiz fotoğraf var">?</span>}
             {sp.length > 0 && (
@@ -216,12 +220,9 @@ function MonthGrid({ view, year, month, today, dayHref }: {
             )}
           </>
         )
-        const cls = `calendar__cell${info ? ' calendar__cell--photos' : ''}${date === today ? ' calendar__cell--today' : ''}${sp.length ? ' calendar__cell--special' : ''}`
-        return info || sp.length ? (
-          <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}>{content}</Link>
-        ) : (
-          <div key={date} className={cls} role="gridcell" aria-label={label}>{content}</div>
-        )
+        const cls = `calendar__cell${info?.count ? ' calendar__cell--photos' : ''}${info?.notes ? ' calendar__cell--notes' : ''}${date === today ? ' calendar__cell--today' : ''}${sp.length ? ' calendar__cell--special' : ''}`
+        // every day opens: a day without photos can still get a diary note
+        return <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}>{content}</Link>
       })}
     </div>
   )
@@ -230,6 +231,7 @@ function MonthGrid({ view, year, month, today, dayHref }: {
 function YearGrid({ view, year, today, onMonth }: { view: YearView | null; year: number; today: string; onMonth: (m: number) => void }) {
   const max = Math.max(0, ...Object.values(view?.days ?? {}))
   const special = new Set((view?.specialDays ?? []).map((o) => o.date))
+  const noted = new Set(view?.noteDays ?? [])
   return (
     <div className={`calendar__months${view ? '' : ' calendar__grid--loading'}`}>
       {MONTHS.map((name, i) => {
@@ -243,7 +245,7 @@ function YearGrid({ view, year, today, onMonth }: { view: YearView | null; year:
                 if (d === null) return <span key={k} className="calendar__dot calendar__dot--empty" />
                 const date = dayKey(year, m, d)
                 const level = intensity(view?.days[date] ?? 0, max)
-                return <span key={k} className={`calendar__dot calendar__dot--${level}${special.has(date) ? ' calendar__dot--special' : ''}${date === today ? ' calendar__dot--today' : ''}`} />
+                return <span key={k} className={`calendar__dot calendar__dot--${level}${special.has(date) ? ' calendar__dot--special' : ''}${noted.has(date) ? ' calendar__dot--note' : ''}${date === today ? ' calendar__dot--today' : ''}`} />
               })}
             </span>
           </button>
