@@ -564,7 +564,8 @@ npx cap open ios                      # Xcode (macOS + Xcode 16+) → pick a tea
 
 ## Calendar
 
-"Takvim" on the shelf (`/takvim`): every photo and video of the space (or of one album, `&album=`) by the date the app shows
+On wide screens (from 1100 px) the calendar sits next to the shelf; narrow screens and the store apps reach it through the
+bottom tab bar (Albümler / Takvim). Its own page is `/takvim`: every photo and video of the space (or of one album, `&album=`) by the date the app shows
 for it, in the app's time zone (`app.processing.default-timezone`, Europe/Istanbul): a photo taken at 00:30 in Istanbul is on
 that day. Month view (`?ay=YYYY-MM`) with a small polaroid and a count on each day, "previous / next memory" jumps, year view
 (`?yil=YYYY`) where days darken with the number of photos, "n years ago today", and the day page (`/takvim/gun/YYYY-MM-DD`) with

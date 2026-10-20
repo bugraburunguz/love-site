@@ -1,0 +1,44 @@
+/* the tab bar of narrow screens; hidden where the calendar sits next to the shelf */
+.bottom-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-controls) + 3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 6px max(12px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right));
+  background: color-mix(in srgb, var(--paper-cream, #f6ebd6) 94%, transparent);
+  border-top: 1px solid var(--paper-edge, #c9ae84);
+  box-shadow: 0 -4px 14px rgba(60, 35, 20, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.bottom-tabs__tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 0;
+  border-radius: 12px;
+  color: var(--ink-soft, #7a5a48);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.bottom-tabs__tab svg {
+  width: 26px;
+  height: 26px;
+}
+
+.bottom-tabs__tab.active {
+  color: var(--rose-deep, #a65f70);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--rose-deep, #a65f70) 10%, transparent);
+}
+
+@media (min-width: 1100px) {
+  .bottom-tabs {
+    display: none;
+  }
+}

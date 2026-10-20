@@ -108,10 +108,22 @@ def wait_until(check, what: str, timeout: float = 180, every: float = 2):
 
 def calendar_check(page: Page, ctx: BrowserContext) -> None:
     import datetime
-    page.set_viewport_size({"width": 1280, "height": 900})
+    # wide screens: the calendar sits next to the shelf; narrow ones reach it through the bottom tab bar
+    page.set_viewport_size({"width": 1440, "height": 900})
     page.goto("/")
-    page.get_by_role("link", name="Takvim").click()
+    expect(page.locator("aside.home__calendar .calendar__cell").first).to_be_visible()
+    expect(page.locator(".bottom-tabs")).to_be_hidden()
+    page.wait_for_timeout(800)
+    page.screenshot(path=str(OUT / "home-calendar-wide.png"))
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto("/")
+    expect(page.locator("aside.home__calendar")).to_have_count(0)
+    page.wait_for_timeout(500)
+    page.screenshot(path=str(OUT / "home-tabs-phone.png"))
+    page.locator(".bottom-tabs").get_by_role("link", name="Takvim").click()
+    page.wait_for_url("**/takvim")
     expect(page.get_by_role("heading", name="Takvimimiz")).to_be_visible()
+    page.set_viewport_size({"width": 1280, "height": 900})
     # the test photos carry no EXIF date: they sit on the day they were made and are marked "?"
     today = datetime.date.today()
     month = api(ctx, f"/api/calendar/month?month={today:%Y-%m}").json()

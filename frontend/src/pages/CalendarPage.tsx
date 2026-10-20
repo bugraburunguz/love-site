@@ -10,23 +10,44 @@ import {
 import Clay from '../components/Clay'
 import SpecialDaysDialog from '../components/calendar/SpecialDaysDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
+import BottomTabs from '../components/BottomTabs'
 import { themeVars, pageVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
 import './calendar.css'
 
+export type CalendarState = { ay?: string | null; yil?: string | null; album?: string | null }
+
 /**
  * Our calendar: the photos and videos of every album (or of one album) by the date they were taken. Month view with a small
  * polaroid on each day that has photos, a year view where days darken with the number of photos, "n years ago today" and the
- * couple's special days. The state lives in the address (?ay=2026-10 / ?yil=2026, &album=...) so back / forward work.
+ * couple's special days. On its own page (/takvim) the state lives in the address (?ay=2026-10 / ?yil=2026, &album=...) so
+ * back / forward work; on the shelf of a wide screen it sits next to the albums with its own state.
  */
 export default function CalendarPage() {
   const [search, setSearch] = useSearchParams()
+  const state: CalendarState = { ay: search.get('ay'), yil: search.get('yil'), album: search.get('album') }
+  const onChange = useCallback((next: CalendarState) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(next)) if (v) params.set(k, v)
+    setSearch(params)
+  }, [setSearch])
+  return (
+    <>
+      <CalendarBoard state={state} onChange={onChange} />
+      <BottomTabs />
+    </>
+  )
+}
+
+export function CalendarBoard({ state, onChange, embedded = false }: {
+  state: CalendarState; onChange: (next: CalendarState) => void; embedded?: boolean
+}) {
   const today = todayKey()
-  const albumId = search.get('album')
-  const yearParam = Number(search.get('yil'))
+  const albumId = state.album ?? null
+  const yearParam = Number(state.yil)
   const view: 'month' | 'year' = yearParam ? 'year' : 'month'
-  const current = parseMonth(search.get('ay')) ?? parseMonth(today.slice(0, 7))!
+  const current = parseMonth(state.ay) ?? parseMonth(today.slice(0, 7))!
 
   const [albums, setAlbums] = useState<Album[]>([])
   const [months, setMonths] = useState<string[]>([])
@@ -43,14 +64,7 @@ export default function CalendarPage() {
     void loadThemeFonts(theme)
   }, [theme])
 
-  const go = useCallback((params: Record<string, string | null>) => {
-    const next = new URLSearchParams(search)
-    for (const [k, v] of Object.entries(params)) {
-      if (v === null) next.delete(k)
-      else next.set(k, v)
-    }
-    setSearch(next)
-  }, [search, setSearch])
+  const go = useCallback((params: CalendarState) => onChange({ ...state, ...params }), [state, onChange])
 
   useEffect(() => {
     listAlbums().then(setAlbums).catch(() => undefined)
@@ -76,11 +90,13 @@ export default function CalendarPage() {
   const style = { ...themeVars(theme), ...pageVars(theme, 'light', 'textured') } as CSSProperties
   const dayHref = (date: string) => `/takvim/gun/${date}${albumId ? `?album=${albumId}` : ''}`
 
+  const fullPage = `/takvim?${new URLSearchParams(Object.entries(state).filter(([, v]) => v) as [string, string][]).toString()}`
+  const Root = embedded ? 'section' : 'main'
   return (
-    <main className="calendar" style={style} data-page-theme={theme.id}>
+    <Root className={`calendar${embedded ? ' calendar--embedded' : ''}`} style={style} data-page-theme={theme.id} aria-label={embedded ? 'Takvim' : undefined}>
       <header className="calendar__header">
-        <Link to="/" className="clay clay--pill clay--sm clay--cream">‹ Albümler</Link>
-        <h1>Takvimimiz</h1>
+        {embedded ? <span /> : <Link to="/" className="clay clay--pill clay--sm clay--cream calendar__back">‹ Albümler</Link>}
+        {embedded ? <h2 className="calendar__heading"><Link to={fullPage} title="Takvimi tam ekran aç">Takvimimiz</Link></h2> : <h1>Takvimimiz</h1>}
         <div className="calendar__tools">
           <div className="calendar__switch" role="group" aria-label="Görünüm">
             <Clay size="sm" tone={view === 'month' ? 'rose' : 'cream'} aria-pressed={view === 'month'}
@@ -153,7 +169,7 @@ export default function CalendarPage() {
       )}
 
       {specialOpen && <SpecialDaysDialog onChanged={() => setReload((n) => n + 1)} onClose={() => setSpecialOpen(false)} />}
-    </main>
+    </Root>
   )
 }
 

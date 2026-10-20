@@ -10,6 +10,7 @@ import Lightbox from '../components/Lightbox'
 import LivingPhoto from '../components/LivingPhoto'
 import DateEditDialog from '../components/calendar/DateEditDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
+import BottomTabs from '../components/BottomTabs'
 import { pageThemeVars, pageVars, themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts, ThemeContext } from '../themes/ThemeContext'
@@ -135,6 +136,7 @@ export default function CalendarDayPage() {
           }}
         />
       )}
+      <BottomTabs />
     </main>
     </ThemeContext.Provider>
   )

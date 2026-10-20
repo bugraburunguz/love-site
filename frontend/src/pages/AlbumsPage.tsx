@@ -6,6 +6,8 @@ import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
 import { ConfirmDialog, PromptDialog } from '../components/Dialog'
 import NewAlbumDialog from '../components/NewAlbumDialog'
+import BottomTabs from '../components/BottomTabs'
+import { CalendarBoard, type CalendarState } from './CalendarPage'
 import CoverFace from '../components/CoverFace'
 import { themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
@@ -89,7 +91,22 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
   )
 }
 
+/** Wide screens show the calendar next to the shelf (narrow ones reach it through the bottom tabs). */
+function useWide(): boolean {
+  const query = '(min-width: 1100px)'
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const m = window.matchMedia(query)
+    const on = () => setWide(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return wide
+}
+
 export default function AlbumsPage() {
+  const wide = useWide()
+  const [calendar, setCalendar] = useState<CalendarState>({})
   const { user, logout } = useAuth()
   const [albums, setAlbums] = useState<Album[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -106,12 +123,13 @@ export default function AlbumsPage() {
   const close = useCallback(() => setDialog(null), [])
 
   return (
+    <div className="home">
+    {wide && <aside className="home__calendar"><CalendarBoard state={calendar} onChange={setCalendar} embedded /></aside>}
     <main className="shelf">
       <header className="shelf__header">
         <h1>Albümlerimiz</h1>
         <div className="shelf__user">
           <span>{user?.displayName}</span>
-          <Link to="/takvim" className="clay clay--pill clay--sm clay--cream">Takvim</Link>
           {user?.admin && (
             <Link to="/admin" className="clay clay--pill clay--sm clay--cream">
               Yönetim
@@ -194,5 +212,7 @@ export default function AlbumsPage() {
         />
       )}
     </main>
+    <BottomTabs />
+    </div>
   )
 }
