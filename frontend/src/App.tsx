@@ -9,6 +9,8 @@ import LoginPage from './pages/LoginPage'
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const AlbumsPage = lazy(() => import('./pages/AlbumsPage'))
 const AlbumPage = lazy(() => import('./pages/AlbumPage'))
+const CalendarPage = lazy(() => import('./pages/CalendarPage'))
+const CalendarDayPage = lazy(() => import('./pages/CalendarDayPage'))
 
 /** Everything behind the login. */
 function AppShell() {
@@ -31,6 +33,8 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<AlbumsPage />} />
         <Route path="/albums/:id" element={<AlbumPage />} />
+        <Route path="/takvim" element={<CalendarPage />} />
+        <Route path="/takvim/gun/:date" element={<CalendarDayPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<ErrorScreen kind="notfound" />} />

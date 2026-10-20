@@ -111,6 +111,7 @@ export default function AlbumsPage() {
         <h1>Albümlerimiz</h1>
         <div className="shelf__user">
           <span>{user?.displayName}</span>
+          <Link to="/takvim" className="clay clay--pill clay--sm clay--cream">Takvim</Link>
           {user?.admin && (
             <Link to="/admin" className="clay clay--pill clay--sm clay--cream">
               Yönetim

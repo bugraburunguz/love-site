@@ -30,6 +30,7 @@ import '../components/export/export.css'
 import { getOriginal, type ExportType } from '../api/exports'
 import { useExports } from '../export/useExports'
 import { download } from '../export/share'
+import DateEditDialog from '../components/calendar/DateEditDialog'
 import { useAspectProbe } from '../hooks/useAspectProbe'
 import { usePages } from '../hooks/usePages'
 import { effectsAllowed } from '../components/ambient/effects'
@@ -92,6 +93,7 @@ function AlbumView({ id }: { id: string }) {
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [dateEdit, setDateEdit] = useState<MediaDto | null>(null)
   const exportsState = useExports(id)
   const [ambientOn, setAmbientOn] = useAmbientPreference()
   const reduced = useReducedMotion()
@@ -478,6 +480,18 @@ function AlbumView({ id }: { id: string }) {
     return () => clearTimeout(t)
   }, [notice, clearNotice])
 
+  // the calendar's "Albümde göster" links here with ?medya=<id>: turn to the page that holds it (the flag is consumed)
+  const wanted = search.get('medya')
+  useEffect(() => {
+    if (!wanted || !view || !ready) return
+    const index = pages.findIndex((p) => p.items.some((i) => i.mediaId === wanted))
+    if (index >= 0) {
+      setFocusPageId(pages[index].id)
+      setGoTo((g) => ({ index, nonce: g.nonce + 1 }))
+    }
+    setSearch({}, { replace: true })
+  }, [wanted, view, ready, pages, setSearch])
+
   // the shelf menu links here with ?ayarlar=1 to open the settings straight away; the flag is consumed
   useEffect(() => {
     if (search.get('ayarlar') === '1') {
@@ -662,6 +676,7 @@ function AlbumView({ id }: { id: string }) {
             }
             return (
               <>
+                <Clay size="sm" tone="cream" role="menuitem" onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</Clay>
                 <p className="lightbox__menu-title">İndir / Paylaş</p>
                 <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</Clay>
                 <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</Clay>
@@ -677,6 +692,14 @@ function AlbumView({ id }: { id: string }) {
               </>
             )
           }}
+        />
+      )}
+
+      {dateEdit && (
+        <DateEditDialog
+          media={dateEdit}
+          onClose={() => setDateEdit(null)}
+          onSaved={(updated) => setMedia((list) => list?.map((x) => (x.id === updated.id ? updated : x)) ?? list)}
         />
       )}
 

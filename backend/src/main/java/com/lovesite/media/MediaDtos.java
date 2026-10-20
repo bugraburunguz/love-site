@@ -63,13 +63,20 @@ public final class MediaDtos {
      * What the client needs to draw a media item. The original file is never exposed; variant URLs are only set once
      * the item is READY (null while UPLOADED / PROCESSING and for FAILED). Photos have thumbUrl + displayUrl, videos
      * have loopUrl + posterUrl. width / height are the display size (rotation applied). displayDate is the capture date
-     * (EXIF / video metadata), else the file's modified time on the uploader's device, else the upload time.
+     * (EXIF / video metadata), else the file's modified time on the uploader's device, else the upload time; a date set by hand
+     * wins over all of them (dateOverridden, originalDate = what it would be without it). dateUncertain: neither set by hand
+     * nor read from the file itself.
      * FAILED carries no error detail.
      */
     public record MediaResponse(UUID id, MediaKind type, MediaStatus status, String originalFilename,
                                 String contentType, long sizeBytes, Instant createdAt, Instant clientModifiedAt,
                                 Instant displayDate, String caption,
                                 String thumbUrl, String displayUrl, String loopUrl, String posterUrl,
-                                Integer width, Integer height, Long durationMs, String uploadedByName) {
+                                Integer width, Integer height, Long durationMs, String uploadedByName,
+                                UUID albumId, boolean dateUncertain, boolean dateOverridden, Instant originalDate) {
+    }
+
+    /** null takenAt = back to the original date */
+    public record DateRequest(Instant takenAt) {
     }
 }

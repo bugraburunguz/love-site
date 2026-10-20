@@ -98,16 +98,27 @@ public class MediaService {
     }
 
     /** Variant URLs only for READY items; they come from the shared presigned-URL cache. */
-    MediaResponse toResponse(Media m) {
+    public MediaResponse toResponse(Media m) {
         boolean ready = m.getStatus() == MediaStatus.READY;
-        Instant displayDate = m.getTakenAt() != null ? m.getTakenAt()
+        Instant displayDate = m.shownDate();
+        Instant originalDate = m.getTakenAt() != null ? m.getTakenAt()
                 : m.getClientModifiedAt() != null ? m.getClientModifiedAt() : m.getCreatedAt();
         return new MediaResponse(m.getId(), m.getType(), m.getStatus(), m.getOriginalFilename(), m.getContentType(),
                 m.getSizeBytes(), m.getCreatedAt(), m.getClientModifiedAt(), displayDate, m.getCaption(),
                 ready ? url(m.getThumbKey()) : null, ready ? url(m.getDisplayKey()) : null,
                 ready ? url(m.getLoopKey()) : null, ready ? url(m.getPosterKey()) : null,
                 ready ? m.getWidth() : null, ready ? m.getHeight() : null, ready ? m.getDurationMs() : null,
-                names.of(m.getUploadedBy()));
+                names.of(m.getUploadedBy()), m.getAlbumId(), m.dateUncertain(), m.getDateOverride() != null, originalDate);
+    }
+
+    /** Sets (or with null removes) the hand-set date of a photo / video of the caller's space. */
+    public MediaResponse setDate(CurrentUser me, UUID mediaId, Instant takenAt) {
+        Media m = find(me, mediaId);
+        if (takenAt != null && (takenAt.isBefore(Instant.parse("1900-01-01T00:00:00Z")) || takenAt.isAfter(Instant.now().plus(2, ChronoUnit.DAYS)))) {
+            throw ApiException.badRequest("Geçersiz tarih");
+        }
+        m.setDateOverride(takenAt);
+        return toResponse(media.save(m));
     }
 
     private String url(String key) {

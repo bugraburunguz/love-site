@@ -80,6 +80,10 @@ public class Media {
     @Column(name = "taken_at")
     private Instant takenAt;
 
+    /** set by hand in the calendar / lightbox; wins over every other date, null = no correction */
+    @Column(name = "date_override")
+    private Instant dateOverride;
+
     @Column(name = "thumb_key", length = 512)
     private String thumbKey;
 
@@ -273,6 +277,24 @@ public class Media {
 
     public Instant getTakenAt() {
         return takenAt;
+    }
+
+    public Instant getDateOverride() {
+        return dateOverride;
+    }
+
+    public void setDateOverride(Instant dateOverride) {
+        this.dateOverride = dateOverride;
+    }
+
+    /** The date the app shows: hand-set > capture (EXIF / video) > device file time > upload time. */
+    public Instant shownDate() {
+        return dateOverride != null ? dateOverride : takenAt != null ? takenAt : clientModifiedAt != null ? clientModifiedAt : createdAt;
+    }
+
+    /** Neither set by hand nor read from the photo itself: the calendar marks it with a "?". */
+    public boolean dateUncertain() {
+        return dateOverride == null && takenAt == null;
     }
 
     public String getThumbKey() {

@@ -451,7 +451,7 @@ public class ExportService {
     }
 
     private static final String MEDIA_COLUMNS = "m.id, m.album_id, m.type, m.status, m.caption, "
-            + "coalesce(m.taken_at, m.client_modified_at, m.created_at), m.width, m.height, m.duration_ms, "
+            + "coalesce(m.date_override, m.taken_at, m.client_modified_at, m.created_at), m.width, m.height, m.duration_ms, "
             + "m.display_key, m.poster_key, m.loop_key, m.thumb_key, m.original_filename, m.content_type";
 
     private static MediaRow mediaRow(java.sql.ResultSet rs) throws java.sql.SQLException {

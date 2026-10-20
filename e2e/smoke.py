@@ -106,6 +106,66 @@ def wait_until(check, what: str, timeout: float = 180, every: float = 2):
     raise AssertionError(f"timed out waiting for {what}")
 
 
+def calendar_check(page: Page, ctx: BrowserContext) -> None:
+    import datetime
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.goto("/")
+    page.get_by_role("link", name="Takvim").click()
+    expect(page.get_by_role("heading", name="Takvimimiz")).to_be_visible()
+    # the test photos carry no EXIF date: they sit on the day they were made and are marked "?"
+    today = datetime.date.today()
+    month = api(ctx, f"/api/calendar/month?month={today:%Y-%m}").json()
+    assert month["days"], month
+    day = month["days"][-1]["date"]
+    assert any(d["uncertain"] for d in month["days"]), month
+    cell = page.locator(f'a.calendar__cell[href^="/takvim/gun/{day}"]')
+    expect(cell).to_be_visible()
+    page.screenshot(path=str(OUT / "calendar-month.png"))
+    cell.click()
+    expect(page.locator(".calendar__day-item").first).to_be_visible()
+    page.wait_for_timeout(800)
+    page.screenshot(path=str(OUT / "calendar-day.png"))
+    before = len(page.locator(".calendar__day-item").all())
+
+    page.get_by_role("button", name="? Tarih belirsiz — tarihi düzelt").first.click()
+    dialog = page.get_by_role("dialog", name="Tarihi düzelt")
+    dialog.get_by_label("Gün").fill("2024-02-14")
+    dialog.get_by_label("Saat").fill("19:30")
+    dialog.get_by_role("button", name="Kaydet").click()
+    expect(page.locator(".calendar__day-item")).to_have_count(before - 1)
+    moved = api(ctx, "/api/calendar/day?date=2024-02-14").json()["media"]
+    assert len(moved) == 1 and moved[0]["media"]["dateOverridden"] and not moved[0]["media"]["dateUncertain"], moved
+
+    page.goto("/takvim?ay=2024-02")
+    page.get_by_role("button", name="Özel günler").click()
+    dialog = page.get_by_role("dialog", name="Özel günlerimiz")
+    dialog.get_by_role("button", name="Özel gün ekle").click()
+    dialog.get_by_label("Ad").fill("Sevgililer günü")
+    dialog.get_by_label("Tarih").fill("2024-02-14")
+    dialog.get_by_role("radio", name="Kalp").click()
+    dialog.get_by_role("button", name="Kaydet").click()
+    expect(dialog.get_by_text("Sevgililer günü")).to_be_visible()
+    dialog.get_by_role("button", name="Kapat").click()
+    cell = page.locator('a.calendar__cell[href^="/takvim/gun/2024-02-14"]')
+    expect(cell.locator(".calendar__thumb")).to_be_visible()
+    expect(cell.locator(".calendar__specials")).to_be_visible()
+    page.screenshot(path=str(OUT / "calendar-special.png"))
+    cell.click()
+    expect(page.get_by_text("Sevgililer günü")).to_be_visible()
+    page.get_by_role("button", name="Albümde göster").first.click()
+    page.wait_for_url("**/albums/**")
+    expect(page.locator(".page .polaroid").first).to_be_visible()
+
+    page.goto("/takvim?yil=2024")
+    expect(page.locator(".calendar__dot--special")).to_have_count(1)
+    page.screenshot(path=str(OUT / "calendar-year.png"))
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(f"/takvim?ay={today:%Y-%m}")
+    page.wait_for_timeout(600)
+    page.screenshot(path=str(OUT / "calendar-month-phone.png"))
+    page.set_viewport_size({"width": 1280, "height": 900})
+
+
 def mobile_api_check() -> None:
     """What the Capacitor apps do (they run on capacitor://localhost / https://localhost and call the API across origins)."""
     import urllib.error
@@ -270,6 +330,9 @@ def main() -> int:
         b.goto("/boyle/bir/sayfa/yok")
         expect(b.get_by_role("heading", name="Bu sayfa bulunamadı")).to_be_visible()
         assert api(b_ctx, "/api/albums").json() == [], "user B sees albums of another space"
+
+        step("calendar: month, day, fixing an uncertain date, special days, year")
+        calendar_check(a, a_ctx)
 
         step("store app API: session token in a header, CORS for the app origins only, uploads from the app origin")
         mobile_api_check()

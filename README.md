@@ -561,3 +561,22 @@ npx cap open ios                      # Xcode (macOS + Xcode 16+) → pick a tea
   space with the admin screen; do not hand out your own login) and the privacy details (photos, contacts: none, tracking: no).
 - Version numbers: Android `versionCode`/`versionName` in `android/app/build.gradle`, iOS *Marketing Version* / *Build* in Xcode;
   raise them for every upload.
+
+## Calendar
+
+"Takvim" on the shelf (`/takvim`): every photo and video of the space (or of one album, `&album=`) by the date the app shows
+for it, in the app's time zone (`app.processing.default-timezone`, Europe/Istanbul): a photo taken at 00:30 in Istanbul is on
+that day. Month view (`?ay=YYYY-MM`) with a small polaroid and a count on each day, "previous / next memory" jumps, year view
+(`?yil=YYYY`) where days darken with the number of photos, "n years ago today", and the day page (`/takvim/gun/YYYY-MM-DD`) with
+the lightbox and "Albümde göster" (opens the album at the photo's page, `/albums/{id}?medya={mediaId}`).
+
+- **Shown date:** set by hand > capture date (EXIF / video) > the file's time on the uploader's device > upload time. Photos
+  without a capture date or a hand-set one are `dateUncertain` and get a "?" in the calendar.
+- **Fixing a date:** "Tarihi düzelt" (lightbox, day page): `PUT /api/media/{id}/date {takenAt}` (ISO instant, day + time;
+  `null` = back to the original). Stored in `media.date_override`; the original dates are kept. The album, the calendar and the
+  exports all show the corrected date.
+- **Special days:** `GET/POST /api/special-days`, `PUT/DELETE /api/special-days/{id}` (`title`, `day`, `icon`
+  heart|ring|cake|plane|star|home, `yearly`). Yearly days repeat from their first year on (29 February falls on the 28th in other
+  years) and show "3. yıl".
+- **API:** `GET /api/calendar/months`, `/month?month=`, `/year?year=`, `/day?date=`, `/on-this-day[?date=]`, all with an
+  optional `albumId`. Scoped by space like everything else (another space's album is a 404).

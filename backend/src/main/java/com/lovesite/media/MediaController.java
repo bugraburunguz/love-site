@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -58,6 +59,11 @@ public class MediaController {
     @PostMapping("/api/media/{id}/reprocess")
     public MediaResponse reprocess(CurrentUser me, @PathVariable UUID id) {
         return mediaService.reprocess(me, id);
+    }
+
+    @PutMapping("/api/media/{id}/date")
+    public MediaResponse setDate(CurrentUser me, @PathVariable UUID id, @RequestBody MediaDtos.DateRequest request) {
+        return mediaService.setDate(me, id, request.takenAt());
     }
 
     @GetMapping("/api/media/{id}/original")

@@ -35,6 +35,12 @@ export interface MediaDto {
   durationMs: number | null
   /** who added it (display name) */
   uploadedByName: string | null
+  albumId?: string
+  /** the date is neither set by hand nor read from the file itself (no EXIF): the calendar marks it with "?" */
+  dateUncertain?: boolean
+  /** a date was set by hand; originalDate is what it would be without it */
+  dateOverridden?: boolean
+  originalDate?: string
 }
 
 export interface UploadFileRequest {
@@ -162,3 +168,7 @@ export function formatBytes(bytes: number): string {
   }
   return `${value.toLocaleString('tr-TR', { maximumFractionDigits: i < 2 ? 0 : 1 })} ${units[i]}`
 }
+
+/** Sets the shown date by hand (ISO instant), or with null goes back to the original one. */
+export const setMediaDate = (id: string, takenAt: string | null) =>
+  api<MediaDto>(`/api/media/${id}/date`, { method: 'PUT', body: { takenAt } })
