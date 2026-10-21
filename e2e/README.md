@@ -11,8 +11,11 @@ React build served by Spring, ffmpeg / vips / pg_dump from the image), with Post
 5. the page is edited: `FREE` template, a sticker is added and stored;
 6. album music is uploaded;
 7. user B (other space) gets `404` from the API for A's album and sees the Turkish 404 page; unknown addresses show it too;
-8. the readiness probe answers and the Content-Security-Policy contains the bucket origin;
-9. **Phase 7 (`exports.py`)**: the stack runs as two services like production (`app` = `APP_ROLE=web`, `worker` =
+8. the public privacy pages (`/gizlilik`, `/hesap-silme`) open without a session, and user B (the only member of space B)
+   deletes their account from the shelf menu: back on the login page, the session is gone, the account cannot sign in again
+   and user A still has every album;
+9. the readiness probe answers and the Content-Security-Policy contains the bucket origin;
+10. **Phase 7 (`exports.py`)**: the stack runs as two services like production (`app` = `APP_ROLE=web`, `worker` =
    `APP_ROLE=worker`). The worker answers only its health check, its loopback render port is unreachable, `/internal/**` and
    `/render/**` do not exist on the web service. A spread with two page themes keeps paper and ambient canvas inside each page.
    Every export type is made and checked from its bytes (PNG alpha + 2000 px, JPEG sizes, ffprobe: H.264, 30 fps, 1080 x 1920,

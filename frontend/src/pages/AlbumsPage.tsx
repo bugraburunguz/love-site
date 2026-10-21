@@ -7,6 +7,7 @@ import Clay from '../components/Clay'
 import { ConfirmDialog, PromptDialog } from '../components/Dialog'
 import NewAlbumDialog from '../components/NewAlbumDialog'
 import BottomTabs from '../components/BottomTabs'
+import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { CalendarBoard, type CalendarState } from './CalendarPage'
 import CoverFace from '../components/CoverFace'
 import { themeVars } from '../themes/cssVars'
@@ -20,6 +21,7 @@ type DialogState =
   | { kind: 'create' }
   | { kind: 'rename'; album: Album }
   | { kind: 'delete'; album: Album }
+  | { kind: 'delete-account' }
   | null
 
 function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () => void; onDelete: () => void }) {
@@ -91,6 +93,34 @@ function AlbumCover({ album, onRename, onDelete }: { album: Album; onRename: () 
   )
 }
 
+/** The ⋯ next to the user's name: privacy policy and "delete my account" (required by both app stores). */
+function AccountMenu({ onDeleteAccount }: { onDeleteAccount: () => void }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [open])
+  return (
+    <div className="shelf__account" onPointerDown={(e) => e.stopPropagation()}>
+      <Clay shape="round" size="sm" tone="cream" aria-label="Hesap seçenekleri" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        ⋯
+      </Clay>
+      {open && (
+        <div className="shelf__account-menu">
+          <Link to="/gizlilik" className="clay clay--pill clay--sm clay--cream">
+            Gizlilik
+          </Link>
+          <Clay size="sm" tone="rose" onClick={() => { setOpen(false); onDeleteAccount() }}>
+            Hesabımı sil
+          </Clay>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Wide screens show the calendar next to the shelf (narrow ones reach it through the bottom tabs). */
 function useWide(): boolean {
   const query = '(min-width: 1100px)'
@@ -138,6 +168,7 @@ export default function AlbumsPage() {
           <Clay size="sm" tone="cream" onClick={() => void logout()}>
             Çıkış
           </Clay>
+          <AccountMenu onDeleteAccount={() => setDialog({ kind: 'delete-account' })} />
         </div>
       </header>
 
@@ -211,6 +242,7 @@ export default function AlbumsPage() {
           }}
         />
       )}
+      {dialog?.kind === 'delete-account' && <DeleteAccountDialog onClose={close} />}
     </main>
     <BottomTabs />
     </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
@@ -9,7 +9,7 @@ import { createRng } from '../layout/prng'
 import './login.css'
 
 export default function LoginPage() {
-  const { user, loading, login } = useAuth()
+  const { user, loading, login, notice } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -92,11 +92,13 @@ export default function LoginPage() {
                 required
               />
             </label>
+            {notice && !error && <p role="status" className="login-label__note">{notice}</p>}
             {error && <p role="alert" className="login-label__error">{error}</p>}
             <Clay type="submit" disabled={submitting} className="login-label__submit">
               Kapağı aç
             </Clay>
           </form>
+          <Link to="/gizlilik" className="login-book__privacy">Gizlilik</Link>
         </div>
       </div>
     </main>

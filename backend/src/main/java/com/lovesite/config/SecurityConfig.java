@@ -60,6 +60,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/me").permitAll()
                         // invitation lookup/accept are public (the token is the credential); everything else under /api needs a session
                         .requestMatchers("/api/invites/**").permitAll()
+                        // the privacy / account-deletion pages are public (store listings link to them)
+                        .requestMatchers("/api/legal").permitAll()
                         .requestMatchers("/actuator/health","/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/api/**").authenticated()

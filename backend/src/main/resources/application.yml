@@ -75,6 +75,10 @@ app:
   # optional redirect from *.up.railway.app derive from it.
   public-url: ${APP_PUBLIC_URL:}
   redirect-to-public-url: ${REDIRECT_TO_PUBLIC_URL:false}
+  # contact address shown on the public privacy and account-deletion pages (/gizlilik, /hesap-silme); empty = gizlilik@<host
+  # of APP_PUBLIC_URL). Set it to a real mailbox before the store listings go live.
+  privacy:
+    contact-email: ${PRIVACY_CONTACT_EMAIL:}
   # platform admin (can create spaces and invites, sees usage numbers, never content)
   admin-email: ${ADMIN_EMAIL:}
   # theme ids the API accepts (a theme itself is frontend data: frontend/src/themes/<id>)

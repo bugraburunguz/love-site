@@ -83,6 +83,21 @@
   font-size: 1.05rem;
 }
 
+.login-label__note {
+  margin: 0;
+  color: var(--ink-soft);
+  text-align: center;
+  font-style: italic;
+}
+
+/* small, on the leather under the label: the store reviewers look for it */
+.login-book__privacy {
+  margin-top: var(--space-4);
+  font-size: 0.95rem;
+  color: rgba(255, 240, 210, 0.85);
+  text-underline-offset: 3px;
+}
+
 .login-label__submit {
   justify-self: center;
 }

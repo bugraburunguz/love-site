@@ -37,6 +37,7 @@ Create a Storage Bucket in the project and add these variables to the app servic
 | `S3_SECRET_ACCESS_KEY` | `${{<Bucket service>.SECRET_ACCESS_KEY}}` |
 | `S3_REGION` | `${{<Bucket service>.REGION}}` (defaults to `auto`) |
 | `APP_PUBLIC_URL` | the app's public address, e.g. `https://love-site.up.railway.app` or your custom domain (see Phase 6 below) |
+| `PRIVACY_CONTACT_EMAIL` | the contact address on the public `/gizlilik` and `/hesap-silme` pages; defaults to `gizlilik@<host of APP_PUBLIC_URL>`, which is only right if that mailbox exists — set it before the store listings go live |
 | `APP_ALLOWED_ORIGINS` | optional: origins allowed to upload to the bucket (comma separated, no trailing slash); defaults to the origin of `APP_PUBLIC_URL` |
 | `S3_PATH_STYLE` | leave unset (virtual-hosted style); `true` only for old path-style buckets or MinIO |
 
@@ -558,6 +559,29 @@ How it differs from the website (all in `frontend/src/native/` and the backend's
 - Status bar over the page (safe areas), splash screen, Android back button; icon and splash from `frontend/resources/`
   (`npm run cap:assets` regenerates every size).
 
+### Privacy policy and account deletion (store requirements)
+
+Both stores want a privacy policy URL and a way to delete the account from inside the app (Apple 5.1.1(v), Google Play data
+safety). Both exist on the website and in the app alike:
+
+- **`/gizlilik`** (privacy policy, Turkish) and **`/hesap-silme`** (how to delete the account, for Google Play's "account
+  deletion URL") are public SPA routes, no session needed, on the default theme's paper. The contact address comes from
+  `GET /api/legal` (public; `PRIVACY_CONTACT_EMAIL`, see the table above). The login page links to `/gizlilik`.
+- **"Hesabımı sil"** in the shelf's `⋯` menu next to the user's name: the dialog states exactly what will go, asks for the
+  password and a tick, then calls `POST /api/account/delete` (`{password}`; CSRF on the web, `X-Auth-Token` in the app; 5
+  attempts per user per 15 minutes; wrong password `403`, nothing changes). The rule (`account/AccountService`):
+  - **only member of the space:** the space goes with everything in it — albums, media (in the trash or not, every variant),
+    songs, pages, exports, calendar (special days, day notes), invitations — and every bucket object under
+    `spaces/{space}/`. Media and songs are removed with `TrashPurgeJob.purgeSpace` (same objects-first rule and purge log as the
+    nightly trash purge), so their backup copies are deleted 30 days later by the normal `purged_object` rule; database dumps
+    roll off after 14 days. If a file cannot be removed the request answers `503` and can simply be repeated: the account and
+    the space rows are only deleted once every file is gone (what was already removed stays removed).
+  - **a partner stays:** only the user leaves. Albums, media, special days and exports are attributed to the partner, the
+    partner becomes `OWNER`, the leaving user's own day notes are deleted (they cannot honestly be re-attributed).
+  - Either way every session of the user ends (web and app, all devices: their `SPRING_SESSION` rows are deleted), the user
+    row goes, and the SHA-256 of the e-mail lands in `deleted_account` so the startup seeder never recreates a deleted
+    `USER1_*` / `USER2_*` account. The platform admin account cannot be deleted from the app (`409`).
+
 ### Build
 
 ```bash
@@ -572,10 +596,12 @@ npx cap open ios                      # Xcode (macOS + Xcode 16+) → pick a tea
 - **Google Play** (one-time 25 USD account): create the app, generate an upload key (`keytool -genkeypair -v -keystore
   upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`, keep it safe, never commit it), set it in Android Studio
   → *Build → Generate Signed App Bundle*, upload the `.aab` to internal testing first. Fill in the store listing, content
-  rating, data safety form (account email, photos/videos the user uploads, no third-party sharing) and a privacy policy URL.
+  rating, data safety form (account email, photos/videos the user uploads, no third-party sharing), the privacy policy URL
+  `<APP_PUBLIC_URL>/gizlilik` and the account deletion URL `<APP_PUBLIC_URL>/hesap-silme`.
 - **App Store** (Apple Developer Program, 99 USD/year): in Xcode set the team and bundle id, *Product → Archive →
   Distribute → App Store Connect*, test with TestFlight, then submit. App Review needs a demo account (create a separate test
-  space with the admin screen; do not hand out your own login) and the privacy details (photos, contacts: none, tracking: no).
+  space with the admin screen; do not hand out your own login) and the privacy details (photos, contacts: none, tracking: no); privacy policy URL `<APP_PUBLIC_URL>/gizlilik`. Account
+  deletion is in the app (shelf → `⋯` → "Hesabımı sil").
 - Version numbers: Android `versionCode`/`versionName` in `android/app/build.gradle`, iOS *Marketing Version* / *Build* in Xcode;
   raise them for every upload.
 

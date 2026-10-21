@@ -26,6 +26,21 @@
   color: var(--ink-soft);
 }
 
+.shelf__account {
+  position: relative;
+  font-style: normal;
+}
+
+.shelf__account-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  min-width: max-content;
+}
+
 .shelf__error {
   color: var(--rose-deep);
 }

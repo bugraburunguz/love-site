@@ -52,7 +52,7 @@ public class UserSeeder implements ApplicationRunner {
         requireComplete();
         AppUser first = seed(properties.user1());
         AppUser second = seed(properties.user2());
-        createInitialSpaceIfMissing(first, second);
+        if (first != null && second != null) createInitialSpaceIfMissing(first, second);
         markAdmin();
     }
 
@@ -99,6 +99,13 @@ public class UserSeeder implements ApplicationRunner {
 
     private AppUser seed(SeedProperties.Seed seed) {
         String email = seed.email().trim().toLowerCase(Locale.ROOT);
+        // an account its owner deleted stays deleted, even though USER1_* / USER2_* are still set
+        Integer deleted = jdbc.queryForObject("SELECT count(*) FROM deleted_account WHERE email_sha256 = ?", Integer.class,
+                com.lovesite.account.AccountService.emailHash(email));
+        if (deleted != null && deleted > 0) {
+            log.info("Seed user {} deleted their account, not recreating it", email);
+            return null;
+        }
         var existing = repository.findByEmailIgnoreCase(email);
         if (existing.isPresent()) {
             log.info("Seed user {} already exists, skipping", email);

@@ -1,6 +1,7 @@
 package com.lovesite;
 
 import com.jayway.jsonpath.JsonPath;
+import com.lovesite.account.AccountService;
 import com.lovesite.backup.BackupProperties;
 import com.lovesite.backup.BackupService;
 import com.lovesite.backup.BackupTarget;
@@ -77,6 +78,8 @@ class BackupTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired BackupService backup;
     @Autowired TrashPurgeJob purge;
+    @Autowired AccountService accounts;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
     @Autowired MockMvc mvc;
 
     UUID space;
@@ -241,6 +244,31 @@ class BackupTest {
         backup.runMedia(now.plus(5, ChronoUnit.DAYS));
         assertThat(inTarget(song)).isTrue();
         backup.runMedia(now.plus(31, ChronoUnit.DAYS));
+        assertThat(inTarget(song)).isFalse();
+    }
+
+    @Test
+    void aDeletedAccountsOriginalsLeaveTheTargetThirtyDaysLater() {
+        String original = media("READY", bytes(30, 1));
+        String song = "spaces/" + space + "/albums/" + album + "/music/" + UUID.randomUUID();
+        putMain(song, bytes(20, 2));
+        jdbc.update("UPDATE album SET music_key = ?, music_content_type = 'audio/mpeg', music_size_bytes = 20 WHERE id = ?", song, album);
+        backup.runMedia(Instant.now());
+        assertThat(inTarget(original)).isTrue();
+
+        // the only member deletes their account: the space and its files go from the main bucket at once ...
+        jdbc.update("UPDATE app_user SET password_hash = ? WHERE id = ?", encoder.encode("pw"), owner);
+        Instant deletedAt = Instant.now();
+        accounts.delete(new com.lovesite.user.CurrentUser(owner, "owner-" + tag + "@x.io", "Owner", false, space, "Yedek " + tag, "OWNER"), "pw");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM space WHERE id = ?", Integer.class, space)).isZero();
+        assertThat(TestInfrastructure.ADMIN.listObjectsV2(b -> b.bucket(TestInfrastructure.BUCKET).prefix("spaces/" + space + "/")).contents()).isEmpty();
+        assertThat(jdbc.queryForList("SELECT object_key FROM purged_object", String.class)).containsExactlyInAnyOrder(original, song);
+
+        // ... and from the backup target under the usual 30-day rule
+        backup.runMedia(deletedAt.plus(29, ChronoUnit.DAYS));
+        assertThat(inTarget(original)).isTrue();
+        backup.runMedia(deletedAt.plus(31, ChronoUnit.DAYS));
+        assertThat(inTarget(original)).isFalse();
         assertThat(inTarget(song)).isFalse();
     }
 

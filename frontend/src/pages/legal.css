@@ -1,0 +1,72 @@
+/* The public privacy / account-deletion pages: one long paper sheet on the default theme's page, like the error screen. */
+.legal {
+  min-height: 100dvh;
+  padding: var(--space-6) 16px;
+  background-color: var(--page-bg);
+  background-image: var(--page-paper);
+  background-size: cover;
+  background-blend-mode: soft-light;
+  color: var(--page-ink);
+}
+
+.legal__card {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 36px clamp(18px, 5vw, 44px) 32px;
+  border-radius: 6px;
+  background: var(--frame-paper);
+  color: var(--page-ink, inherit);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.25), 0 18px 36px var(--page-shadow, rgba(60, 30, 10, 0.35));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.legal__brand {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 1.4rem;
+  opacity: 0.8;
+}
+
+.legal h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
+}
+
+.legal__updated {
+  margin: var(--space-1) 0 var(--space-5);
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+
+.legal h2 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.legal p,
+.legal ul,
+.legal ol {
+  margin: 0 0 var(--space-3);
+}
+
+.legal ul,
+.legal ol {
+  padding-left: 1.4em;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.legal a:not(.clay) {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.legal__nav {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-5);
+}

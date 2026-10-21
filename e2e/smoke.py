@@ -2,7 +2,8 @@
 Browser smoke test: the whole journey of a new couple against the production image.
 
   admin creates a space -> invitation link -> registration -> an album for each theme -> photo + video upload ->
-  both become READY -> edit a page (FREE template, add a sticker) -> album music -> a user of ANOTHER space gets 404.
+  both become READY -> edit a page (FREE template, add a sticker) -> album music -> a user of ANOTHER space gets 404 ->
+  the public privacy pages -> that other user deletes their account from the shelf.
 
 It also fails on any Content-Security-Policy violation or uncaught page error seen in the browser on the way.
 Test media are generated with ffmpeg at the start; nothing personal is involved. Screenshots go to $OUTPUT_DIR.
@@ -362,6 +363,35 @@ def main() -> int:
 
         step("store app API: session token in a header, CORS for the app origins only, uploads from the app origin")
         mobile_api_check()
+
+        step("store requirements: public privacy pages, deleting an account from the shelf")
+        anon_ctx, anon = new_user_context(browser, "anonymous")
+        anon.goto("/login")
+        anon.get_by_role("link", name="Gizlilik").click()
+        expect(anon.get_by_role("heading", name="Gizlilik Politikası")).to_be_visible()
+        anon.screenshot(path=str(OUT / "privacy.png"), full_page=True)
+        anon.goto("/hesap-silme")
+        expect(anon.get_by_role("heading", name="Hesap Silme")).to_be_visible()
+        assert api(anon_ctx, "/api/legal").status == 200
+        anon_ctx.close()
+        # B is the only member of space B: the space goes with the account, A's space is untouched
+        a_albums = sorted(x["id"] for x in api(a_ctx, "/api/albums").json())
+        b.goto("/")
+        b.get_by_role("button", name="Hesap seçenekleri").click()
+        b.get_by_role("button", name="Hesabımı sil").click()
+        dialog = b.get_by_role("dialog", name="Hesabımı sil")
+        expect(dialog.get_by_text("tek üyesisin")).to_be_visible()
+        dialog.get_by_label("Onaylamak için şifren").fill(PASSWORD)
+        dialog.get_by_role("checkbox").check()
+        b.screenshot(path=str(OUT / "delete-account.png"))
+        dialog.get_by_role("button", name="Hesabımı kalıcı olarak sil").click()
+        b.wait_for_url(f"{BASE}/login")
+        expect(b.get_by_text("Hesabın silindi")).to_be_visible()
+        assert api(b_ctx, "/api/auth/me").status == 401
+        login_again = b_ctx.request.post(BASE + "/api/auth/login", data={"email": f"ali-{tag}@e2e.test", "password": PASSWORD},
+                                         headers={"X-Client": "love-site-app"})
+        assert login_again.status == 401, f"a deleted account could sign in again: {login_again.status}"
+        assert sorted(x["id"] for x in api(a_ctx, "/api/albums").json()) == a_albums, "user A's albums changed when user B deleted their account"
 
         step("health and headers")
         health = api(b_ctx, "/actuator/health/readiness")
