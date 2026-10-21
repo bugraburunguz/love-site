@@ -466,7 +466,7 @@ the backup within ~5 s.
    `PG*` references to the Postgres service, all `S3_*` bucket references, `APP_PUBLIC_URL`, `BACKUP_S3_*` (backup runs here),
    `ADMIN_EMAIL`, the `USER*` variables may stay or go (the worker does not seed users). Then add:
    - `APP_ROLE=worker`
-   - `JAVA_MAX_RAM_PERCENTAGE=50` (the JVM shares the container with Chromium and ffmpeg)
+   - nothing for memory: the JVM heap is a fixed 448 MB in every role (`JAVA_MAX_HEAP`, see "Memory" below)
 3. **Settings → Networking**: do **not** generate a public domain for the worker (it needs none; its public port only answers
    the health check anyway).
 4. **Settings → Deploy → Healthcheck path**: `/actuator/health/liveness` (same as the web service).
@@ -478,6 +478,23 @@ the backup within ~5 s.
 
 Only one worker instance: the queues are safe with several (`FOR UPDATE SKIP LOCKED`), but the nightly backup and the rate
 limits are not meant for that.
+
+### Memory
+
+The image does not size the JVM from the container (a platform container may be allowed several GB, and G1 keeps what it
+took). Defaults, all overridable with service variables:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `JAVA_MAX_HEAP` | `448m` | heap limit (`-Xmx`) |
+| `JAVA_OPTS` | empty | replaces every JVM flag of the image when set |
+| `JAVA_MAX_RAM_PERCENTAGE` | empty | the old behaviour: heap as a share of the container (used instead of `JAVA_MAX_HEAP` when set) |
+
+Other flags: `-Xms64m -Xss512k -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -XX:+UseG1GC
+-XX:G1PeriodicGCInterval=60000` (an idle process gives unused heap back every minute) `-XX:+ExitOnOutOfMemoryError` (the platform
+restarts it instead of a half-broken process). Tomcat runs at most 50 request threads, the database pool holds at most 5
+connections. The export renderer (Node + Chromium, a few hundred MB) is stopped after `app.export.driver-idle` (2 min) without an
+export and started again by the next one. Measurements: `docs/reports/ram.md`.
 
 ### Export formats
 

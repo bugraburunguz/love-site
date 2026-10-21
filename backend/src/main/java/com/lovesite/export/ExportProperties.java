@@ -29,5 +29,7 @@ public record ExportProperties(
         @DefaultValue("node") String node,
         @DefaultValue("/app/renderer/driver.mjs") String driver,
         /** niceness of Chromium and the export ffmpeg runs: exports must never slow down the site or the media queue */
-        @DefaultValue("10") int nice) {
+        @DefaultValue("10") int nice,
+        /** the render driver (Node + Chromium, a few hundred MB) is stopped after this long without an export */
+        @DefaultValue("2m") Duration driverIdle) {
 }

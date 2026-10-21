@@ -53,7 +53,7 @@ public class StorageService {
     /** Same key returns the same URL for 50 min so the browser HTTP cache keeps working. */
     private final Cache<String, String> getUrlCache = Caffeine.newBuilder()
             .expireAfterWrite(GET_URL_CACHE_TTL)
-            .maximumSize(50_000)
+            .maximumSize(10_000)
             .build();
 
     public StorageService(StorageProperties properties) {

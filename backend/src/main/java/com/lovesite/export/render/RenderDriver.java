@@ -4,6 +4,7 @@ import com.lovesite.export.ExportProperties;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
@@ -31,7 +32,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * The bridge to the render driver (renderer/driver.mjs): ONE long-lived Node process holding ONE headless Chromium, reused for
  * every export. Started on first use with a higher niceness (Chromium inherits it), so rendering never takes CPU from the web
  * requests or the media queue. A request that times out kills the driver (and with it a stuck Chromium); the next export
- * starts a fresh one.
+ * starts a fresh one. After `app.export.driver-idle` (2 min) without an export the driver is stopped too: Node + Chromium hold
+ * a few hundred MB that a two-person site should not pay for while nobody exports (only the process that renders exports
+ * ever starts it, so the check is a no-op elsewhere).
  */
 @Component
 public class RenderDriver {
@@ -66,6 +69,8 @@ public class RenderDriver {
     private final Map<Long, CompletableFuture<Map<String, Object>>> pending = new ConcurrentHashMap<>();
     private Process process;
     private BufferedWriter stdin;
+    /** System.nanoTime() of the last request start / end */
+    private volatile long lastUsed = System.nanoTime();
 
     public RenderDriver(ExportProperties properties, JsonMapper json) {
         this.properties = properties;
@@ -97,6 +102,7 @@ public class RenderDriver {
         long id = ids.incrementAndGet();
         CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
         pending.put(id, future);
+        lastUsed = System.nanoTime();
         try {
             Map<String, Object> withId = new LinkedHashMap<>(request);
             withId.put("id", id);
@@ -117,7 +123,33 @@ public class RenderDriver {
             throw new IOException("render driver failed: " + e.getCause());
         } finally {
             pending.remove(id);
+            lastUsed = System.nanoTime();
         }
+    }
+
+    @Scheduled(initialDelay = 30_000, fixedDelayString = "${app.export.driver-idle-check:30s}")
+    void stopWhenIdle() {
+        stopIfIdle(System.nanoTime());
+    }
+
+    /** Stops the driver when it has had nothing to do for driverIdle; true when it was stopped. */
+    synchronized boolean stopIfIdle(long now) {
+        if (process == null || !process.isAlive() || !pending.isEmpty()) return false;
+        long idleNanos = now - lastUsed;
+        if (idleNanos < properties.driverIdle().toNanos()) return false;
+        log.info("Render driver idle for {} s, stopping it (Node + Chromium are started again by the next export)", idleNanos / 1_000_000_000L);
+        stop();
+        return true;
+    }
+
+    /** test hooks */
+    synchronized void startForTest() throws IOException {
+        ensureStarted();
+        lastUsed = System.nanoTime();
+    }
+
+    synchronized boolean running() {
+        return process != null && process.isAlive();
     }
 
     private void ensureStarted() throws IOException {

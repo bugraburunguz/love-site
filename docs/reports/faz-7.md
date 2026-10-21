@@ -10,7 +10,7 @@
 - `role/AppRole`, `role/Roles` (TEK tablo, aşağıda), `role/RoleWebConfig` (127.0.0.1'e bağlı ek Tomcat connector'ı + en önde çalışan rol kapısı filtresi), `role/RenderPort` (gerçek port; testlerde 0 = boş port).
 - Her zamanlanmış iş / poller / açılış görevi `roles.runs(Job.X)` soruyor. `APP_ROLE` boşsa her şey tek süreçte (eski davranış).
 - Admin "Şimdi yedekle": web servisi iş çalıştırmadığı için `ops_request` satırı yazıyor, worker'daki `OpsRequestPoller` ~5 sn içinde başlatıyor. `markInterruptedRuns` yalnızca worker'da (web yeniden başlarken worker'ın çalışan yedeğini "başarısız" işaretlemesin).
-- `Dockerfile`: runtime **Ubuntu 24.04'e sabitlendi** (`eclipse-temurin:21-jre-noble`; `21-jre` artık 26.04 ve Playwright desteklemiyor), Node 22 + playwright-core 1.55 + Chromium headless shell, `fonts-noto-core`, `fonts-noto-color-emoji`, `fonts-dejavu-core`. Build, Chromium'un `app` kullanıcısıyla açıldığını ve emojiyi **renkli** çizdiğini (`driver.mjs --selftest`) ve ffmpeg'de `libwebp_anim`/`xfade`, vips'te `webpsave` olduğunu doğrulamazsa düşüyor. JVM bellek oranı `JAVA_MAX_RAM_PERCENTAGE` ile ayarlanabilir (worker'da 50).
+- `Dockerfile`: runtime **Ubuntu 24.04'e sabitlendi** (`eclipse-temurin:21-jre-noble`; `21-jre` artık 26.04 ve Playwright desteklemiyor), Node 22 + playwright-core 1.55 + Chromium headless shell, `fonts-noto-core`, `fonts-noto-color-emoji`, `fonts-dejavu-core`. Build, Chromium'un `app` kullanıcısıyla açıldığını ve emojiyi **renkli** çizdiğini (`driver.mjs --selftest`) ve ffmpeg'de `libwebp_anim`/`xfade`, vips'te `webpsave` olduğunu doğrulamazsa düşüyor. JVM belleği: sabit yığın sınırı `JAVA_MAX_HEAP` (varsayılan 448m; ayrıntı `docs/reports/ram.md`).
 
 **Export işleri**
 - `V12__exports.sql`: `export_job` (id, space_id, requested_by, album_id, type, params, payload, fingerprint, status, result_keys, notes, meta, attempts, last_error, created_at, started_at, finished_at, expires_at), `space.export_served_at`, `ops_request`.
@@ -104,7 +104,7 @@
 - Export sonuç linkleri presigned ve ~60 dk geçerli; kart açık kalırsa durum yenilemesiyle yeni link geliyor.
 
 ## ÜRETİMDE ELLE YAPILACAKLAR (MANUAL)
-1. **Worker servisi:** README "Adding the worker on Railway" adımları: aynı repo ile yeni servis, web servisinin tüm değişkenleri + `APP_ROLE=worker`, `JAVA_MAX_RAM_PERCENTAGE=50`; public domain verme; healthcheck `/actuator/health/liveness`; en az ~1.5 GB bellek.
+1. **Worker servisi:** README "Adding the worker on Railway" adımları: aynı repo ile yeni servis, web servisinin tüm değişkenleri + `APP_ROLE=worker` (bellek için ek değişken gerekmez, bkz. `docs/reports/ram.md`); public domain verme; healthcheck `/actuator/health/liveness`; en az ~1.5 GB bellek.
 2. **Web servisine `APP_ROLE=web`** ekle ve yeniden deploy et (worker ayağa kalktıktan SONRA; arada kısa süre kimse medya işlemez ama kayıp olmaz, kuyruk bekler).
 3. **Yedekleme değişkenleri** (`BACKUP_S3_*`) worker'da da olmalı (yedek artık orada çalışıyor). Admin ekranında "Şimdi yedekle" → birkaç saniye sonra durumun "çalışıyor/başarılı" olduğunu kontrol et.
 4. **Log kontrolü:** web `APP_ROLE=WEB`, worker `APP_ROLE=WORKER` ve `Render endpoint listening on 127.0.0.1:8099`.

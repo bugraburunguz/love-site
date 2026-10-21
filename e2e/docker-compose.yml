@@ -89,7 +89,6 @@ services:
     environment:
       <<: *app-env
       APP_ROLE: worker
-      JAVA_MAX_RAM_PERCENTAGE: "50"
 
   runner:
     image: mcr.microsoft.com/playwright/python:v1.55.0-noble
