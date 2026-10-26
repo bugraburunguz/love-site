@@ -69,7 +69,8 @@ public class VideoProcessor {
         String graph = "[0:v:0]" + chain + ",split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1:a=0[v]";
 
         List<String> command = new ArrayList<>(List.of(
-                properties.ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-threads", "2",
+                properties.ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+                "-filter_complex_threads", "2", "-filter_threads", "2", "-threads", "2",
                 "-t", String.format(Locale.ROOT, "%.3f", clipSeconds), "-i", in.toString(),
                 "-filter_complex", graph, "-map", "[v]", "-an",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "26", "-profile:v", "high", "-pix_fmt", "yuv420p",
