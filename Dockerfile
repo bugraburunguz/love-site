@@ -80,9 +80,13 @@ COPY --from=backend /backend/target/app.jar app.jar
 EXPOSE 8080
 # JVM memory: a FIXED heap limit, not a share of the container. A platform container may be allowed several GB; with a
 # percentage the heap may grow that far, and G1 keeps what it took. The app needs far less (see docs/reports/ram.md).
-# - JAVA_MAX_HEAP: heap limit (default 448m)
-# - G1PeriodicGCInterval: an idle process runs a GC every minute and gives unused heap back to the system
+# - JAVA_MAX_HEAP: heap limit (default 384m)
+# - JAVA_CPUS: the CPUs the JVM sizes itself for (default 2). A platform host shows the JVM all of its cores (dozens), and the
+#   GC worker threads, JIT compiler threads and their memory grow with that number; two people need two.
+# - G1PeriodicGCInterval + Min/MaxHeapFreeRatio: an idle process runs a GC every minute and gives unused heap back to the system
 # - JAVA_MAX_RAM_PERCENTAGE: optional, the old behaviour (a share of the container) instead of JAVA_MAX_HEAP
 # - JAVA_OPTS: replaces all of the flags below
-ENV JAVA_MAX_HEAP=448m
-ENTRYPOINT ["sh", "-c", "if [ -n \"$JAVA_MAX_RAM_PERCENTAGE\" ]; then HEAP=\"-XX:MaxRAMPercentage=$JAVA_MAX_RAM_PERCENTAGE\"; else HEAP=\"-Xmx$JAVA_MAX_HEAP\"; fi; exec java ${JAVA_OPTS:-$HEAP -Xms64m -Xss512k -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -XX:+UseG1GC -XX:G1PeriodicGCInterval=60000 -XX:+ExitOnOutOfMemoryError} -jar app.jar"]
+# Native tools see every core too: glibc keeps up to 8 malloc arenas per core (memory that is never given back), libvips runs a
+# thread per core. MALLOC_ARENA_MAX / VIPS_CONCURRENCY cap them; ffmpeg's threads are capped on its command lines.
+ENV JAVA_MAX_HEAP=384m JAVA_CPUS=2 MALLOC_ARENA_MAX=2 VIPS_CONCURRENCY=2
+ENTRYPOINT ["sh", "-c", "if [ -n \"$JAVA_MAX_RAM_PERCENTAGE\" ]; then HEAP=\"-XX:MaxRAMPercentage=$JAVA_MAX_RAM_PERCENTAGE\"; else HEAP=\"-Xmx$JAVA_MAX_HEAP\"; fi; exec java ${JAVA_OPTS:-$HEAP -Xms64m -Xss512k -XX:ActiveProcessorCount=$JAVA_CPUS -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -XX:+UseG1GC -XX:G1PeriodicGCInterval=60000 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -XX:+ExitOnOutOfMemoryError} -jar app.jar"]

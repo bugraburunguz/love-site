@@ -39,9 +39,14 @@ public final class Compositor {
         return Math.max(2, n + (n % 2));
     }
 
+    /**
+     * ffmpeg sizes its filter and encoder thread pools by the CPUs it sees (dozens on a platform host, each with its own frame
+     * buffers): filters are capped here, the encoder in the output arguments. `-threads` before the inputs only caps decoding.
+     */
     private List<String> head() {
         List<String> c = new ArrayList<>(prefix);
-        c.addAll(List.of(ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-threads", "2"));
+        c.addAll(List.of(ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+                "-filter_complex_threads", "2", "-filter_threads", "2", "-threads", "2"));
         return c;
     }
 
@@ -52,9 +57,9 @@ public final class Compositor {
     /** Encoder arguments shared by every MP4 segment, so the concat demuxer can join them without re-encoding. */
     static List<String> mp4Args(boolean intermediate) {
         return intermediate
-                ? List.of("-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-pix_fmt", "yuv420p", "-r", "30", "-an")
+                ? List.of("-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-pix_fmt", "yuv420p", "-r", "30", "-an", "-threads", "2")
                 : List.of("-c:v", "libx264", "-preset", "medium", "-crf", "20", "-profile:v", "high", "-pix_fmt", "yuv420p", "-r", "30",
-                        "-g", "60", "-video_track_timescale", "15360", "-an");
+                        "-g", "60", "-video_track_timescale", "15360", "-an", "-threads", "2");
     }
 
     /**
@@ -104,7 +109,7 @@ public final class Compositor {
             }
             case MP4_INTERMEDIATE -> c.addAll(mp4Args(true));
             case WEBP_ANIM -> c.addAll(List.of("-c:v", "libwebp_anim", "-lossless", "0", "-quality", String.valueOf(webpQuality),
-                    "-compression_level", "6", "-loop", "0", "-an"));
+                    "-compression_level", "6", "-loop", "0", "-an", "-threads", "2"));
         }
         c.add(out.toString());
         return c;
