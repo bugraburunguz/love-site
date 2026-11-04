@@ -37,4 +37,19 @@ class RenderDriverIdleTest {
             driver.stop();
         }
     }
+
+    @Test
+    void nodeAndChromiumAreTheFirstToGoWhenMemoryRunsOut() throws Exception {
+        java.nio.file.Path adj = java.nio.file.Path.of("/proc/self/oom_score_adj");
+        org.junit.jupiter.api.Assumptions.assumeTrue(java.nio.file.Files.exists(adj), "Linux only");
+        RenderDriver driver = new RenderDriver(props(Duration.ofMinutes(2)), JsonMapper.builder().build());
+        try {
+            driver.startForTest();
+            String driverAdj = java.nio.file.Files.readString(java.nio.file.Path.of("/proc/" + driver.pid() + "/oom_score_adj")).trim();
+            assertThat(driverAdj).isEqualTo("1000");
+            assertThat(java.nio.file.Files.readString(adj).trim()).as("the JVM itself keeps its score").isNotEqualTo("1000");
+        } finally {
+            driver.stop();
+        }
+    }
 }

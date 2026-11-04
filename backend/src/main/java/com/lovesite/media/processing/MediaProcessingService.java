@@ -180,12 +180,15 @@ public class MediaProcessingService {
     void recordFailure(UUID id, Throwable error) {
         String message = ProcessRunner.tail(String.valueOf(error.getMessage()), 280);
         log.warn("Processing media {} failed: {}", id, error.toString());
+        // a tool the OOM killer took would only be killed again: no retries (the user can still reprocess it)
+        boolean outOfMemory = error instanceof ProcessRunner.ProcessKilledException;
         tx.executeWithoutResult(status -> media.findById(id).ifPresent(row -> {
             int attempts = row.getAttempts() + 1;
+            boolean failed = outOfMemory || attempts >= properties.maxAttempts();
             jdbc.update("UPDATE media SET attempts = ?, last_error = ?, processing_started_at = NULL, status = ?, next_attempt_at = ? WHERE id = ?",
                     attempts, message,
-                    (attempts >= properties.maxAttempts() ? MediaStatus.FAILED : MediaStatus.UPLOADED).name(),
-                    attempts >= properties.maxAttempts() ? null : java.sql.Timestamp.from(Instant.now().plus(properties.backoffAfter(attempts))),
+                    (failed ? MediaStatus.FAILED : MediaStatus.UPLOADED).name(),
+                    failed ? null : java.sql.Timestamp.from(Instant.now().plus(properties.backoffAfter(attempts))),
                     id);
         }));
     }

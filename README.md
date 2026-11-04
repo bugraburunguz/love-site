@@ -497,7 +497,13 @@ took). Defaults, all overridable with service variables:
 Other flags: `-Xms64m -Xss512k -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -XX:+UseG1GC
 -XX:G1PeriodicGCInterval=60000 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30` (an idle process gives unused heap back every
 minute) `-XX:+ExitOnOutOfMemoryError` (the platform restarts it instead of a half-broken process). Every ffmpeg run caps its
-filter and encoder threads at 2 (`-filter_complex_threads`, `-filter_threads`, `-threads` after the inputs). Tomcat runs at most 50 request threads, the database pool holds at most 5
+filter and encoder threads at 2 (`-filter_complex_threads`, `-filter_threads`, `-threads` after the inputs).
+
+**Memory limit of the service:** at least **768 MB**, better **1 GB** (exports with Chromium + ffmpeg peak above 1 GB). The JVM
+needs ~340 MB; the photo tool needs far more than the file size: a 12 MP iPhone HEIC ~130 MB, 24 MP (iPhone 15/16 default)
+~245 MB, 48 MP ~430 MB (HEIC is decoded whole; JPEG is shrunk while loading and needs ~40 MB). Every external tool (vips,
+ffmpeg, pg_dump, Node + Chromium) starts with `oom_score_adj` 1000, so when the limit is hit the kernel kills the tool, not the
+JVM: that photo / export fails (the photo can be processed again from its ⋯ menu after raising the limit) and the site stays up. Tomcat runs at most 50 request threads, the database pool holds at most 5
 connections. The export renderer (Node + Chromium, a few hundred MB) is stopped after `app.export.driver-idle` (2 min) without an
 export and started again by the next one. Measurements: `docs/reports/ram.md`.
 

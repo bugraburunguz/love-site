@@ -33,6 +33,29 @@ public final class ProcessRunner {
         }
     }
 
+    /**
+     * The tool died of SIGKILL (exit 137) without a timeout: in a container that is the kernel's OOM killer. Retrying the same
+     * file only kills the tool again, so the caller fails the item at once.
+     */
+    public static class ProcessKilledException extends ProcessFailedException {
+        public ProcessKilledException(String command, String stderr) {
+            super(command + " was killed, out of memory?", 137, stderr);
+        }
+    }
+
+    private static final int SIGKILL_EXIT = 137;
+
+    /**
+     * Starts a command with the highest OOM score (oom_score_adj 1000; raising it needs no privileges, and children inherit
+     * it). When the container's memory limit is hit (a 48 MP HEIC alone needs ~430 MB in vips), the kernel kills the tool
+     * instead of the JVM: the item fails, the site stays up. Where /proc is missing (macOS) the wrapper only execs the command.
+     */
+    public static List<String> expendable(List<String> command) {
+        List<String> c = new java.util.ArrayList<>(List.of("sh", "-c", "{ echo 1000 > /proc/self/oom_score_adj; } 2>/dev/null; exec \"$@\"", "sh"));
+        c.addAll(command);
+        return c;
+    }
+
     private ProcessRunner() {
     }
 
@@ -43,7 +66,7 @@ public final class ProcessRunner {
 
     /** `env` is added to the inherited environment (used to hand a password to a tool without putting it on the command line). */
     public static Result run(List<String> command, java.util.Map<String, String> env, Duration timeout) throws IOException, InterruptedException {
-        ProcessBuilder builder = new ProcessBuilder(command);
+        ProcessBuilder builder = new ProcessBuilder(expendable(command));
         builder.environment().putAll(env);
         Process process = builder.start();
         process.getOutputStream().close(); // nothing is ever written to stdin
@@ -68,6 +91,7 @@ public final class ProcessRunner {
     /** Like run, but a non-zero exit code is an error. */
     public static Result runChecked(List<String> command, Duration timeout) throws IOException, InterruptedException {
         Result result = run(command, timeout);
+        if (result.exitCode() == SIGKILL_EXIT) throw new ProcessKilledException(command.get(0), result.stderr());
         if (result.exitCode() != 0) {
             throw new ProcessFailedException(command.get(0), result.exitCode(), result.stderr());
         }

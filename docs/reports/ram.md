@@ -93,3 +93,40 @@ Railway'de kazanç bundan büyük olmalı: orada görünen çekirdek sayısı 12
    hepsini devre dışı bırakır).
 2. Railway → love-site → Settings → Deploy: replika sayısı 1 olmalı.
 3. Deploy'dan 1 gün sonra Metrics → Memory: boşta ~300–350 MiB beklenir.
+
+---
+
+# RAM raporu, 3. tur (4 Kasım) — bellek sınırı konunca fotoğraflar görünmüyordu
+
+## Neden
+Railway'de servise bellek sınırı konunca fotoğraflar işlenmiyor ve sitede görünmüyordu. Neden InputStream değil:
+yükleme zaten akışla yapılıyor (tarayıcı doğrudan bucket'a yükler, worker orijinali diske stream eder, `vips` ayrı süreçte
+dosyadan okur, sonuçlar dosyadan yüklenir; JVM fotoğrafı belleğe hiç almıyor). Asıl neden **`vips`'in HEIC'i açarken
+istediği bellek**: HEIC bütün olarak çözülüyor (JPEG gibi küçülterek okunamıyor). Ölçülen tepe değerler (tek başına vips):
+
+| dosya | vips en yüksek |
+|---|---|
+| 48 MP JPEG | ~40 MB |
+| 12 MP HEIC (iPhone) | ~130 MB |
+| 24 MP HEIC (iPhone 15/16 varsayılanı) | ~245 MB |
+| 48 MP HEIC | ~430 MB |
+
+JVM ~340 MB tuttuğu için 512 MB sınırda 24/48 MP HEIC sınırı aşıyordu ve kernel en büyük süreci, yani **Java'yı** öldürüyordu:
+site tamamen düşüyor, yeniden başlayınca kuyruk aynı fotoğrafı yeniden deniyor ve site yine düşüyordu.
+
+## Değişiklikler
+- `ProcessRunner.expendable`: her dış araç (vips, ffmpeg, pg_dump) ve render sürücüsü (Node + Chromium) `oom_score_adj=1000`
+  ile başlıyor (yetki gerektirmiyor, alt süreçlere geçiyor). Sınır aşılınca kernel aracı öldürüyor, Java ayakta kalıyor.
+- SIGKILL (137) ile ölen araç `ProcessKilledException` ("out of memory?"); o fotoğraf yeniden denenmeden hemen FAILED oluyor
+  (aynı dosya aracı yine öldürürdü). Kullanıcı sınırı yükselttikten sonra ⋯ menüsünden yeniden işletebilir.
+- Testler: `ProcessRunnerTest` (araç skoru 1000, SIGKILL → bellek hatası), `RenderDriverIdleTest` (sürücü skoru 1000, JVM'inki
+  değil), `MediaProcessingQueueTest` (bellek hatası tek denemede FAILED).
+
+## Doğrulama (yerel Docker, tek servis, yeni imaj)
+- 512 MB sınır: 48 MP ve 24 MP HEIC → FAILED (vips öldürüldü), 12 MP HEIC ve 48 MP JPEG → READY; site hep ayakta,
+  yeniden başlama 0. (Eski imaj aynı durumda konteyneri öldürüyordu.)
+- 768 MB ve 1 GB sınır: 48 MP ve 24 MP HEIC → READY.
+
+## ÜRETİMDE ELLE YAPILACAKLAR
+1. Railway → love-site → Settings → Resources: bellek sınırı en az **768 MB**, önerilen **1 GB** (export'lar 1 GB'ın üstüne çıkabiliyor).
+2. Sınır düşükken FAILED olan fotoğrafları ⋯ → yeniden işle ile tekrar işlet.

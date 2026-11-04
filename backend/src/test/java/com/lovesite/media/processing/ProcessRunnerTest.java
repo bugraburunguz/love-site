@@ -44,6 +44,21 @@ class ProcessRunnerTest {
     }
 
     @Test
+    void toolsAreTheFirstToGoWhenTheContainerRunsOutOfMemory() throws Exception {
+        assumeTrue(java.nio.file.Files.exists(java.nio.file.Path.of("/proc/self/oom_score_adj")), "Linux only");
+        // the kernel's OOM killer must pick vips / ffmpeg / Chromium, never the JVM that serves the site
+        assertThat(ProcessRunner.run(List.of("cat", "/proc/self/oom_score_adj"), Duration.ofSeconds(5)).stdout().trim()).isEqualTo("1000");
+    }
+
+    @Test
+    void aToolKilledBySigkillIsReportedAsOutOfMemory() throws Exception {
+        assumeTrue(posix(), "needs a POSIX shell");
+        assertThatThrownBy(() -> ProcessRunner.runChecked(List.of("sh", "-c", "kill -9 $$"), Duration.ofSeconds(5)))
+                .isInstanceOf(ProcessRunner.ProcessKilledException.class)
+                .hasMessageContaining("out of memory");
+    }
+
+    @Test
     void nonZeroExitIsReportedAndCheckedRunThrowsWithTheErrorOutput() throws Exception {
         assumeTrue(posix(), "needs a POSIX shell");
         assertThat(ProcessRunner.run(List.of("sh", "-c", "echo oops 1>&2; exit 3"), Duration.ofSeconds(5)).exitCode()).isEqualTo(3);
