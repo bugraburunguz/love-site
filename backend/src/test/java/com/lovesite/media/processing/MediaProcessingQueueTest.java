@@ -228,6 +228,17 @@ class MediaProcessingQueueTest {
         assertThat(queue.pollOnce()).isZero();
     }
 
+    @Test
+    void aPhotoTheToolRanOutOfMemoryOnFailsAtOnce() throws Exception {
+        Media m = upload(MediaKind.IMAGE, Files.writeString(dir.resolve("huge.heic"), "x"), "image/heic");
+        // retrying would only kill the tool again on the next attempts: the item fails at once, the user can reprocess it
+        service.recordFailure(m.getId(), new ProcessRunner.ProcessKilledException("vips", ""));
+        assertThat(statusOf(m.getId())).isEqualTo("FAILED");
+        assertThat(row(m.getId()).get("attempts")).isEqualTo(1);
+        assertThat(row(m.getId()).get("last_error")).asString().contains("out of memory");
+        assertThat(row(m.getId()).get("next_attempt_at")).isNull();
+    }
+
     private long secondsUntilNextAttempt(UUID id) {
         Timestamp next = (Timestamp) row(id).get("next_attempt_at");
         return (next.getTime() - System.currentTimeMillis()) / 1000;

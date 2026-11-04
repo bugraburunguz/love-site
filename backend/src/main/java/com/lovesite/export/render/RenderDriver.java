@@ -1,6 +1,7 @@
 package com.lovesite.export.render;
 
 import com.lovesite.export.ExportProperties;
+import com.lovesite.media.processing.ProcessRunner;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,6 +149,10 @@ public class RenderDriver {
         lastUsed = System.nanoTime();
     }
 
+    synchronized long pid() {
+        return process.pid();
+    }
+
     synchronized boolean running() {
         return process != null && process.isAlive();
     }
@@ -157,7 +162,8 @@ public class RenderDriver {
         List<String> command = new ArrayList<>();
         if (properties.nice() > 0 && niceAvailable()) command.addAll(List.of("nice", "-n", String.valueOf(properties.nice())));
         command.addAll(List.of(properties.node(), properties.driver()));
-        ProcessBuilder builder = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.INHERIT);
+        // Node + Chromium go first when memory runs out, never the JVM (see ProcessRunner.expendable)
+        ProcessBuilder builder = new ProcessBuilder(ProcessRunner.expendable(command)).redirectError(ProcessBuilder.Redirect.INHERIT);
         process = builder.start();
         stdin = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
         Process started = process;
