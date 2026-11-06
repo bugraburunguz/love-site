@@ -1,0 +1,151 @@
+# Single Ubuntu 24.04 VDS: love-site + FC Assist + one Postgres + Garage (S3) behind Caddy (HTTPS).
+# Runbook: deploy/vds/README.md. Values come from .env (compose interpolation), love.env and fc.env (app variables);
+# all three are chmod 600 and never committed.
+#
+#   docker compose up -d --build
+name: vds
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL}
+      LOVE_DOMAIN: ${LOVE_DOMAIN:?LOVE_DOMAIN}
+      LOVE_S3_DOMAIN: ${LOVE_S3_DOMAIN:?LOVE_S3_DOMAIN}
+      FC_DOMAIN: ${FC_DOMAIN:?FC_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      default:
+        # love-site signs bucket URLs for https://LOVE_S3_DOMAIN and calls the bucket at the same address; inside the
+        # network that name points at Caddy, so the app does not go out to the public IP and back
+        aliases:
+          - ${LOVE_S3_DOMAIN}
+    mem_limit: 128m
+    logging: *logging
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}
+      LOVE_DB_PASSWORD: ${LOVE_DB_PASSWORD:?LOVE_DB_PASSWORD}
+      FC_DB_PASSWORD: ${FC_DB_PASSWORD:?FC_DB_PASSWORD}
+    # small server, two small apps: modest buffers instead of the defaults sized for a dedicated database host
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=768MB", "-c", "work_mem=8MB",
+              "-c", "maintenance_work_mem=128MB", "-c", "max_connections=60"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-apps.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+    mem_limit: 1g
+    logging: *logging
+
+  garage:
+    image: dxflrs/garage:v2.1.0
+    restart: unless-stopped
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    mem_limit: 512m
+    logging: *logging
+
+  # love-site: the same image twice. love-web answers the site and the API, love-worker processes photos/videos and
+  # renders exports; a heavy HEIC or video never slows the site down.
+  love-web:
+    image: love-site:latest
+    build:
+      context: ${LOVE_SRC:-/srv/src/love-site}
+    restart: unless-stopped
+    env_file: love.env
+    environment:
+      APP_ROLE: web
+    depends_on:
+      postgres:
+        condition: service_healthy
+      garage:
+        condition: service_started
+    mem_limit: 768m
+    logging: *logging
+
+  love-worker:
+    image: love-site:latest
+    restart: unless-stopped
+    env_file: love.env
+    environment:
+      APP_ROLE: worker
+    depends_on:
+      - love-web
+    # JVM + one export at a time: Chromium (300-450 MB) or ffmpeg for a reel (~400 MB); README "Memory" asks 1.5 GB
+    mem_limit: 1536m
+    logging: *logging
+
+  fc-backend:
+    image: fc-backend:latest
+    build:
+      context: ${FC_BACKEND_SRC:-/srv/src/FCarrierTacticBuilderBackend}
+    restart: unless-stopped
+    env_file: fc.env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: "8080"
+      DB_URL: jdbc:postgresql://postgres:5432/fcassist
+      DB_USERNAME: fcassist
+      DB_PASSWORD: ${FC_DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 1g
+    logging: *logging
+
+  fc-web:
+    image: fc-web:latest
+    build:
+      context: ${FC_WEB_SRC:-/srv/src/FCarrierTacticBuilderWeb}
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      BACKEND_URL: http://fc-backend:8080
+      # Caddy sets X-Real-IP to the connecting address itself (Caddyfile), so the header cannot be forged
+      TRUST_EDGE_REAL_IP: "1"
+    depends_on:
+      - fc-backend
+    mem_limit: 64m
+    logging: *logging
+
+  # Optional: only the admin "ML valuation" endpoint uses it (without it that endpoint answers 503).
+  #   docker compose --profile ml up -d
+  fc-ml:
+    image: fc-ml:latest
+    profiles: ["ml"]
+    build:
+      context: ${FC_BACKEND_SRC:-/srv/src/FCarrierTacticBuilderBackend}/ml-service
+    restart: unless-stopped
+    environment:
+      ML_SHARED_SECRET: ${FC_ML_SHARED_SECRET:-}
+    mem_limit: 512m
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:
+  pgdata:
+  garage-meta:
+  garage-data:
