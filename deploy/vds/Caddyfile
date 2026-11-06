@@ -1,0 +1,26 @@
+# HTTPS for every name below: Caddy gets and renews the Let's Encrypt certificates itself (ports 80 and 443 open,
+# DNS A record of each name pointing at the server). Names and the e-mail come from compose.yml (.env).
+{
+	email {$ACME_EMAIL}
+}
+
+# love-site. Caddy writes the client address into X-Forwarded-For itself (incoming values are not trusted), so the
+# rightmost entry the app reads (ClientIp) is the real client.
+{$LOVE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy love-web:8080
+}
+
+# love-site's bucket. The browser loads photos and uploads originals here with presigned URLs; the Host header is
+# passed through unchanged, so the signatures stay valid. No size limit: originals and videos can be large.
+{$LOVE_S3_DOMAIN} {
+	reverse_proxy garage:3900
+}
+
+# FC Assist: nginx (SPA + /api proxy) behind Caddy.
+{$FC_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy fc-web:80 {
+		header_up X-Real-IP {remote_host}
+	}
+}
