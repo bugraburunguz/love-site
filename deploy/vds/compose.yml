@@ -93,7 +93,8 @@ services:
       APP_ROLE: worker
     depends_on:
       - love-web
-    mem_limit: 1g
+    # JVM + one export at a time: Chromium (300-450 MB) or ffmpeg for a reel (~400 MB); README "Memory" asks 1.5 GB
+    mem_limit: 1536m
     logging: *logging
 
   fc-backend:

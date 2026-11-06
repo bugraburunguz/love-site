@@ -25,7 +25,10 @@ if ! id deploy > /dev/null 2>&1; then
 fi
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 if [ -s /root/.ssh/authorized_keys ] && [ ! -s /home/deploy/.ssh/authorized_keys ]; then
-  install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+  # some providers prefix root's keys with command="echo Please login as ..." options: keep only the key itself
+  sed -E 's/^.*((ssh-|ecdsa-|sk-)[^ ]+ )/\1/' /root/.ssh/authorized_keys > /home/deploy/.ssh/authorized_keys
+  chown deploy:deploy /home/deploy/.ssh/authorized_keys
+  chmod 600 /home/deploy/.ssh/authorized_keys
 fi
 # sudo without a password only for this user (it has no password: key login only)
 echo 'deploy ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-deploy
@@ -33,13 +36,20 @@ chmod 440 /etc/sudoers.d/90-deploy
 
 # SSH: keys only, no root. Only when deploy really has a key, otherwise you would lock yourself out.
 if [ -s /home/deploy/.ssh/authorized_keys ]; then
-  cat > /etc/ssh/sshd_config.d/90-hardening.conf <<'EOF'
+  # sshd keeps the FIRST value it reads and reads these files by name: 00- comes before the cloud images'
+  # 50-cloud-init.conf, which often says "PasswordAuthentication yes"
+  cat > /etc/ssh/sshd_config.d/00-hardening.conf <<'EOF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
 EOF
   sshd -t && systemctl reload ssh
-  echo "ssh: password and root login off"
+  effective=$(sshd -T | grep -E '^(passwordauthentication|permitrootlogin) ' | sort | tr '\n' ' ')
+  if [ "$effective" != "passwordauthentication no permitrootlogin no " ]; then
+    echo "ssh: hardening did not take effect ($effective), check /etc/ssh/sshd_config.d" >&2
+    exit 1
+  fi
+  echo "ssh: password and root login off (checked with sshd -T)"
 else
   echo "ssh: /home/deploy/.ssh/authorized_keys is empty, password login left ON. Add your key and run this again." >&2
 fi
@@ -76,5 +86,7 @@ if ! swapon --show | grep -q .; then
   sysctl -p /etc/sysctl.d/90-swap.conf
 fi
 
-install -d -o deploy -g deploy /srv/src /srv/backups
+install -d -o deploy -g deploy /srv/src
+# dumps hold e-mail addresses and password hashes
+install -d -m 700 -o deploy -g deploy /srv/backups
 echo "ready: log in as deploy (new terminal) before closing this session"

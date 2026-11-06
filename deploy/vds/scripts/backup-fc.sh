@@ -14,6 +14,8 @@
 #   OFFSITE_BUCKET=...
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# dumps hold e-mail addresses and password hashes
+umask 077
 
 OUT=/srv/backups/fc
 mkdir -p "$OUT"

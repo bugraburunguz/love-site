@@ -30,13 +30,22 @@ else
 fi
 
 if g key info "$KEY_NAME" > /dev/null 2>&1; then
+  if grep -q '^S3_ACCESS_KEY_ID=$' love.env || grep -q '^S3_SECRET_ACCESS_KEY=$' love.env; then
+    echo "key $KEY_NAME exists in Garage but love.env has no key (copied again?)." >&2
+    echo "Delete it with: docker compose exec garage /garage key delete --yes $KEY_NAME, then run this again." >&2
+    exit 2
+  fi
   echo "key $KEY_NAME: already there (love.env left as it is)"
 else
   grep -q '^S3_ACCESS_KEY_ID=$' love.env && grep -q '^S3_SECRET_ACCESS_KEY=$' love.env \
     || { echo "love.env: S3_ACCESS_KEY_ID= and S3_SECRET_ACCESS_KEY= must be there and empty" >&2; exit 2; }
-  KEY_ID="GK$(openssl rand -hex 12)"
-  SECRET="$(openssl rand -hex 32)"
-  g key import --yes -n "$KEY_NAME" "$KEY_ID" "$SECRET" > /dev/null
+  # Garage generates the secret; it goes from the CLI output straight into the file, never onto a command line
+  created=$(g key create "$KEY_NAME")
+  KEY_ID=$(printf '%s\n' "$created" | awk -F': *' '/^Key ID/ {print $2; exit}')
+  SECRET=$(printf '%s\n' "$created" | awk -F': *' '/^Secret key/ {print $2; exit}')
+  unset created
+  [ -n "$KEY_ID" ] && [ -n "$SECRET" ] || { echo "could not read the new key from garage's output" >&2; exit 1; }
+  umask 077
   tmp=$(mktemp love.env.XXXXXX)
   awk -v id="$KEY_ID" -v sec="$SECRET" '
     /^S3_ACCESS_KEY_ID=$/ { print "S3_ACCESS_KEY_ID=" id; next }

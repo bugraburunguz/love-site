@@ -16,10 +16,10 @@ internet ─▶ Caddy :443 ─┬─ LOVE_DOMAIN     ─▶ love-web:8080 ──
 
 | Ne | Değer |
 |---|---|
-| Sunucu | Ubuntu 24.04 64 bit · en az 4 GB RAM (rahatı 6–8 GB) · 2+ vCPU · disk: bucket boyutu × 1,5 + 30 GB |
+| Sunucu | Ubuntu 24.04 64 bit · **6 GB RAM önerilen** (4 GB + swap çalışır ama export sırasında sıkışır) · 2+ vCPU · disk: bucket boyutu × 1,5 + 30 GB |
 | Domain | 3 ad, hepsi sunucu IP'sine A kaydı: `LOVE_DOMAIN`, `LOVE_S3_DOMAIN` (ör. `s3.` + love domain), `FC_DOMAIN`. Taşımadan 1 gün önce TTL'i 300 sn yap |
 | Sunucu dışı yedek | S3 uyumlu ikinci bir bucket (Cloudflare R2 ya da Backblaze B2). Sunucu diski giderse tek kopya budur |
-| GitHub erişimi | 3 private repo için sunucuda salt okunur deploy key (repo → Settings → Deploy keys) |
+| GitHub erişimi | 3 private repo için **repo başına ayrı** salt okunur deploy key (GitHub bir anahtarı tek repoya bağlar), 2. adım |
 | Railway | Olay (incident) bitmiş olmalı, bucket'ın Files sekmesi açılıyor olmalı |
 
 Bucket boyutunu Railway'de bucket → Metrics'ten oku; disk seçimi buna göre yapılır.
@@ -35,8 +35,16 @@ Betik şunları yapar: güncellemeler ve otomatik güvenlik yamaları, `deploy` 
 
 ## 2. Kod ve ayarlar (deploy kullanıcısı)
 
+Her repo için bir anahtar ve `~/.ssh/config` içinde bir takma ad oluştur:
+
 ```bash
-cd /srv/src && git clone git@github.com:bugraburunguz/love-site.git && git clone git@github.com:bugraburunguz/FCarrierTacticBuilderBackend.git && git clone git@github.com:bugraburunguz/FCarrierTacticBuilderWeb.git
+for r in love-site FCarrierTacticBuilderBackend FCarrierTacticBuilderWeb; do ssh-keygen -q -t ed25519 -N "" -C "vds-$r" -f ~/.ssh/deploy_$r && printf 'Host github-%s\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/deploy_%s\n  IdentitiesOnly yes\n\n' "$r" "$r" >> ~/.ssh/config; done && chmod 600 ~/.ssh/config && cat ~/.ssh/deploy_*.pub
+```
+
+Çıkan üç `.pub` satırını, sonundaki `vds-<repo>` adına bakarak ilgili reponun **Settings → Deploy keys** sayfasına ekle. "Allow write access" kutusunu işaretleme. Sonra:
+
+```bash
+cd /srv/src && git clone github-love-site:bugraburunguz/love-site.git && git clone github-FCarrierTacticBuilderBackend:bugraburunguz/FCarrierTacticBuilderBackend.git && git clone github-FCarrierTacticBuilderWeb:bugraburunguz/FCarrierTacticBuilderWeb.git
 ```
 
 ```bash
@@ -90,8 +98,13 @@ cd /srv/src/love-site/deploy/vds && SRC_S3_ENDPOINT=https://t3.storageapi.dev SR
    Aynısını FC'nin adresiyle `scripts/migrate-db.sh fcassist` için tekrarla, sonra `unset SOURCE_DATABASE_URL SRC_S3_ACCESS_KEY_ID SRC_S3_SECRET_ACCESS_KEY` çalıştır.
    **Görmelisin:** `done: N tables, every one with the same number of rows`. Hedef doluysa betik hiçbir şey yazmadan durur.
 4. **DNS:** üç A kaydını sunucu IP'sine çevir.
-5. **Başlat:** `docker compose up -d`. Caddy sertifikaları ilk istekte alır.
+5. **Önce Caddy:** sertifikaları açılışta alır. love-web açılırken bucket'ın CORS ayarını `https://LOVE_S3_DOMAIN` üzerinden yazar ve bunu tekrar denemez, bu yüzden sertifika ondan önce hazır olmalı:
+   ```bash
+   cd /srv/src/love-site/deploy/vds && docker compose up -d caddy && until curl -so /dev/null https://LOVE_S3_DOMAIN; do sleep 5; done && docker compose up -d
+   ```
+   (`LOVE_S3_DOMAIN` yerine gerçek adı yaz.) Döngü bitmiyorsa `docker compose logs caddy` sertifika hatasını gösterir; çoğu zaman DNS henüz yayılmamıştır.
 6. **Kontroller:**
+   - `docker compose logs love-web | grep "Bucket CORS configured"` bir satır döner. Dönmüyorsa `docker compose restart love-web love-worker`.
    - `https://LOVE_DOMAIN/actuator/health` → `UP`.
    - Giriş yap. Eski fotoğraflar görünmeli (adres `LOVE_S3_DOMAIN`).
    - Yeni bir fotoğraf yükle; birkaç saniyede işlenmeli.
@@ -122,15 +135,15 @@ cd /srv/src/love-site && git pull && cd ../FCarrierTacticBuilderBackend && git p
 - **Railway:** 1–2 hafta sorunsuz çalışınca son bir yedek al, sonra servisleri sil. Silme işlemini Buğra yapar. Eski anahtarlar ve şifreler Railway'le birlikte geçersiz olur.
 - **İzleme:** `LOVE_DOMAIN/actuator/health` ve `FC_DOMAIN` için bir uptime monitörü kur (ör. UptimeRobot).
 
-## Bellek tavanları (4 GB sunucu)
+## Bellek tavanları (6 GB sunucu)
 
 | Servis | mem_limit | Not |
 |---|---|---|
 | postgres | 1 GB | shared_buffers 256 MB |
-| love-worker | 1 GB | HEIC ve video; OOM olursa önce araç ölür, site ayakta kalır |
+| love-worker | 1,5 GB | HEIC, video, export (Chromium / ffmpeg); OOM olursa önce araç ölür, site ayakta kalır |
 | love-web | 768 MB | |
 | fc-backend | 1 GB | Xmx 512 MB (imajda) |
 | garage | 512 MB | |
 | caddy / fc-web | 128 / 64 MB | |
 
-Tavanların toplamı 4 GB'ı geçer ama hepsi aynı anda dolmaz; ani artışlar için 2 GB swap var. Sunucu sürekli swap kullanıyorsa 8 GB'a geç.
+Tavanların toplamı yaklaşık 5 GB, ama hepsi aynı anda dolmaz; ani artışlar için 2 GB swap var. Sunucu sürekli swap kullanıyorsa 8 GB'a geç.

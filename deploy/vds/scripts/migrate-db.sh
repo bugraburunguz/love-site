@@ -13,6 +13,8 @@
 # - Restore: one transaction, objects owned by the app's role (love / fcassist), no grants from Railway.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# the dump and the count files hold user data
+umask 077
 
 DB=${1:-}
 case "$DB" in
@@ -49,8 +51,9 @@ if [ "$IN_TARGET" != "0" ]; then
 fi
 
 echo "2/4 dump -> $DUMP_DIR/$DUMP_NAME"
-docker run --rm -e SOURCE_DATABASE_URL -v "$DUMP_DIR:/out" "$CLIENT_IMAGE" \
-  sh -c 'pg_dump "$SOURCE_DATABASE_URL" --format=custom --no-owner --no-privileges --file="/out/$1"' sh "$DUMP_NAME"
+# as the calling user, so the dump is theirs (mode 600) and not root's
+docker run --rm --user "$(id -u):$(id -g)" -e SOURCE_DATABASE_URL -v "$DUMP_DIR:/out" "$CLIENT_IMAGE" \
+  sh -c 'umask 077; pg_dump "$SOURCE_DATABASE_URL" --format=custom --no-owner --no-privileges --file="/out/$1"' sh "$DUMP_NAME"
 
 echo "3/4 restore into $DB (single transaction)"
 docker compose exec -T postgres pg_restore -U postgres -d "$DB" --no-owner --no-privileges --role="$DB" \
