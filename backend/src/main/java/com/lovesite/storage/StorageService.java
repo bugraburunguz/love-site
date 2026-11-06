@@ -223,8 +223,10 @@ public class StorageService {
 
     /** Replaces the bucket CORS configuration so browsers can PUT/GET directly from the given origins. */
     public void putBucketCors(List<String> origins) {
-        var rule = CORSRule.builder()
-                .allowedOrigins(origins)
+        // One rule per origin: S3 echoes the request's Origin either way, but Garage answers with every origin of the
+        // matching rule joined by commas, which browsers reject.
+        var rules = origins.stream().map(origin -> CORSRule.builder()
+                .allowedOrigins(origin)
                 .allowedMethods("PUT", "GET", "HEAD")
                 // both spellings: browsers send the preflight's header names in lower case and Garage compares them
                 // case-sensitively; S3 and CloudServer ignore case, so the second entry only covers any other server
@@ -232,10 +234,10 @@ public class StorageService {
                 .allowedHeaders("content-type", "Content-Type")
                 .exposeHeaders("ETag")
                 .maxAgeSeconds(3000)
-                .build();
+                .build()).toList();
         client.putBucketCors(PutBucketCorsRequest.builder()
                 .bucket(properties.bucket())
-                .corsConfiguration(CORSConfiguration.builder().corsRules(rule).build())
+                .corsConfiguration(CORSConfiguration.builder().corsRules(rules).build())
                 .build());
     }
 

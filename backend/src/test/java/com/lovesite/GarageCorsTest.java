@@ -94,7 +94,9 @@ class GarageCorsTest {
 
     @Test
     void theBrowsersUploadPreflightIsAllowed() throws Exception {
-        storage.putBucketCors(List.of(ORIGIN));
+        // the real list: the website plus the two store apps. Garage answers with the origins of the matching rule
+        // joined by commas, which a browser rejects; one rule per origin gives a single, valid value.
+        storage.putBucketCors(List.of(ORIGIN, "capacitor://localhost", "https://localhost"));
         String put = storage.presignPut("spaces/s/albums/a/media/m/original", "image/jpeg", java.time.Duration.ofMinutes(5));
 
         // what a browser sends before the PUT: header names in lower case
