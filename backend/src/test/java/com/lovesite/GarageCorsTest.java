@@ -18,9 +18,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Garage, the S3 server of the VDS setup (deploy/vds), matches the allowed CORS headers case-sensitively. Browsers send
- * the preflight's Access-Control-Request-Headers in lower case, so the rule must name "content-type" in lower case or
- * every upload is refused before it starts. The CLI calls here are the same ones deploy/vds/scripts/garage-init.sh runs.
+ * Garage, a self-hosted S3 server, matches the allowed CORS headers case-sensitively. Browsers send the preflight's
+ * Access-Control-Request-Headers in lower case, so the rule must name "content-type" in lower case or every upload is
+ * refused before it starts. The CLI calls set up a single node the way a fresh install does.
  */
 class GarageCorsTest {
 
@@ -56,10 +56,14 @@ class GarageCorsTest {
             try {
                 status = garage("status");
             } catch (IllegalStateException notYet) {
-                Thread.sleep(500);
+                status = notYet.getMessage();
             }
+            if (!status.contains("NO ROLE ASSIGNED")) Thread.sleep(500);
         }
-        String node = status.lines().filter(l -> l.contains("NO ROLE ASSIGNED")).findFirst().orElseThrow().trim().split("\\s+")[0];
+        String lastStatus = status;
+        String node = status.lines().filter(l -> l.contains("NO ROLE ASSIGNED")).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Garage node did not come up: " + lastStatus))
+                .trim().split("\\s+")[0];
         garage("layout", "assign", "-z", "dc1", "-c", "1G", node);
         garage("layout", "apply", "--version", "1");
         garage("bucket", "create", BUCKET);
@@ -110,5 +114,8 @@ class GarageCorsTest {
                 .header("Content-Type", "image/jpeg")
                 .build(), HttpResponse.BodyHandlers.discarding());
         assertThat(upload.statusCode()).isEqualTo(200);
+        // the browser only hands the response (and the ETag the upload reads) to the page with these
+        assertThat(upload.headers().firstValue("Access-Control-Allow-Origin")).hasValue(ORIGIN);
+        assertThat(upload.headers().firstValue("Access-Control-Expose-Headers").orElse("")).containsIgnoringCase("etag");
     }
 }

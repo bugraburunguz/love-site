@@ -226,9 +226,10 @@ public class StorageService {
         var rule = CORSRule.builder()
                 .allowedOrigins(origins)
                 .allowedMethods("PUT", "GET", "HEAD")
-                // lower case: browsers send the preflight's header names in lower case and Garage compares them
-                // case-sensitively (S3 and CloudServer do not care)
-                .allowedHeaders("content-type")
+                // both spellings: browsers send the preflight's header names in lower case and Garage compares them
+                // case-sensitively; S3 and CloudServer ignore case, so the second entry only covers any other server
+                // that compares case-sensitively against the canonical form
+                .allowedHeaders("content-type", "Content-Type")
                 .exposeHeaders("ETag")
                 .maxAgeSeconds(3000)
                 .build();

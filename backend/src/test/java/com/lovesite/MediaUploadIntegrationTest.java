@@ -305,6 +305,8 @@ class MediaUploadIntegrationTest {
         assertThat(cors.corsRules().get(0).allowedOrigins()).containsExactly("http://localhost:5173", "capacitor://localhost", "https://localhost");
         assertThat(cors.corsRules().get(0).allowedMethods()).contains("PUT", "GET", "HEAD");
         assertThat(cors.corsRules().get(0).exposeHeaders()).contains("ETag");
+        // both spellings: Garage compares header names case-sensitively and browsers send them in lower case (GarageCorsTest)
+        assertThat(cors.corsRules().get(0).allowedHeaders()).containsExactlyInAnyOrder("content-type", "Content-Type");
     }
 
     @Test
