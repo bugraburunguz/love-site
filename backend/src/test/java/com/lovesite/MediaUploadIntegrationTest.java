@@ -300,11 +300,15 @@ class MediaUploadIntegrationTest {
     @Test
     void bucketCorsIsConfiguredAtStartup() {
         var cors = admin.getBucketCors(GetBucketCorsRequest.builder().bucket(BUCKET).build());
-        assertThat(cors.corsRules()).hasSize(1);
-        // the website origin plus the store apps (iOS capacitor://localhost, Android https://localhost)
-        assertThat(cors.corsRules().get(0).allowedOrigins()).containsExactly("http://localhost:5173", "capacitor://localhost", "https://localhost");
-        assertThat(cors.corsRules().get(0).allowedMethods()).contains("PUT", "GET", "HEAD");
-        assertThat(cors.corsRules().get(0).exposeHeaders()).contains("ETag");
+        // one rule per origin: the website plus the store apps (iOS capacitor://localhost, Android https://localhost)
+        assertThat(cors.corsRules()).extracting(r -> r.allowedOrigins())
+                .containsExactly(List.of("http://localhost:5173"), List.of("capacitor://localhost"), List.of("https://localhost"));
+        for (var rule : cors.corsRules()) {
+            assertThat(rule.allowedMethods()).contains("PUT", "GET", "HEAD");
+            assertThat(rule.exposeHeaders()).contains("ETag");
+            // both spellings: Garage compares header names case-sensitively and browsers send them in lower case (GarageCorsTest)
+            assertThat(rule.allowedHeaders()).containsExactlyInAnyOrder("content-type", "Content-Type");
+        }
     }
 
     @Test
