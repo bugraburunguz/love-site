@@ -123,6 +123,32 @@ cd /srv/src/love-site/deploy/vds && SRC_S3_ENDPOINT=https://t3.storageapi.dev SR
   ```
 - **Geri yükleme provası:** ayda bir, son dump'ı boş bir veritabanına `pg_restore` et.
 
+## 6a. Loglar (Dozzle)
+
+İki adres var:
+- **`LOGS_DOMAIN`:** sunucudaki bütün container'ların logları.
+- **`LOGS_FC_DOMAIN`:** sadece FC Assist'in logları.
+
+Loglar tarayıcıda canlı akar, arama yapılabilir ve container başına CPU/RAM görünür. İkisi de Caddy'nin şifresinin arkasında, çünkü loglarda e-posta adresi gibi kişisel bilgiler var.
+
+Dozzle Docker'a doğrudan değil, `docker-ro` proxy'si üzerinden bağlanır. Proxy container'ları listelemeye ve log okumaya izin verir; durdurma, başlatma ya da container içinde komut çalıştırma isteklerini reddeder. Böylece bu adresler ele geçse bile sunucuda bir şey değiştirilemez.
+
+**Kurulum (bir kez, bu bölüm merge edilmeden önce).** compose bu 4 değeri zorunlu tutar; `.env`'de yoksa deploy durur ve önceki sürüme geri döner.
+
+1. DuckDNS'te iki ad aç ve sunucunun IP'sine yönlendir.
+2. Sunucuda şifrenin hash'ini üret. Şifreyi iki kez sorar ve ekrana sadece hash'i basar; şifrenin kendisi hiçbir yere yazılmaz:
+   ```bash
+   docker run --rm -it caddy:2.10-alpine caddy hash-password
+   ```
+3. `nano /srv/src/love-site/deploy/vds/.env` ile şu 4 satırı ekle. Hash'i tek tırnak içinde yaz, çünkü içinde `$` var:
+   ```
+   LOGS_DOMAIN=...duckdns.org
+   LOGS_FC_DOMAIN=...duckdns.org
+   LOGS_USER=kullanici-adin
+   LOGS_PASSWORD_HASH='$2a$14$...'
+   ```
+4. Merge'den sonraki love-site deploy'u (otomatik) Dozzle'ı ve proxy'yi başlatır. Görmelisin: adres önce şifre sorar, sonra container listesi gelir.
+
 ## 7. Güncelleme (her yeni sürümde)
 
 Kurulduktan sonra otomatik olur (aşağıdaki bölüm). Elle yapmak gerekirse:
@@ -191,5 +217,6 @@ Sorunu düzelten bir commit merge edilince deploy kendiliğinden yeniden çalı�
 | fc-backend | 1 GB | Xmx 512 MB (imajda) |
 | garage | 512 MB | |
 | caddy / fc-web | 128 / 64 MB | |
+| logs-all / logs-fc / docker-ro | 64 MB her biri | ölçülen ~15–25 MB |
 
 Tavanların toplamı yaklaşık 5 GB, ama hepsi aynı anda dolmaz; ani artışlar için 2 GB swap var. Sunucu sürekli swap kullanıyorsa 8 GB'a geç.
