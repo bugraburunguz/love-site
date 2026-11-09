@@ -22,5 +22,7 @@ public record SignupProperties(
         @DefaultValue("3") int perIp,
         @DefaultValue("1h") Duration window,
         /** all signups together per day: many addresses cannot drain the free pool in one go */
-        @DefaultValue("10") int perDay) {
+        @DefaultValue("10") int perDay,
+        /** a free space that is still empty this long after signup is removed (FreeSpaceCleanupJob) */
+        @DefaultValue("30d") Duration freeEmptyTtl) {
 }

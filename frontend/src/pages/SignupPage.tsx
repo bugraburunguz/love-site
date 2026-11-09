@@ -108,6 +108,7 @@ export default function SignupPage() {
           </span>
         </label>
         <p className="plain-form__hint">Şifre sıfırlama yok; şifreni güvenli bir yerde sakla.</p>
+        <p className="plain-form__hint">30 gün içinde hiçbir şey eklenmeyen ücretsiz defterler kendiliğinden silinir.</p>
         {error && <p role="alert" className="plain-page__error">{error}</p>}
         <Clay type="submit" disabled={busy || !status}>
           Hesabı oluştur

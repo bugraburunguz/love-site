@@ -160,7 +160,8 @@ Fotoğraflar, veritabanı, imajlar ve build cache aynı diski (38 GB) paylaşır
 | Alan | Limit |
 |---|---|
 | Kayıtla açılan (ücretsiz) | 50 MB, tek video en çok 20 MB |
-| Ücretsiz alanların toplamı | 3 GB (≈ 61 alan); dolunca `/kayit` "Şu an yeni kayıt alınmıyor" der |
+| Ücretsiz alanların toplamı | 3 GB (≈ 61 alan); dolunca `/kayit` "Şu an yeni kayıt alınmıyor" der. 30 gün boş kalan ücretsiz alan gece kendiliğinden silinir |
+| Kayıt sınırı | adres başına saatte 3 (IPv6'da /64 ağı), toplamda günde 10 |
 | Davetle açılan | admin formunda 1 GB önerilir, gerekirse elle artırılır |
 | İlk alan | 5 GB |
 

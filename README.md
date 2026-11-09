@@ -35,6 +35,8 @@ Admin-created (invited) spaces are unaffected; the admin form suggests 1 GB.
 | `SIGNUP_PER_IP` | `3` | signups per address (IPv6: per /64) per hour (there is no e-mail verification) |
 | `SIGNUP_PER_DAY` | `10` | all signups together per day, so many addresses cannot drain the free pool at once |
 
+A FREE space that is still empty 30 days after signup (no media, song, day note or special day) is removed with its
+accounts by the worker every night at 03:45 (`FreeSpaceCleanupJob`), so abandoned signups give their room back.
 The limits are kept in memory and reset when the app restarts (every deploy). Signup tells whether an e-mail already has
 an account (409), like any open signup; there is no e-mail verification.
 
