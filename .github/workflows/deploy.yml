@@ -1,0 +1,33 @@
+# Deploys love-site to the VDS after every push to master (a merged PR). The key in VDS_DEPLOY_KEY can only run
+# deploy/vds/scripts/deploy-trigger.sh on the server (forced command), so the job only names the target.
+# Setup: deploy/vds/README.md, "Otomatik deploy (GitHub Actions)".
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vds
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Deploy to the VDS
+        env:
+          DEPLOY_KEY: ${{ secrets.VDS_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VDS_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VDS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 "deploy@$HOST" love
