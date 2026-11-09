@@ -133,10 +133,14 @@ Loglar tarayıcıda canlı akar, arama yapılabilir ve container başına CPU/RA
 
 Dozzle Docker'a doğrudan değil, `docker-ro` proxy'si üzerinden bağlanır. Proxy container'ları listelemeye ve log okumaya izin verir; durdurma, başlatma ya da container içinde komut çalıştırma isteklerini reddeder. Böylece bu adresler ele geçse bile sunucuda bir şey değiştirilemez.
 
-**Kurulum (bir kez, bu bölüm merge edilmeden önce).** compose bu 4 değeri zorunlu tutar; `.env`'de yoksa deploy durur ve önceki sürüme geri döner.
+Proxy'den bir container okunduğunda ortam değişkenleri de, yani `love.env` / `fc.env` içindeki bütün şifreler de gelir. Bu yüzden proxy dışarıya kapalı ayrı bir ağdadır (`dockerapi`, `internal: true`) ve o ağa yalnızca iki Dozzle container'ı bağlıdır. Uygulamalar proxy'ye ulaşamaz; bir uygulamada açık çıksa bile oradan şifrelere gidilemez. Dozzle'ın kendi ekranı ve API'si ortam değişkenlerini göstermez (yerelde denendi).
+
+**İki sayfa aynı kullanıcı ve şifreyi kullanır.** FC sayfası bir erişim sınırı değil, kolaylık için konmuş bir filtredir: FC sayfasının şifresini bilen biri tüm logları da açabilir. FC loglarını başka biriyle paylaşacaksan ayrı bir kullanıcı ve şifre eklenmesi gerekir.
+
+**Kurulum (bir kez, bu bölüm merge edilmeden önce).** compose bu 4 değeri zorunlu tutar. `.env`'de yoksa bütün deploy'lar (love, fc-backend ve fc-web) build adımında durur ve hiçbir şey yeniden başlatılmaz.
 
 1. DuckDNS'te iki ad aç ve sunucunun IP'sine yönlendir.
-2. Sunucuda şifrenin hash'ini üret. Şifreyi iki kez sorar ve ekrana sadece hash'i basar; şifrenin kendisi hiçbir yere yazılmaz:
+2. Sunucuda şifrenin hash'ini üret. Şifreyi iki kez sorar ve ekrana sadece hash'i basar; şifrenin kendisi hiçbir yere yazılmaz. Şifre en az 20 karakter olsun ve parola yöneticisinden üretilsin: adres internete açık ve şifre denemesine karşı tek koruma şifrenin gücü.
    ```bash
    docker run --rm -it caddy:2.10-alpine caddy hash-password
    ```
