@@ -125,9 +125,55 @@ cd /srv/src/love-site/deploy/vds && SRC_S3_ENDPOINT=https://t3.storageapi.dev SR
 
 ## 7. Güncelleme (her yeni sürümde)
 
+Kurulduktan sonra otomatik olur (aşağıdaki bölüm). Elle yapmak gerekirse:
+
 ```bash
 cd /srv/src/love-site && git pull && cd ../FCarrierTacticBuilderBackend && git pull && cd ../FCarrierTacticBuilderWeb && git pull && cd /srv/src/love-site/deploy/vds && docker compose up -d --build
 ```
+
+## 7a. Otomatik deploy (GitHub Actions)
+
+Her repoda `.github/workflows/deploy.yml` bulunur:
+- **love-site:** `master`'a her merge'de çalışır.
+- **FC backend ve FC web:** `main`'e merge'den sonra, CI yeşil bitince çalışır.
+
+İş sunucuya `deploy` kullanıcısıyla bağlanır ve hedefin adını söyler: `love`, `fc-backend` ya da `fc-web`. Sunucu tarafında sadece [scripts/deploy-trigger.sh](scripts/deploy-trigger.sh) çalışır. O da şunları yapar:
+1. Repoyu çeker (`--ff-only`).
+2. O tek imajı build eder.
+3. Servisi yeniden başlatır. `love` için bütün stack uygulanır, çünkü compose.yml ve Caddyfile o repoda. FC için sadece kendi servisi başlar.
+4. Servis sağlıklı cevap verene kadar bekler. fc-backend kendi `/actuator/health` adresinden kontrol edilir.
+
+Deploy SSH bağlantısından bağımsız çalışır ve logu Actions'a akar. Bağlantı kopsa ya da iş iptal edilse bile deploy yarıda kalmaz; log `~/deploy-logs` altında durur (son 30 deploy). Aynı anda tek deploy çalışır; ikincisi sırasını bekler.
+
+**Anahtar kısıtlı:** GitHub'a konan anahtar `authorized_keys`'te bu betiğe bağlıdır (`command=...,restrict`). Bu anahtarla kabuk açılamaz, port yönlendirilemez, başka bir komut çalıştırılamaz. Unutma: `love-site`'ın master dalına yazabilen biri bu betiği de değiştirebilir. Bu, zaten uygulama kodunu değiştirebilmekle aynı güven seviyesidir.
+
+**Kurulum (bir kez).** Sunucu, bu bölümün geldiği sürümü bir kez elle çekmiş olmalı (`cd /srv/src/love-site && git pull`).
+
+1. **Sunucunun SSH parmak izini oku** (sunucuda):
+   ```bash
+   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+   ```
+2. **Mac'ten görülen parmak izini oku.** 1. adımdaki ile aynı olmalı; değilse dur:
+   ```bash
+   ssh-keyscan -t ed25519 31.77.69.86 2>/dev/null | ssh-keygen -lf -
+   ```
+3. **Anahtarı üret ve üç repoya secret olarak koy** (Mac'te). Özel anahtar geçici bir klasöre yazılır ve komut nasıl biterse bitsin silinir:
+   ```bash
+   (D=$(mktemp -d) && trap 'rm -rf "$D"' EXIT && ssh-keygen -q -t ed25519 -N "" -C github-actions-deploy -f "$D/key" && ssh-keyscan -t ed25519 31.77.69.86 2>/dev/null > "$D/known_hosts" && for r in love-site FCarrierTacticBuilderBackend FCarrierTacticBuilderWeb; do gh secret set VDS_DEPLOY_KEY -R bugraburunguz/$r < "$D/key" && gh secret set VDS_KNOWN_HOSTS -R bugraburunguz/$r < "$D/known_hosts" && printf '31.77.69.86' | gh secret set VDS_HOST -R bugraburunguz/$r || exit 1; done && cat "$D/key.pub")
+   ```
+4. **Ekrana basılan `ssh-ed25519 ... github-actions-deploy` satırını sunucuda kısıtlı olarak ekle.** `ANAHTAR` yerine satırın tamamını yapıştır:
+   ```bash
+   printf 'command="/srv/src/love-site/deploy/vds/scripts/deploy-trigger.sh",restrict %s\n' 'ANAHTAR' >> ~/.ssh/authorized_keys && tail -1 ~/.ssh/authorized_keys | cut -c1-90
+   ```
+5. **Dene:** GitHub → love-site → Actions → Deploy → **Run workflow**. Görmelisin: iş yeşil biter, logun sonunda `deploy love done` yazar.
+
+**Bir deploy başarısız olursa:** Actions işi kırmızı biter. Logda hangi adımda durduğu görünür; health kontrolü başarısızsa servisin son 40 log satırı da görünür. Betik ikisinde de kendiliğinden önceki commit'e döner:
+- **Build başarısızsa:** hiçbir şey yeniden başlatılmaz, eski sürüm kesintisiz çalışmaya devam eder.
+- **Yeni sürüm sağlıklı açılmazsa:** önceki sürüm yeniden build edilip başlatılır. Bu birkaç dakikalık kesinti demektir. Logda `previous version is back up` yazar. `did not come back either` yazıyorsa sunucuya elle bakmak gerekir.
+
+Sorunu düzelten bir commit merge edilince deploy kendiliğinden yeniden çalışır.
+
+**love-site'ın CI'ı yok:** her merge test edilmeden deploy edilir. FC repolarında ise deploy CI yeşil bitince başlar.
 
 ## 8. Sonra
 
