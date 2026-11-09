@@ -140,10 +140,10 @@ Her repoda `.github/workflows/deploy.yml` bulunur:
 İş sunucuya `deploy` kullanıcısıyla bağlanır ve hedefin adını söyler: `love`, `fc-backend` ya da `fc-web`. Sunucu tarafında sadece [scripts/deploy-trigger.sh](scripts/deploy-trigger.sh) çalışır. O da şunları yapar:
 1. Repoyu çeker (`--ff-only`).
 2. O tek imajı build eder.
-3. `docker compose up -d` çalıştırır; sadece değişen servisler yeniden başlar.
-4. Site cevap verene kadar bekler.
+3. Servisi yeniden başlatır. `love` için bütün stack uygulanır, çünkü compose.yml ve Caddyfile o repoda. FC için sadece kendi servisi başlar.
+4. Servis sağlıklı cevap verene kadar bekler. fc-backend kendi `/actuator/health` adresinden kontrol edilir.
 
-Aynı anda tek deploy çalışır; ikincisi sırasını bekler.
+Deploy SSH bağlantısından bağımsız çalışır ve logu Actions'a akar. Bağlantı kopsa ya da iş iptal edilse bile deploy yarıda kalmaz; log `~/deploy-logs` altında durur (son 30 deploy). Aynı anda tek deploy çalışır; ikincisi sırasını bekler.
 
 **Anahtar kısıtlı:** GitHub'a konan anahtar `authorized_keys`'te bu betiğe bağlıdır (`command=...,restrict`). Bu anahtarla kabuk açılamaz, port yönlendirilemez, başka bir komut çalıştırılamaz. Unutma: `love-site`'ın master dalına yazabilen biri bu betiği de değiştirebilir. Bu, zaten uygulama kodunu değiştirebilmekle aynı güven seviyesidir.
 
@@ -153,17 +153,27 @@ Aynı anda tek deploy çalışır; ikincisi sırasını bekler.
    ```bash
    ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
    ```
-2. **Anahtarı üret ve üç repoya secret olarak koy** (Mac'te; özel anahtar diske geçici olarak yazılır ve sonra silinir). Komut, GitHub'a girecek parmak izini de yazdırır; 1. adımdaki ile aynı olmalı:
+2. **Mac'ten görülen parmak izini oku.** 1. adımdaki ile aynı olmalı; değilse dur:
    ```bash
-   D=$(mktemp -d) && ssh-keygen -q -t ed25519 -N "" -C github-actions-deploy -f $D/key && ssh-keyscan -t ed25519 31.77.69.86 2>/dev/null > $D/known_hosts && ssh-keygen -lf $D/known_hosts && for r in love-site FCarrierTacticBuilderBackend FCarrierTacticBuilderWeb; do gh secret set VDS_DEPLOY_KEY -R bugraburunguz/$r < $D/key && gh secret set VDS_KNOWN_HOSTS -R bugraburunguz/$r < $D/known_hosts && printf '31.77.69.86' | gh secret set VDS_HOST -R bugraburunguz/$r; done && cat $D/key.pub && rm -rf $D
+   ssh-keyscan -t ed25519 31.77.69.86 2>/dev/null | ssh-keygen -lf -
    ```
-3. **Ekrana basılan `ssh-ed25519 ... github-actions-deploy` satırını sunucuda kısıtlı olarak ekle.** `ANAHTAR` yerine satırın tamamını yapıştır:
+3. **Anahtarı üret ve üç repoya secret olarak koy** (Mac'te). Özel anahtar geçici bir klasöre yazılır ve komut nasıl biterse bitsin silinir:
+   ```bash
+   (D=$(mktemp -d) && trap 'rm -rf "$D"' EXIT && ssh-keygen -q -t ed25519 -N "" -C github-actions-deploy -f "$D/key" && ssh-keyscan -t ed25519 31.77.69.86 2>/dev/null > "$D/known_hosts" && for r in love-site FCarrierTacticBuilderBackend FCarrierTacticBuilderWeb; do gh secret set VDS_DEPLOY_KEY -R bugraburunguz/$r < "$D/key" && gh secret set VDS_KNOWN_HOSTS -R bugraburunguz/$r < "$D/known_hosts" && printf '31.77.69.86' | gh secret set VDS_HOST -R bugraburunguz/$r || exit 1; done && cat "$D/key.pub")
+   ```
+4. **Ekrana basılan `ssh-ed25519 ... github-actions-deploy` satırını sunucuda kısıtlı olarak ekle.** `ANAHTAR` yerine satırın tamamını yapıştır:
    ```bash
    printf 'command="/srv/src/love-site/deploy/vds/scripts/deploy-trigger.sh",restrict %s\n' 'ANAHTAR' >> ~/.ssh/authorized_keys && tail -1 ~/.ssh/authorized_keys | cut -c1-90
    ```
-4. **Dene:** GitHub → love-site → Actions → Deploy → **Run workflow**. Görmelisin: iş yeşil biter, logun sonunda `deploy love done` yazar.
+5. **Dene:** GitHub → love-site → Actions → Deploy → **Run workflow**. Görmelisin: iş yeşil biter, logun sonunda `deploy love done` yazar.
 
-**Bir deploy başarısız olursa:** Actions logunda hangi adımda durduğu ve servisin son 40 log satırı görünür. Önceki sürüm çalışmaya devam eder, çünkü build başarısızsa hiçbir servis yeniden başlatılmaz. Health kontrolü başarısızsa, yeni sürüm başlamış ama cevap vermiyor demektir. Bu durumda düzeltme commit'i at ya da sunucuda `git -C /srv/src/<repo> reset --hard <önceki-commit>` ile eski commit'e dön ve `docker compose up -d --build <servis>` çalıştır.
+**Bir deploy başarısız olursa:** Actions işi kırmızı biter. Logda hangi adımda durduğu görünür; health kontrolü başarısızsa servisin son 40 log satırı da görünür. Betik ikisinde de kendiliğinden önceki commit'e döner:
+- **Build başarısızsa:** hiçbir şey yeniden başlatılmaz, eski sürüm kesintisiz çalışmaya devam eder.
+- **Yeni sürüm sağlıklı açılmazsa:** önceki sürüm yeniden build edilip başlatılır. Bu birkaç dakikalık kesinti demektir. Logda `previous version is back up` yazar. `did not come back either` yazıyorsa sunucuya elle bakmak gerekir.
+
+Sorunu düzelten bir commit merge edilince deploy kendiliğinden yeniden çalışır.
+
+**love-site'ın CI'ı yok:** her merge test edilmeden deploy edilir. FC repolarında ise deploy CI yeşil bitince başlar.
 
 ## 8. Sonra
 
