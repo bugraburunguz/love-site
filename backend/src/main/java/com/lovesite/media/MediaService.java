@@ -52,10 +52,12 @@ public class MediaService {
     private final TransactionTemplate tx;
     private final PageService pages;
     private final DisplayNames names;
+    private final com.lovesite.space.SignupProperties signup;
 
     public MediaService(MediaRepository media, AlbumService albums, StorageService storage, MediaProperties properties,
                         ObjectProvider<MediaProcessingQueue> queue, QuotaService quota, TransactionTemplate tx,
-                        PageService pages, DisplayNames names) {
+                        PageService pages, DisplayNames names, com.lovesite.space.SignupProperties signup) {
+        this.signup = signup;
         this.pages = pages;
         this.names = names;
         this.queue = queue;
@@ -155,7 +157,7 @@ public class MediaService {
 
             long size = file.sizeBytes() == null ? 0 : file.sizeBytes();
             if (size <= 0) return UploadItem.error(clientId, "Dosya boş");
-            long limit = properties.limitBytes(resolved.get().kind());
+            long limit = limitBytes(spaceId, resolved.get().kind());
             if (size > limit) {
                 return UploadItem.error(clientId, "Dosya çok büyük (sınır " + limit / (1024 * 1024) + " MB)");
             }
@@ -233,6 +235,13 @@ public class MediaService {
                 .map(existing -> UploadItem.duplicate(clientId, existing.getId()));
     }
 
+    /** Largest single file of this kind the space may upload: free (signup) spaces take only short videos. */
+    private long limitBytes(UUID spaceId, MediaKind kind) {
+        long limit = properties.limitBytes(kind);
+        if (kind == MediaKind.VIDEO && quota.isFree(spaceId)) limit = Math.min(limit, signup.freeMaxVideoSize().toBytes());
+        return limit;
+    }
+
     /** Verifies the stored object with HeadObject. Safe to call repeatedly. */
     public MediaResponse complete(CurrentUser me, UUID mediaId) {
         Media m = find(me, mediaId);
@@ -244,7 +253,7 @@ public class MediaService {
                 .orElseThrow(() -> ApiException.conflict("Dosya henüz yüklenmedi"));
 
         long actualSize = head.contentLength() == null ? 0 : head.contentLength();
-        long limit = properties.limitBytes(m.getType());
+        long limit = limitBytes(m.getSpaceId(), m.getType());
         String problem = null;
         if (actualSize <= 0) {
             problem = "Yüklenen dosya boş";

@@ -27,6 +27,11 @@ public class QuotaService {
         return jdbc.queryForObject("SELECT storage_limit_bytes FROM space WHERE id = ? FOR UPDATE", Long.class, spaceId);
     }
 
+    /** FREE spaces (public signup) have extra limits, e.g. on video size. */
+    public boolean isFree(UUID spaceId) {
+        return "FREE".equals(jdbc.queryForObject("SELECT kind FROM space WHERE id = ?", String.class, spaceId));
+    }
+
     public long usage(UUID spaceId) {
         return usageExcluding(spaceId, null);
     }

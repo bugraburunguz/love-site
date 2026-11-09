@@ -153,6 +153,42 @@ Proxy'den bir container okunduğunda ortam değişkenleri de, yani `love.env` / 
    ```
 4. Merge'den sonraki love-site deploy'u (otomatik) Dozzle'ı ve proxy'yi başlatır. Görmelisin: adres önce şifre sorar, sonra container listesi gelir.
 
+## 6b. Disk ve depolama limitleri (LS-7)
+
+Fotoğraflar, veritabanı, imajlar ve build cache aynı diski (38 GB) paylaşır. Deploy sırasında oluşan build cache ve yeni imajlar için ~6–8 GB pay bırakılır, fotoğraflar için güvenli bütçe ~15 GB'dır.
+
+| Alan | Limit |
+|---|---|
+| Kayıtla açılan (ücretsiz) | 50 MB, tek video en çok 20 MB |
+| Ücretsiz alanların toplamı | 3 GB (≈ 61 alan); dolunca `/kayit` "Şu an yeni kayıt alınmıyor" der |
+| Davetle açılan | admin formunda 1 GB önerilir, gerekirse elle artırılır |
+| İlk alan | 5 GB |
+
+Bu değerler `love.env`'deki `SIGNUP_*` değişkenleriyle değiştirilebilir (bkz. kök `README.md`). Limitlerin toplamı diskten büyük olabilir, çünkü çoğu alan limitine yaklaşmaz. Asıl güvence aşağıdaki disk uyarısıdır.
+
+**Eski 400 GB'lık ilk alan:** `/admin` → alan → **Limiti değiştir** → `5`. Kod mevcut alanların limitine dokunmaz.
+
+**Disk uyarısı (bir kez kurulur).** Disk %85'i geçince bildirim gönderir: kayıt yazar, ayarlıysa telefona ntfy bildirimi yollar.
+
+1. Telefona **ntfy** uygulamasını kur ve uzun, tahmin edilemez bir konu adına abone ol. Konu adını rastgele üret:
+   ```bash
+   openssl rand -hex 16 | pbcopy
+   ```
+2. Sunucuda, panodaki değeri `<konu>` yerine koyarak çalıştır:
+   ```bash
+   umask 077 && echo 'NTFY_URL=https://ntfy.sh/<konu>' > ~/.disk-alert.env
+   ```
+3. Cron'a ekle (30 dakikada bir; disk dolu kaldığı sürece günde en çok bir bildirim):
+   ```bash
+   (crontab -l 2>/dev/null; echo '*/30 * * * * /srv/src/love-site/deploy/vds/scripts/disk-alert.sh >> /srv/backups/disk-alert.log 2>&1') | crontab -
+   ```
+4. Dene. Eşik 0 olunca uyarı hemen tetiklenir; telefona bildirim gelmeli:
+   ```bash
+   rm -f ~/.disk-alert.last && DISK_ALERT_THRESHOLD=0 /srv/src/love-site/deploy/vds/scripts/disk-alert.sh && rm -f ~/.disk-alert.last
+   ```
+
+Yer daralırsa önce build cache'i temizle: `docker builder prune -f`.
+
 ## 7. Güncelleme (her yeni sürümde)
 
 Kurulduktan sonra otomatik olur (aşağıdaki bölüm). Elle yapmak gerekirse:

@@ -120,6 +120,36 @@
   color: var(--rose-deep);
 }
 
+.space-panel__note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.plain-form .plain-form__check {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.plain-form__check input {
+  margin-top: 4px;
+}
+
+.plain-form__hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.admin-kind {
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgba(120, 90, 60, 0.12);
+}
+
 .admin-list {
   list-style: none;
   padding: 0;

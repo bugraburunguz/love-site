@@ -19,7 +19,20 @@ Users are only created when absent; changing a password env var later does not c
 |---|---|---|
 | `ADMIN_EMAIL` | empty | this account is the platform admin (`/admin`); it must already exist (e.g. `USER1_EMAIL`) |
 | `INITIAL_SPACE_NAME` | `Bizim Alanımız` | name of the first space (existing data / first install) |
-| `INITIAL_SPACE_LIMIT_GB` | `400` | its storage limit |
+| `INITIAL_SPACE_LIMIT_GB` | `5` | its storage limit |
+
+### Public signup (LS-7)
+
+Anyone can sign up at `/kayit`; the account becomes the owner of a **FREE** space and may invite one partner like every owner.
+Admin-created (invited) spaces are unaffected; the admin form suggests 1 GB.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SIGNUP_ENABLED` | `true` | `false` closes signup (the page then says no new signups are accepted) |
+| `SIGNUP_FREE_LIMIT` | `50MB` | storage of every FREE space |
+| `SIGNUP_FREE_TOTAL` | `3GB` | number of FREE spaces × `SIGNUP_FREE_LIMIT` may not exceed this; then signup closes |
+| `SIGNUP_FREE_MAX_VIDEO` | `20MB` | largest single video in a FREE space |
+| `SIGNUP_PER_IP` | `3` | signups per address per hour (there is no e-mail verification) |
 
 `USER1_*` / `USER2_*` are only used for the **first** space (USER1 owner, USER2 member). Every other couple joins through
 an invitation, never through environment variables.
