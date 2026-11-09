@@ -99,6 +99,7 @@ app:
     free-max-video-size: ${SIGNUP_FREE_MAX_VIDEO:20MB}
     per-ip: ${SIGNUP_PER_IP:3}
     window: 1h
+    per-day: ${SIGNUP_PER_DAY:10}
   seed:
     user1:
       email: ${USER1_EMAIL:}

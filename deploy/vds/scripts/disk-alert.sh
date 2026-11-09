@@ -9,7 +9,8 @@
 #   NTFY_URL=https://ntfy.sh/<long-random-topic>
 #
 # Overrides: DISK_ALERT_THRESHOLD (percent, default 85), DISK_ALERT_PATH (default /), DISK_ALERT_ENV, DISK_ALERT_STATE.
-set -euo pipefail
+# No `set -e`: on a 100% full disk writing the log or the state file fails, and the alert must still go out.
+set -uo pipefail
 
 THRESHOLD="${DISK_ALERT_THRESHOLD:-85}"
 CHECK_PATH="${DISK_ALERT_PATH:-/}"
@@ -22,7 +23,10 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
 fi
 
-used=$(df --output=pcent "$CHECK_PATH" | tail -n 1 | tr -dc '0-9')
+if ! used=$(df --output=pcent "$CHECK_PATH" | tail -n 1 | tr -dc '0-9') || [[ -z "$used" ]]; then
+  echo "$(date '+%F %T') cannot read disk usage of $CHECK_PATH" >&2
+  exit 1
+fi
 avail=$(df -h --output=avail "$CHECK_PATH" | tail -n 1 | tr -d ' ')
 now=$(date '+%F %T')
 

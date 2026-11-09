@@ -33,6 +33,7 @@ class SignupTest {
     static void properties(DynamicPropertyRegistry r) {
         TestInfrastructure.register(r);
         r.add("app.signup.per-ip", () -> "3");
+        r.add("app.signup.per-day", () -> "1000");
     }
 
     @Autowired MockMvc mvc;
@@ -105,6 +106,16 @@ class SignupTest {
     }
 
     @Test
+    void ipv6AddressesOfOneNetworkShareTheirLimit() throws Exception {
+        String net = "2001:db8:" + Integer.toHexString(1 + (int) (Math.random() * 60000)) + ":7:";
+        for (int i = 0; i < 3; i++) {
+            assertThat(signup("v6-" + i + "-" + tag + "@x.io", true, net + ":" + (i + 1)).getResponse().getStatus()).isEqualTo(200);
+        }
+        // another address of the same /64 is the same caller
+        assertThat(signup("v6-3-" + tag + "@x.io", true, net + "abcd:1:2:3").getResponse().getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void aSignedInUserCannotSignUpAgain() throws Exception {
         String email = "member-" + tag + "@x.io";
         TenantFixtures.spaceWithOwner(jdbc, "S " + tag, TenantFixtures.GIB, email);
@@ -123,6 +134,27 @@ class SignupTest {
 
         assertThat(uploadResult(email, album, "big.mp4", "video/mp4", 25 * MB)).isEqualTo("ERROR");
         assertThat(uploadResult(email, album, "short.mp4", "video/mp4", 15 * MB)).isEqualTo("PRESIGNED");
+    }
+
+    @Test
+    void aVideoThatTurnsOutBiggerThanDeclaredIsRejectedAtCompletion() throws Exception {
+        String email = "liar-" + tag + "@x.io";
+        assertThat(signup(email, true, ip()).getResponse().getStatus()).isEqualTo(200);
+        UUID album = album(email, TenantFixtures.spaceOf(jdbc, email));
+        String body = "{\"files\":[{\"clientId\":\"c1\",\"filename\":\"a.mp4\",\"contentType\":\"video/mp4\",\"sizeBytes\":" + 15 * MB
+                + ",\"sha256\":\"" + UUID.randomUUID().toString().replace("-", "").repeat(2) + "\"}]}";
+        String res = mvc.perform(post("/api/albums/" + album + "/uploads").with(user(email)).with(csrf()).header("X-Forwarded-For", ip())
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse().getContentAsString();
+        String mediaId = JsonPath.read(res, "$.items[0].mediaId");
+
+        // the client ignores what it declared and stores 25 MB under the reserved key
+        String key = jdbc.queryForObject("SELECT original_key FROM media WHERE id = ?::uuid", String.class, mediaId);
+        TestInfrastructure.ADMIN.putObject(b -> b.bucket(TestInfrastructure.BUCKET).key(key).contentType("video/mp4"),
+                software.amazon.awssdk.core.sync.RequestBody.fromBytes(new byte[(int) (25 * MB)]));
+
+        MvcResult done = mvc.perform(post("/api/media/" + mediaId + "/complete").with(user(email)).with(csrf())).andReturn();
+        assertThat(done.getResponse().getStatus()).isEqualTo(422);
+        assertThat(jdbc.queryForObject("SELECT status FROM media WHERE id = ?::uuid", String.class, mediaId)).isEqualTo("REJECTED");
     }
 
     @Test

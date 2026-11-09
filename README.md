@@ -32,7 +32,11 @@ Admin-created (invited) spaces are unaffected; the admin form suggests 1 GB.
 | `SIGNUP_FREE_LIMIT` | `50MB` | storage of every FREE space |
 | `SIGNUP_FREE_TOTAL` | `3GB` | number of FREE spaces × `SIGNUP_FREE_LIMIT` may not exceed this; then signup closes |
 | `SIGNUP_FREE_MAX_VIDEO` | `20MB` | largest single video in a FREE space |
-| `SIGNUP_PER_IP` | `3` | signups per address per hour (there is no e-mail verification) |
+| `SIGNUP_PER_IP` | `3` | signups per address (IPv6: per /64) per hour (there is no e-mail verification) |
+| `SIGNUP_PER_DAY` | `10` | all signups together per day, so many addresses cannot drain the free pool at once |
+
+The limits are kept in memory and reset when the app restarts (every deploy). Signup tells whether an e-mail already has
+an account (409), like any open signup; there is no e-mail verification.
 
 `USER1_*` / `USER2_*` are only used for the **first** space (USER1 owner, USER2 member). Every other couple joins through
 an invitation, never through environment variables.

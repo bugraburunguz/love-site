@@ -51,5 +51,14 @@ check "failed send leaves no state" "[[ ! -f $work/state ]]"
 DISK_ALERT_THRESHOLD=0 run
 check "retry after a failed send" "[[ \$(wc -l < $work/curl.log) -eq 2 ]]"
 
+# the state file cannot be written (full disk): the notification still goes out
+rm -f "$work/state" "$work/curl.log"
+DISK_ALERT_STATE=/nonexistent-dir/state DISK_ALERT_THRESHOLD=0 run
+check "unwritable state still notifies" "[[ \$(wc -l < $work/curl.log) -eq 1 ]]"
+
+# an unreadable path is an error, not a silent ok
+DISK_ALERT_PATH=/does-not-exist DISK_ALERT_THRESHOLD=0 run
+check "unreadable path exits non-zero" "[[ $? -ne 0 ]]"
+
 echo "$pass passed, $fail failed"
 [[ $fail -eq 0 ]]

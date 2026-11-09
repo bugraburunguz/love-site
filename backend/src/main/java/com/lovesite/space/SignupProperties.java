@@ -18,6 +18,9 @@ public record SignupProperties(
         @DefaultValue("3GB") DataSize freeTotal,
         /** largest single video a free space may upload */
         @DefaultValue("20MB") DataSize freeMaxVideoSize,
+        /** signups per address (IPv6: per /64 network) per window */
         @DefaultValue("3") int perIp,
-        @DefaultValue("1h") Duration window) {
+        @DefaultValue("1h") Duration window,
+        /** all signups together per day: many addresses cannot drain the free pool in one go */
+        @DefaultValue("10") int perDay) {
 }
