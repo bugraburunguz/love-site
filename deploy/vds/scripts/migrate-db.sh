@@ -27,7 +27,7 @@ case "$SOURCE_DATABASE_URL" in
   *) echo "SOURCE_DATABASE_URL must start with postgres:// or postgresql://" >&2; exit 2 ;;
 esac
 
-CLIENT_IMAGE=postgres:17
+CLIENT_IMAGE=postgres:18
 DUMP_DIR=/srv/backups/migrate
 DUMP_NAME="${DB}_$(date +%Y%m%d-%H%M%S).dump"
 mkdir -p "$DUMP_DIR"
@@ -40,8 +40,8 @@ TABLES_SQL="SELECT format('%I.%I', table_schema, table_name) FROM information_sc
 echo "1/4 checks"
 SOURCE_VERSION=$(src -c 'SHOW server_version_num')
 echo "    source server: $(src -c 'SHOW server_version')"
-if [ "$SOURCE_VERSION" -ge 180000 ]; then
-  echo "source is newer than Postgres 17: raise CLIENT_IMAGE here and the postgres image in compose.yml first" >&2
+if [ "$SOURCE_VERSION" -ge 190000 ]; then
+  echo "source is newer than Postgres 18: raise CLIENT_IMAGE here and the postgres image in compose.yml first" >&2
   exit 3
 fi
 IN_TARGET=$(dst -c "SELECT count(*) FROM ($TABLES_SQL) t")
