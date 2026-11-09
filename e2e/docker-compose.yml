@@ -7,7 +7,7 @@ name: love-site-e2e
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_PASSWORD: e2e-db-password
       POSTGRES_DB: love

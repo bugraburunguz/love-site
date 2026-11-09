@@ -29,9 +29,9 @@ COPY renderer/driver.mjs ./
 # Pinned to Ubuntu 24.04 (noble): Playwright (the export renderer) does not support newer Ubuntu releases yet
 FROM eclipse-temurin:21-jre-noble
 # pg_dump must be at least as new as the Postgres server it dumps (the nightly database backup). The distro package is
-# older than the server Railway runs, so the client comes from the PostgreSQL apt repository. Bump PG_CLIENT_MAJOR together
-# with the database version.
-ARG PG_CLIENT_MAJOR=17
+# older than the production server (Postgres 18), so the client comes from the PostgreSQL apt repository. Bump
+# PG_CLIENT_MAJOR together with the database version (and backend/test.Dockerfile, the test Postgres images).
+ARG PG_CLIENT_MAJOR=18
 # libheif-plugin-libde265 is the HEVC decoder libvips needs for iPhone HEIC photos (only "recommended", so it must be named).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libvips-tools libheif1 libheif-plugin-libde265 ca-certificates postgresql-common \
