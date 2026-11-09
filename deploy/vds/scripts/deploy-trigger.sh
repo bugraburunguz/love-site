@@ -83,11 +83,9 @@ if ! docker compose build "$service"; then
   git -C "$dir" reset --hard "$prev"
   exit 1
 fi
-docker compose "${up[@]}"
-
 echo "== waiting for $service"
-if ! wait_healthy; then
-  echo "== $service not healthy after ${HEALTH_TIMEOUT}s; last log lines:" >&2
+if ! docker compose "${up[@]}" || ! wait_healthy; then
+  echo "== $service did not start or is not healthy after ${HEALTH_TIMEOUT}s; last log lines:" >&2
   docker compose logs --tail 40 "$service" >&2 || true
   echo "== going back to $prev" >&2
   git -C "$dir" reset --hard "$prev"

@@ -26,6 +26,8 @@ echo "docker \$*" >> "$WORK/calls"
 # only the first build fails, so the rollback build succeeds
 case "\$*" in "compose build"*) [ -n "\${FAIL_BUILD:-}" ] && [ ! -e "$WORK/built" ] && { touch "$WORK/built"; exit 1; } ;; esac
 case "\$*" in *"exec -T fc-backend"*) [ -n "\${FAIL_HEALTH:-}" ] && exit 1 ;; esac
+# only the first up fails (a stack config the new commit broke), so the rollback up succeeds
+case "\$*" in "compose up"*) [ -n "\${FAIL_UP:-}" ] && [ ! -e "$WORK/upped" ] && { touch "$WORK/upped"; exit 1; } ;; esac
 exit 0
 EOF
 cat > "$WORK/bin/curl" <<EOF
@@ -38,7 +40,7 @@ chmod +x "$WORK/bin/git" "$WORK/bin/docker" "$WORK/bin/curl"
 
 run() { # run <SSH_ORIGINAL_COMMAND>; sets $status and $calls
   : > "$WORK/calls"
-  rm -f "$WORK/built"
+  rm -f "$WORK/built" "$WORK/upped"
   SSH_ORIGINAL_COMMAND="$1" PATH="$WORK/bin:$PATH" HOME="$WORK/home" SRC_ROOT="$WORK/src" HEALTH_TIMEOUT=2 \
     bash "$WORK/vds/scripts/deploy-trigger.sh" > "$WORK/out" 2>&1
   status=$?
@@ -94,6 +96,12 @@ FAIL_HEALTH=1 run fc-backend
   && [ "$(grep -c '^docker compose build fc-backend' <<< "$calls")" = 2 ] \
   && [ "$(grep -c '^docker compose up -d --no-deps fc-backend' <<< "$calls")" = 2 ]
 check "a failed health check rebuilds and restarts the previous commit" $?
+
+FAIL_UP=1 run love
+[ "$status" = 1 ] \
+  && grep -qx "git -C $WORK/src/love-site reset --hard prev123" <<< "$calls" \
+  && [ "$(grep -c '^docker compose up -d$' <<< "$calls")" = 2 ]
+check "a failed up goes back to the previous commit and applies it again" $?
 
 printf 'LOVE_DOMAIN=\nFC_DOMAIN=fc.test\n' > "$WORK/vds/.env"
 run love

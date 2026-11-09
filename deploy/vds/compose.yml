@@ -24,6 +24,10 @@ services:
       LOVE_DOMAIN: ${LOVE_DOMAIN:?LOVE_DOMAIN}
       LOVE_S3_DOMAIN: ${LOVE_S3_DOMAIN:?LOVE_S3_DOMAIN}
       FC_DOMAIN: ${FC_DOMAIN:?FC_DOMAIN}
+      LOGS_DOMAIN: ${LOGS_DOMAIN:?LOGS_DOMAIN}
+      LOGS_FC_DOMAIN: ${LOGS_FC_DOMAIN:?LOGS_FC_DOMAIN}
+      LOGS_USER: ${LOGS_USER:?LOGS_USER}
+      LOGS_PASSWORD_HASH: ${LOGS_PASSWORD_HASH:?LOGS_PASSWORD_HASH}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -35,6 +39,8 @@ services:
         aliases:
           - ${LOVE_S3_DOMAIN}
     mem_limit: 128m
+    # each wrong log-page password costs a bcrypt check: bots guessing in parallel must not take every core
+    cpus: 1
     logging: *logging
 
   postgres:
@@ -145,6 +151,62 @@ services:
       ML_SHARED_SECRET: ${FC_ML_SHARED_SECRET:-}
     mem_limit: 512m
     logging: *logging
+
+  # Logs in the browser (Dozzle), behind Caddy's password (Caddyfile, LOGS_*). logs-all shows every container,
+  # logs-fc only FC Assist's. Dozzle never gets the Docker socket itself: docker-ro lets it list containers and read
+  # their logs and stats, and refuses everything else (no POST: no start, stop, exec or new containers).
+  # Reading a container still returns its environment (every password in love.env / fc.env), so docker-ro lives on
+  # its own internal network that only the two Dozzle containers join: the apps cannot reach it.
+  docker-ro:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    networks: [dockerapi]
+    environment:
+      CONTAINERS: "1"
+      INFO: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 64m
+    logging: *logging
+
+  logs-all:
+    image: amir20/dozzle:v11.3.5
+    restart: unless-stopped
+    networks: [default, dockerapi]
+    environment: &dozzle-env
+      DOCKER_HOST: tcp://docker-ro:2375
+      DOZZLE_HOSTNAME: vds
+      DOZZLE_ENABLE_ACTIONS: "false"
+      DOZZLE_ENABLE_SHELL: "false"
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_RELEASE_CHECK_MODE: manual
+      DOZZLE_IMAGE_CHECK_MODE: "off"
+      DOZZLE_DISABLE_SETUP_WIZARD: "true"
+    depends_on:
+      - docker-ro
+    mem_limit: 64m
+    logging: *logging
+
+  logs-fc:
+    image: amir20/dozzle:v11.3.5
+    restart: unless-stopped
+    networks: [default, dockerapi]
+    environment:
+      <<: *dozzle-env
+      DOZZLE_HOSTNAME: fc-assist
+      # compose names the containers vds-<service>-1
+      DOZZLE_FILTER: name=vds-fc-
+    depends_on:
+      - docker-ro
+    mem_limit: 64m
+    logging: *logging
+
+networks:
+  default:
+  # no route out and no app on it: only docker-ro and the Dozzle containers
+  dockerapi:
+    internal: true
 
 volumes:
   caddy-data:

@@ -17,6 +17,22 @@
 	reverse_proxy garage:3900
 }
 
+# Container logs (Dozzle). Logs carry e-mail addresses and the like, so both are behind a password; LOGS_PASSWORD_HASH
+# is a bcrypt hash (caddy hash-password), the password itself is never stored on the server.
+{$LOGS_DOMAIN} {
+	basic_auth {
+		{$LOGS_USER} {$LOGS_PASSWORD_HASH}
+	}
+	reverse_proxy logs-all:8080
+}
+
+{$LOGS_FC_DOMAIN} {
+	basic_auth {
+		{$LOGS_USER} {$LOGS_PASSWORD_HASH}
+	}
+	reverse_proxy logs-fc:8080
+}
+
 # FC Assist: nginx (SPA + /api proxy) behind Caddy.
 {$FC_DOMAIN} {
 	encode zstd gzip
