@@ -33,10 +33,11 @@ class FreeSpaceCleanupTest {
     Fixture space(String kind, int ageDays) {
         String email = "clean-" + UUID.randomUUID().toString().substring(0, 8) + "@x.io";
         UUID space = UUID.randomUUID();
+        Timestamp at = Timestamp.from(Instant.now().minus(ageDays, ChronoUnit.DAYS));
         jdbc.update("INSERT INTO space (id, name, storage_limit_bytes, kind, created_at) VALUES (?, 'C', ?, ?, ?)",
-                space, 50L * 1024 * 1024, kind, Timestamp.from(Instant.now().minus(ageDays, ChronoUnit.DAYS)));
+                space, 50L * 1024 * 1024, kind, at);
         UUID owner = TenantFixtures.user(jdbc, email, "C", false);
-        TenantFixtures.member(jdbc, space, owner, "OWNER");
+        jdbc.update("INSERT INTO space_member (space_id, user_id, role, joined_at) VALUES (?, ?, 'OWNER', ?)", space, owner, at);
         return new Fixture(space, owner, email);
     }
 
@@ -57,9 +58,13 @@ class FreeSpaceCleanupTest {
     @Test
     void anOldEmptyFreeSpaceGoesWithItsAccountsAndSessions() {
         Fixture empty = space("FREE", 31);
-        album(empty); // an album without anything in it does not count as content
+        UUID emptyAlbum = album(empty); // an album without anything in it does not count as content
+        jdbc.update("INSERT INTO page (album_id, space_id, page_index, template) VALUES (?, ?, 0, 'AUTO')", emptyAlbum, empty.space());
+        jdbc.update("INSERT INTO invitation (token_hash, space_id, role, created_by, expires_at) VALUES (?, ?, 'MEMBER', ?, now())",
+                UUID.randomUUID().toString().replace("-", ""), empty.space(), empty.owner());
         UUID partner = TenantFixtures.user(jdbc, "partner-" + empty.email(), "P", false);
-        TenantFixtures.member(jdbc, empty.space(), partner, "MEMBER");
+        jdbc.update("INSERT INTO space_member (space_id, user_id, role, joined_at) VALUES (?, ?, 'MEMBER', now() - interval '31 days')",
+                empty.space(), partner);
         jdbc.update("INSERT INTO invitation (token_hash, space_id, role, created_by, expires_at, used_at, used_by) "
                 + "VALUES (?, ?, 'MEMBER', ?, now(), now(), ?)", UUID.randomUUID().toString().replace("-", ""), empty.space(), empty.owner(), partner);
         jdbc.update("INSERT INTO spring_session (primary_id, session_id, creation_time, last_access_time, max_inactive_interval, expiry_time, principal_name) "
@@ -90,9 +95,18 @@ class FreeSpaceCleanupTest {
         Fixture withSong = space("FREE", 60);
         jdbc.update("UPDATE album SET music_size_bytes = 100 WHERE id = ?", album(withSong));
 
+        // the age counts from the newest member: a partner who joined last week gets their own 30 days
+        Fixture newPartner = space("FREE", 60);
+        UUID partner = TenantFixtures.user(jdbc, "new-partner-" + newPartner.email(), "P", false);
+        TenantFixtures.member(jdbc, newPartner.space(), partner, "MEMBER");
+
+        // a space with the platform admin as a member is never removed automatically
+        Fixture withAdmin = space("FREE", 60);
+        jdbc.update("UPDATE app_user SET is_admin = true WHERE id = ?", withAdmin.owner());
+
         job.cleanup(Instant.now());
 
-        for (Fixture f : new Fixture[] {young, invited, withPhoto, withNote, withSong}) {
+        for (Fixture f : new Fixture[] {young, invited, withPhoto, withNote, withSong, newPartner, withAdmin}) {
             assertThat(exists(f.space())).as(f.email()).isTrue();
             assertThat(users(f.email())).as(f.email()).isOne();
         }

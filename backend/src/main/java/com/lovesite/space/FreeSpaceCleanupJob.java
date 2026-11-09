@@ -30,7 +30,10 @@ public class FreeSpaceCleanupJob {
             + "AND NOT EXISTS (SELECT 1 FROM album a WHERE a.space_id = s.id AND (a.music_key IS NOT NULL OR a.music_size_bytes IS NOT NULL "
             + "OR a.music_pending_key IS NOT NULL)) "
             + "AND NOT EXISTS (SELECT 1 FROM day_note d WHERE d.space_id = s.id) "
-            + "AND NOT EXISTS (SELECT 1 FROM special_day x WHERE x.space_id = s.id)";
+            + "AND NOT EXISTS (SELECT 1 FROM special_day x WHERE x.space_id = s.id) "
+            // the age counts from the newest member (a partner who just joined gets their own 30 days); never the admin's space
+            + "AND NOT EXISTS (SELECT 1 FROM space_member sm JOIN app_user u ON u.id = sm.user_id "
+            + "WHERE sm.space_id = s.id AND (sm.joined_at >= ? OR u.is_admin))";
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -60,8 +63,13 @@ public class FreeSpaceCleanupJob {
     public int cleanup(Instant now) {
         Timestamp cutoff = Timestamp.from(now.minus(properties.freeEmptyTtl()));
         int removed = 0;
-        for (UUID spaceId : jdbc.queryForList(EMPTY_FREE_SPACES, UUID.class, cutoff)) {
-            if (remove(spaceId, cutoff)) removed++;
+        for (UUID spaceId : jdbc.queryForList(EMPTY_FREE_SPACES, UUID.class, cutoff, cutoff)) {
+            try {
+                if (remove(spaceId, cutoff)) removed++;
+            } catch (RuntimeException e) {
+                // one space must not keep the others waiting until tomorrow
+                log.warn("Could not remove empty free space {}: {}", spaceId, e.toString());
+            }
         }
         if (removed > 0) log.info("Free space cleanup removed {} empty free space(s)", removed);
         return removed;
@@ -70,8 +78,9 @@ public class FreeSpaceCleanupJob {
     private boolean remove(UUID spaceId, Timestamp cutoff) {
         Boolean done = tx.execute(status -> {
             // re-checked under the space lock: an upload or note that arrived meanwhile keeps the space
-            jdbc.queryForObject("SELECT id FROM space WHERE id = ? FOR UPDATE", UUID.class, spaceId);
-            List<UUID> still = jdbc.queryForList(EMPTY_FREE_SPACES + " AND s.id = ?", UUID.class, cutoff, spaceId);
+            // (the space may be gone already, e.g. its owner deleted the account meanwhile)
+            if (jdbc.queryForList("SELECT id FROM space WHERE id = ? FOR UPDATE", UUID.class, spaceId).isEmpty()) return false;
+            List<UUID> still = jdbc.queryForList(EMPTY_FREE_SPACES + " AND s.id = ?", UUID.class, cutoff, cutoff, spaceId);
             if (still.isEmpty()) return false;
             List<UUID> members = jdbc.queryForList("SELECT user_id FROM space_member WHERE space_id = ?", UUID.class, spaceId);
             jdbc.update("DELETE FROM page_item WHERE space_id = ?", spaceId);
