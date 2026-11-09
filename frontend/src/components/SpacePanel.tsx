@@ -79,6 +79,7 @@ export default function SpacePanel() {
         max={1}
         aria-label="Kullanılan depolama"
       />
+      {space.kind === 'FREE' && <p className="space-panel__note">Ücretsiz defter: yalnızca kısa videolar yüklenebilir. 30 gün içinde hiçbir şey eklenmezse defter silinir.</p>}
       {full && <p role="alert" className="space-panel__warn">Depolama alanınız dolu. Yeni dosya yükleyemezsiniz; silinenler 30 gün sonra yer açar.</p>}
       {nearly && <p className="space-panel__warn">Depolama alanınız dolmak üzere.</p>}
 

@@ -25,6 +25,7 @@ import static com.lovesite.role.AppRole.WORKER;
  * | EXPORT_CLEANUP          |  x  |     |   x    |  every 10 min: export files older than 24 h are deleted
  * | TRASH_PURGE             |  x  |     |   x    |  daily 03:30: deleted media / albums older than 30 days go for good
  * | PENDING_UPLOAD_CLEANUP  |  x  |     |   x    |  hourly: uploads that never completed
+ * | FREE_SPACE_CLEANUP      |  x  |     |   x    |  daily 03:45: free (signup) spaces still empty after 30 days go
  * | BACKUP                  |  x  |     |   x    |  daily 04:00 + runs requested from the admin screen (ops_request)
  * | BACKUP_RECOVERY         |  x  |     |   x    |  at startup: a RUNNING backup record of a dead worker becomes FAILED
  * | BUCKET_CORS             |  x  |  x  |        |  at startup: PutBucketCors for the browser origins
@@ -45,6 +46,7 @@ public class Roles {
         EXPORT_CLEANUP(ALL, WORKER),
         TRASH_PURGE(ALL, WORKER),
         PENDING_UPLOAD_CLEANUP(ALL, WORKER),
+        FREE_SPACE_CLEANUP(ALL, WORKER),
         BACKUP(ALL, WORKER),
         BACKUP_RECOVERY(ALL, WORKER),
         BUCKET_CORS(ALL, WEB),

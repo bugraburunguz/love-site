@@ -104,7 +104,7 @@ class InvitationTest {
         // accepting creates the account and signs it in
         String ownerEmail = "ayse-" + tag + "@x.io";
         MvcResult accepted = json(post("/api/invites/" + ownerToken + "/accept"), null,
-                "{\"displayName\":\"Ayşe\",\"email\":\"" + ownerEmail.toUpperCase() + "\",\"password\":\"uzun-bir-sifre\"}");
+                "{\"displayName\":\"Ayşe\",\"email\":\"" + ownerEmail.toUpperCase(java.util.Locale.ROOT) + "\",\"password\":\"uzun-bir-sifre\"}");
         assertThat(accepted.getResponse().getStatus()).isEqualTo(200);
         assertThat(JsonPath.<String>read(accepted.getResponse().getContentAsString(), "$.role")).isEqualTo("OWNER");
         assertThat(JsonPath.<String>read(accepted.getResponse().getContentAsString(), "$.spaceName")).isEqualTo("Ayşe ve Ali");

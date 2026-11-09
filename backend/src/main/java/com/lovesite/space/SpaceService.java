@@ -19,11 +19,12 @@ public class SpaceService {
 
     /** What a member sees about their own space. */
     public record SpaceInfo(UUID id, String name, String role, List<Member> members, long usedBytes, long limitBytes,
-                            int maxMembers, boolean canInvite) {
+                            int maxMembers, boolean canInvite, String kind) {
     }
 
-    /** What the platform admin sees: numbers and names only, never content. */
-    public record AdminSpace(UUID id, String name, List<Member> members, long usedBytes, long limitBytes, Instant createdAt) {
+    /** What the platform admin sees: numbers and names only, never content. kind: INVITED or FREE (public signup). */
+    public record AdminSpace(UUID id, String name, List<Member> members, long usedBytes, long limitBytes, Instant createdAt,
+                             String kind) {
     }
 
     private final SpaceRepository spaces;
@@ -44,7 +45,7 @@ public class SpaceService {
         List<Member> members = members(spaceId);
         boolean canInvite = me.isOwner() && members.size() < properties.maxMembers();
         return new SpaceInfo(space.getId(), space.getName(), me.role(), members, quota.usage(spaceId),
-                space.getStorageLimitBytes(), properties.maxMembers(), canInvite);
+                space.getStorageLimitBytes(), properties.maxMembers(), canInvite, space.getKind());
     }
 
     public List<Member> members(UUID spaceId) {
@@ -86,7 +87,7 @@ public class SpaceService {
 
     public AdminSpace summary(Space space) {
         return new AdminSpace(space.getId(), space.getName(), members(space.getId()), quota.usage(space.getId()),
-                space.getStorageLimitBytes(), space.getCreatedAt());
+                space.getStorageLimitBytes(), space.getCreatedAt(), space.getKind());
     }
 
     private static long toBytes(double gb) {

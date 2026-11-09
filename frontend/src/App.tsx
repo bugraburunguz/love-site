@@ -5,6 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import ErrorScreen from './components/ErrorScreen'
 import InvitePage from './pages/InvitePage'
 import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
 import { AccountDeletionPage, PrivacyPage } from './pages/LegalPages'
 
 const AdminPage = lazy(() => import('./pages/AdminPage'))
@@ -31,6 +32,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/kayit" element={<SignupPage />} />
       {/* public: the store listings link here */}
       <Route path="/gizlilik" element={<PrivacyPage />} />
       <Route path="/hesap-silme" element={<AccountDeletionPage />} />

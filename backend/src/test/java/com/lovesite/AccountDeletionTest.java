@@ -263,7 +263,7 @@ class AccountDeletionTest {
     void theSeederNeverBringsADeletedAccountBack() {
         String gone = "gone-" + tag + "@x.io";
         String fresh = "fresh-" + tag + "@x.io";
-        jdbc.update("INSERT INTO deleted_account (email_sha256) VALUES (?)", AccountService.emailHash(gone.toUpperCase()));
+        jdbc.update("INSERT INTO deleted_account (email_sha256) VALUES (?)", AccountService.emailHash(gone.toUpperCase(java.util.Locale.ROOT)));
         new UserSeeder(new SeedProperties(new SeedProperties.Seed(gone, "Gone", "pw"), new SeedProperties.Seed(fresh, "Fresh", "pw")),
                 users, encoder, jdbc, spaceProperties, "", roles).run(null);
         assertThat(users.findByEmailIgnoreCase(gone)).isEmpty();

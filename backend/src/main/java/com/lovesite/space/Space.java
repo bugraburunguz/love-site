@@ -28,6 +28,10 @@ public class Space {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** INVITED (created by the admin) or FREE (public signup, see SignupService); set once, never changed here. */
+    @Column(nullable = false, updatable = false)
+    private String kind = "INVITED";
+
     protected Space() {
     }
 
@@ -50,6 +54,10 @@ public class Space {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getKind() {
+        return kind;
     }
 
     public void setName(String name) {

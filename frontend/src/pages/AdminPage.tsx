@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import {
-  adminBackupStatus, adminCreateSpace, adminListSpaces, adminReissueOwnerInvite, adminReprocessAll, adminRunBackup, adminUpdateSpace, formatBytes,
-  type AdminSpace, type BackupRun, type BackupStatus, type CreatedInvite,
+  adminBackupStatus, adminCreateSpace, adminListSpaces, adminReissueOwnerInvite, adminReprocessAll, adminRunBackup, adminSignupSummary,
+  adminUpdateSpace, formatBytes,
+  type AdminSpace, type BackupRun, type BackupStatus, type CreatedInvite, type SignupSummary,
 } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
 import Clay from '../components/Clay'
@@ -99,11 +100,14 @@ export default function AdminPage() {
   const [spaces, setSpaces] = useState<AdminSpace[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [limit, setLimit] = useState('50')
+  // invited spaces start at 1 GB: the whole server disk is ~38 GB, raise single spaces by hand when needed
+  const [limit, setLimit] = useState('1')
   const [invites, setInvites] = useState<Record<string, CreatedInvite>>({})
+  const [pool, setPool] = useState<SignupSummary | null>(null)
 
   const refresh = useCallback(() => {
     adminListSpaces().then(setSpaces).catch((e: Error) => setError(e.message))
+    adminSignupSummary().then(setPool).catch((e: Error) => setError(e.message))
   }, [])
   useEffect(refresh, [refresh])
 
@@ -180,6 +184,12 @@ export default function AdminPage() {
       <MaintenancePanel onError={setError} />
 
       <h2>Alanlar</h2>
+      {pool && (
+        <p>
+          Ücretsiz kayıt: {pool.enabled ? (pool.open ? 'açık' : 'dolu, kapalı') : 'kapalı'} · {pool.freeSpaces} ücretsiz alan,{' '}
+          {formatBytes(pool.freeSpaces * pool.freeLimitBytes)} / {formatBytes(pool.freeTotalBytes)}
+        </p>
+      )}
       {spaces === null ? (
         <p>Yükleniyor…</p>
       ) : (
@@ -187,7 +197,10 @@ export default function AdminPage() {
           {spaces.map((s) => (
             <li key={s.id}>
               <div className="admin-list__head">
-                <strong>{s.name}</strong>
+                <strong>
+                  {s.name}
+                  <span className="admin-kind">{s.kind === 'FREE' ? 'ücretsiz kayıt' : 'davetli'}</span>
+                </strong>
                 <span>
                   {formatBytes(s.usedBytes)} / {formatBytes(s.limitBytes)}
                 </span>

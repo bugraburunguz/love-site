@@ -98,6 +98,7 @@ export default function LoginPage() {
               Kapağı aç
             </Clay>
           </form>
+          <Link to="/kayit" className="login-book__privacy">Hesabın yok mu? Defterini aç</Link>
           <Link to="/gizlilik" className="login-book__privacy">Gizlilik</Link>
         </div>
       </div>

@@ -46,14 +46,14 @@ function LegalShell({ title, updated, children }: { title: string; updated: stri
   )
 }
 
-const UPDATED = '21 Ekim 2026'
+const UPDATED = '9 Kasım 2026'
 
 export function PrivacyPage() {
   const contact = useContact()
   return (
     <LegalShell title="Gizlilik Politikası" updated={UPDATED}>
       <p>
-        Anılarımız, çiftlerin yalnızca davetle girilen özel bir fotoğraf albümüdür. Herkese açık bir profil, arama ya da
+        Anılarımız, çiftlerin özel bir fotoğraf albümüdür: kendi defterini açarsın, partnerin davetle katılır. Herkese açık bir profil, arama ya da
         paylaşım akışı yoktur: bir alandaki içeriği yalnızca o alanın üyeleri görür.
       </p>
 
@@ -85,7 +85,7 @@ export function PrivacyPage() {
         <li>Her gece orijinal dosyaların ve veritabanının bir yedeği ayrı bir depolama alanına alınır. Veritabanı yedekleri 14 gün saklanır.</li>
         <li>Sildiğin fotoğraf, video ve albümler 30 gün çöpte bekler, sonra kalıcı olarak silinir; yedekteki kopyaları da bundan 30 gün sonra silinir.</li>
         <li>Paylaşım için hazırlanan dosyalar 24 saat sonra kendiliğinden silinir.</li>
-        <li>Hesabın, sen silene kadar saklanır.</li>
+        <li>Hesabın, sen silene kadar saklanır. Tek istisna: kayıtla açılan ücretsiz bir deftere 30 gün içinde hiç fotoğraf, video, şarkı ya da not eklenmezse defter ve üyelerinin hesapları kendiliğinden silinir.</li>
       </ul>
 
       <h2 id="hesap-silme">Hesabını silme</h2>

@@ -98,7 +98,11 @@ export interface SpaceInfo {
   limitBytes: number
   maxMembers: number
   canInvite: boolean
+  /** FREE: opened by public signup (small allowance, short videos only) */
+  kind: SpaceKind
 }
+
+export type SpaceKind = 'INVITED' | 'FREE'
 
 export interface CreatedInvite {
   spaceId: string
@@ -119,9 +123,28 @@ export interface AdminSpace {
   usedBytes: number
   limitBytes: number
   createdAt: string
+  kind: SpaceKind
 }
 
 export const adminListSpaces = () => api<AdminSpace[]>('/api/admin/spaces')
+
+/** The free pool: every signup takes freeLimitBytes; signup closes once freeTotalBytes would be exceeded. */
+export interface SignupSummary {
+  enabled: boolean
+  open: boolean
+  freeSpaces: number
+  freeLimitBytes: number
+  freeTotalBytes: number
+}
+
+export const adminSignupSummary = () => api<SignupSummary>('/api/admin/signup')
+
+export interface SignupStatus {
+  open: boolean
+  freeLimitBytes: number
+}
+
+export const signupStatus = () => api<SignupStatus>('/api/signup')
 export const adminCreateSpace = (name: string, limitGb: number) =>
   api<{ space: AdminSpace; invitation: CreatedInvite }>('/api/admin/spaces', { method: 'POST', body: { name, limitGb } })
 export const adminUpdateSpace = (id: string, patch: { name?: string; limitGb?: number }) =>
