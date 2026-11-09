@@ -22,7 +22,8 @@ public final class TestInfrastructure {
     public static final String S3_USER = "testaccesskey";
     public static final String S3_SECRET = "testsecretkey12345";
 
-    public static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
+    // Same major as production (Postgres 18): BackupTest's pg_dump refuses a server newer than itself.
+    public static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18");
     public static final GenericContainer<?> S3 = new GenericContainer<>("zenko/cloudserver:latest")
             .withEnv("S3BACKEND", "mem")
             // CloudServer only accepts hosts it knows as REST endpoints.

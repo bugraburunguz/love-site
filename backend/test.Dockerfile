@@ -6,6 +6,6 @@ FROM eclipse-temurin:21-jdk-noble
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libvips-tools libheif1 libheif-plugin-libde265 libheif-plugin-x265 ca-certificates postgresql-common \
     && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
-    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /w

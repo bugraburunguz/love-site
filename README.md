@@ -53,7 +53,7 @@ Optional limits (defaults in `application.yml`): `app.media.max-image-size` (30M
 
 ```bash
 # Postgres
-docker run -d --name lovesite-db -e POSTGRES_USER=lovesite -e POSTGRES_PASSWORD=lovesite -e POSTGRES_DB=lovesite -p 5432:5432 postgres:17
+docker run -d --name lovesite-db -e POSTGRES_USER=lovesite -e POSTGRES_PASSWORD=lovesite -e POSTGRES_DB=lovesite -p 5432:5432 postgres:18
 
 # Local S3 (any S3-compatible server works; the local profile expects minioadmin/minioadmin on :9000, bucket "lovesite")
 # Backend (profile "local" has DB, S3 and seed-user defaults, see application-local.yml)
@@ -373,9 +373,9 @@ at startup).
 Every night at 04:00 (Europe/Istanbul, after the 03:30 trash purge) the app runs, one after the other:
 
 - **database**: `pg_dump --format=custom` -> `db/YYYY-MM-DD.dump`; the newest 14 days are kept, older dated dumps are deleted.
-  The image contains `postgresql-client-17` from the PostgreSQL apt repository (`ARG PG_CLIENT_MAJOR` in the `Dockerfile`; the
+  The image contains `postgresql-client-18` from the PostgreSQL apt repository (`ARG PG_CLIENT_MAJOR` in the `Dockerfile`; the
   build prints the version and fails if it is not that major). **`pg_dump` must be at least as new as the database server**:
-  raise `PG_CLIENT_MAJOR` before upgrading the Railway Postgres. The password reaches `pg_dump` through `PGPASSWORD`, never
+  raise `PG_CLIENT_MAJOR` (and `backend/test.Dockerfile`, the test Postgres images) before upgrading the production Postgres. The password reaches `pg_dump` through `PGPASSWORD`, never
   through the command line.
 - **media**: the **originals and album songs only** (`spaces/...` keys, copied one-to-one; thumbnails, display images and loops are
   rebuilt by the queue). Incremental: an object that is already at the target with the same key and size is skipped. Copies are
