@@ -1,6 +1,6 @@
 # VDS taşıma runbook'u (LS-1): love-site + FC Assist → tek Ubuntu 24.04 sunucu
 
-Railway'den çıkış. Tek sunucuda: Caddy (HTTPS) · Postgres 17 (iki veritabanı) · Garage (love-site'ın S3 bucket'ı) ·
+Railway'den çıkış. Tek sunucuda: Caddy (HTTPS) · Postgres 18 (iki veritabanı) · Garage (love-site'ın S3 bucket'ı) ·
 love-web + love-worker · fc-backend + fc-web (+ isteğe bağlı fc-ml). Kurulumu Buğra yapar; her adımın "Görmelisin" satırı doğrulamadır.
 
 ```

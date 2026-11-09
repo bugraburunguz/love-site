@@ -38,7 +38,8 @@ services:
     logging: *logging
 
   postgres:
-    image: postgres:17
+    # same major as Railway's love-site database (18): a dump only restores into the same or a newer server
+    image: postgres:18
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}
@@ -48,7 +49,8 @@ services:
     command: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=768MB", "-c", "work_mem=8MB",
               "-c", "maintenance_work_mem=128MB", "-c", "max_connections=60"]
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # 18+ images keep the data in /var/lib/postgresql/18/docker and refuse a mount on the old .../data path
+      - pgdata:/var/lib/postgresql
       - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-apps.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
