@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useTheme, useThemeFonts } from '../themes/ThemeContext'
 import { ThemeSticker } from './ornaments/ThemeOrnaments'
 import { uiButtonClass } from './ui/Button'
+import './ui/ui.css'
 import './errorscreen.css'
 
 export type ErrorKind = 'notfound' | 'error'

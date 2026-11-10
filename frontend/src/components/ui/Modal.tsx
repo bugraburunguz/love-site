@@ -87,11 +87,10 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
             {eyebrow && <div className="ui-eyebrow">{eyebrow}</div>}
             <h2 id={titleId}>{title}</h2>
           </div>
-          {dismissable && (
-            <button type="button" className="ui-modal__close" onClick={onClose} aria-label="Kapat">
-              ×
-            </button>
-          )}
+          {/* disabled rather than removed while the dialog is busy: focus on it must not fall out of the dialog */}
+          <button type="button" className="ui-modal__close" onClick={onClose} aria-label="Kapat" disabled={!dismissable}>
+            ×
+          </button>
         </div>
         {children}
         {actions && <div className="ui-modal__actions">{actions}</div>}

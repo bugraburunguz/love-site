@@ -545,8 +545,13 @@
   cursor: pointer;
 }
 
-.ui-modal__close:hover {
+.ui-modal__close:hover:not(:disabled) {
   background: var(--ui-surface-sunk);
+}
+
+.ui-modal__close:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .ui-modal__actions {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Brand } from '../components/AuthLayout'
 import { uiButtonClass } from '../components/ui/Button'
+import '../components/ui/ui.css'
 import { getLegal, headingId } from '../legal/legal'
 import './legal.css'
 
@@ -37,6 +38,9 @@ function LegalShell({ title, updated, children }: { title: string; updated: stri
       h.id = h.id || headingId(text)
       return { id: h.id, text }
     }))
+    // a link straight to a section (/gizlilik#...) arrives before the ids exist: scroll once they do
+    const wanted = decodeURIComponent(window.location.hash.slice(1))
+    if (wanted) document.getElementById(wanted)?.scrollIntoView()
   }, [])
 
   return (

@@ -5,6 +5,7 @@ import {
   adminUpdateSpace, formatBytes,
   type AdminSpace, type BackupRun, type BackupStatus, type CreatedInvite, type SignupSummary,
 } from '../api/albums'
+import { spaceMatches, type SpaceFilter } from '../admin/spaceFilter'
 import { useAuth } from '../auth/AuthContext'
 import AppHeader from '../components/AppHeader'
 import BottomTabs from '../components/BottomTabs'
@@ -18,7 +19,7 @@ const GIB = 1024 ** 3
 
 const STATUS_LABEL: Record<BackupRun['status'], string> = { RUNNING: 'çalışıyor', OK: 'başarılı', FAILED: 'başarısız' }
 
-type Filter = 'all' | 'full' | 'waiting' | 'free'
+type Filter = SpaceFilter
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'Tümü' },
   { id: 'full', label: '2 üye' },
@@ -128,16 +129,7 @@ export default function AdminPage() {
   }, [])
   useEffect(refresh, [refresh])
 
-  const shown = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('tr-TR')
-    return (spaces ?? []).filter((s) => {
-      if (filter === 'full' && s.members.length < 2) return false
-      if (filter === 'waiting' && s.members.length >= 2) return false
-      if (filter === 'free' && s.kind !== 'FREE') return false
-      if (!q) return true
-      return [s.name, ...s.members.map((m) => m.displayName)].some((t) => t.toLocaleLowerCase('tr-TR').includes(q))
-    })
-  }, [spaces, query, filter])
+  const shown = useMemo(() => (spaces ?? []).filter((s) => spaceMatches(s, query, filter)), [spaces, query, filter])
 
   if (!user?.admin) return <Navigate to="/" replace />
 
@@ -234,7 +226,7 @@ export default function AdminPage() {
                   <div className="admin-space__main">
                     <div className="admin-space__avatars" aria-hidden="true">
                       {s.members.length === 0 ? <span className="admin-avatar admin-avatar--empty">?</span>
-                        : s.members.map((m) => <span key={m.displayName} className="admin-avatar">{initials(m.displayName)}</span>)}
+                        : s.members.map((m, i) => <span key={`${i}-${m.role}`} className="admin-avatar">{initials(m.displayName)}</span>)}
                       {s.members.length === 1 && <span className="admin-avatar admin-avatar--empty">?</span>}
                     </div>
                     <div className="admin-space__text">
