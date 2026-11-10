@@ -14,6 +14,8 @@ interface Props {
   dismissable?: boolean
   /** change it when the dialog swaps its content (steps of a wizard): focus moves back into the dialog */
   refocusKey?: unknown
+  /** a faint backdrop without blur, for dialogs that preview their effect on the page behind (album theme) */
+  light?: boolean
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -22,7 +24,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * A letter lifted off the page: centred card with a ribbon on desktop, bottom sheet on phones. Focus moves in, stays
  * in (Tab wraps) and returns to the opener on close; the page behind does not scroll.
  */
-export default function Modal({ title, eyebrow, onClose, children, actions, dismissable = true, refocusKey }: Props) {
+export default function Modal({ title, eyebrow, onClose, children, actions, dismissable = true, refocusKey, light = false }: Props) {
   const titleId = useId()
   const box = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
@@ -77,7 +79,8 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
   }, [refocusKey])
 
   return createPortal(
-    <div className="ui ui-modal-backdrop" onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose()}>
+    <div className={`ui ui-modal-backdrop${light ? ' ui-modal-backdrop--light' : ''}`}
+      onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose()}>
       <div className="ui-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={box} tabIndex={-1}>
         <div className="ui-modal__head">
           <div>

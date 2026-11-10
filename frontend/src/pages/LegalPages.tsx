@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { getLegal } from '../legal/legal'
-import { pageVars, themeVars } from '../themes/cssVars'
-import { useTheme, useThemeFonts } from '../themes/ThemeContext'
+import { Brand } from '../components/AuthLayout'
+import { uiButtonClass } from '../components/ui/Button'
+import { getLegal, headingId } from '../legal/legal'
 import './legal.css'
 
 /** The contact address from the server (PRIVACY_CONTACT_EMAIL); the pages still read fine without it. */
@@ -22,31 +22,53 @@ function Contact({ email }: { email: string }) {
 }
 
 /**
- * Public pages the store listings link to (no session needed), on the paper of the default theme like the error screen.
- * Kept as plain text: they must be readable for a reviewer in any browser and in the app.
+ * Public pages the store listings link to (no session needed), on the app's paper. Kept as plain text with a table of
+ * contents built from its own headings: they must be readable for a reviewer in any browser and in the app.
  */
 function LegalShell({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
-  const theme = useTheme()
-  useThemeFonts(theme)
   const { user } = useAuth()
+  const body = useRef<HTMLDivElement>(null)
+  const [toc, setToc] = useState<{ id: string; text: string }[]>([])
+
+  useEffect(() => {
+    const headings = Array.from(body.current?.querySelectorAll('h2') ?? [])
+    setToc(headings.map((h) => {
+      const text = h.textContent ?? ''
+      h.id = h.id || headingId(text)
+      return { id: h.id, text }
+    }))
+  }, [])
+
   return (
-    <main className="legal" style={{ ...themeVars(theme), ...pageVars(theme, 'soft', 'plain') }}>
-      <article className="legal__card">
-        <p className="legal__brand">Anılarımız</p>
-        <h1>{title}</h1>
-        <p className="legal__updated">Son güncelleme: {updated}</p>
-        {children}
-        <nav className="legal__nav">
-          <Link to={user ? '/' : '/login'} className="clay clay--pill clay--cream">
-            {user ? 'Albümlere dön' : 'Giriş sayfası'}
-          </Link>
-        </nav>
-      </article>
+    <main className="ui legal">
+      <header className="legal__top">
+        <Brand to={user ? '/' : '/login'} />
+      </header>
+      <div className="legal__layout">
+        {toc.length > 1 && (
+          <nav className="legal__toc" aria-label="İçindekiler">
+            <div className="ui-eyebrow">İçindekiler</div>
+            <ol>
+              {toc.map((t) => <li key={t.id}><a href={`#${t.id}`}>{t.text}</a></li>)}
+            </ol>
+          </nav>
+        )}
+        <article className="legal__card">
+          <h1>{title}</h1>
+          <p className="legal__updated">Son güncelleme: {updated}</p>
+          <div ref={body}>{children}</div>
+          <nav className="legal__nav">
+            <Link to={user ? '/' : '/login'} className={uiButtonClass('secondary')}>
+              {user ? 'Rafa dön' : 'Giriş sayfası'}
+            </Link>
+          </nav>
+        </article>
+      </div>
     </main>
   )
 }
 
-const UPDATED = '9 Kasım 2026'
+const UPDATED = '10 Kasım 2026'
 
 export function PrivacyPage() {
   const contact = useContact()
@@ -83,7 +105,7 @@ export function PrivacyPage() {
       <ul>
         <li>Fotoğraf, video ve müzik dosyaları özel bir depolama alanında (bucket), hesap ve albüm bilgileri bir PostgreSQL veritabanında tutulur. Dosyalara yalnızca kısa süreli, imzalı bağlantılarla erişilir.</li>
         <li>Her gece orijinal dosyaların ve veritabanının bir yedeği ayrı bir depolama alanına alınır. Veritabanı yedekleri 14 gün saklanır.</li>
-        <li>Sildiğin fotoğraf, video ve albümler 30 gün çöpte bekler, sonra kalıcı olarak silinir; yedekteki kopyaları da bundan 30 gün sonra silinir.</li>
+        <li>Sildiğin fotoğraf, video ve albümler 30 gün çöpte bekler (bu sürede Çöp kutusundan geri alabilirsin), sonra kalıcı olarak silinir; yedekteki kopyaları da bundan 30 gün sonra silinir.</li>
         <li>Paylaşım için hazırlanan dosyalar 24 saat sonra kendiliğinden silinir.</li>
         <li>Hesabın, sen silene kadar saklanır. Tek istisna: kayıtla açılan ücretsiz bir deftere 30 gün içinde hiç fotoğraf, video, şarkı ya da not eklenmezse defter ve üyelerinin hesapları kendiliğinden silinir.</li>
       </ul>
