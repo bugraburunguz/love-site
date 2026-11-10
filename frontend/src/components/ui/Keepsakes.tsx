@@ -89,7 +89,8 @@ export function Meter({ label, used, limit, format }: MeterProps) {
         <span>{label}</span>
         <span className="ui-muted">{format(used)} / {format(limit)}</span>
       </div>
-      <div className="ui-meter__track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)}>
+      <div className="ui-meter__track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)}
+        aria-valuetext={`${format(used)} / ${format(limit)}`}>
         <div className="ui-meter__fill" style={{ width: `${ratio * 100}%` }} />
       </div>
     </div>

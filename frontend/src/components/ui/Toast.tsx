@@ -8,7 +8,20 @@ const ToastContext = createContext<Show | null>(null)
 const SEAL: Record<ToastTone, string> = { info: '♥', success: '✓', error: '!' }
 const DURATION_MS = 4500
 
-/** Wax-sealed notes at the bottom of the screen; errors are announced assertively, the rest politely. */
+function Note({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+  return (
+    <div className={`ui-toast ui-toast--${item.tone}`}>
+      <span className="ui-toast__seal" aria-hidden="true">{SEAL[item.tone]}</span>
+      <span className="ui-toast__text">{item.message}</span>
+      <button type="button" className="ui-toast__close" onClick={() => onDismiss(item.id)} aria-label="Bildirimi kapat">×</button>
+    </div>
+  )
+}
+
+/**
+ * Wax-sealed notes at the bottom of the screen. The two live regions stay mounted (empty most of the time), so screen
+ * readers announce a note when it is added: errors assertively, the rest politely.
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
   const nextId = useRef(1)
@@ -26,14 +39,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="ui ui-toasts">
-        {items.map((t) => (
-          <div key={t.id} className={`ui-toast ui-toast--${t.tone}`} role={t.tone === 'error' ? 'alert' : 'status'}>
-            <span className="ui-toast__seal" aria-hidden="true">{SEAL[t.tone]}</span>
-            <span className="ui-toast__text">{t.message}</span>
-            <button type="button" className="ui-toast__close" onClick={() => dismiss(t.id)} aria-label="Bildirimi kapat">×</button>
-          </div>
-        ))}
+      <div className="ui-toasts">
+        <div className="ui-toasts__region" role="alert" aria-live="assertive">
+          {items.filter((t) => t.tone === 'error').map((t) => <Note key={t.id} item={t} onDismiss={dismiss} />)}
+        </div>
+        <div className="ui-toasts__region" role="status" aria-live="polite">
+          {items.filter((t) => t.tone !== 'error').map((t) => <Note key={t.id} item={t} onDismiss={dismiss} />)}
+        </div>
       </div>
     </ToastContext.Provider>
   )

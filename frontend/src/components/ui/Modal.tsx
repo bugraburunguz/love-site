@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { closeModal, isTopModal, openModal } from './modalStack'
 
 interface Props {
   title: string
@@ -26,6 +27,7 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
   closeRef.current = onClose
 
   useEffect(() => {
+    const token = openModal()
     const opener = document.activeElement as HTMLElement | null
     const first = box.current?.querySelector<HTMLElement>('[autofocus], ' + FOCUSABLE)
     ;(first ?? box.current)?.focus()
@@ -33,6 +35,7 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
     document.body.style.overflow = 'hidden'
 
     function onKey(e: KeyboardEvent) {
+      if (!isTopModal(token)) return
       if (e.key === 'Escape' && dismissable) {
         e.stopPropagation()
         closeRef.current()
@@ -51,6 +54,7 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
     }
     document.addEventListener('keydown', onKey)
     return () => {
+      closeModal(token)
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
       opener?.focus?.()

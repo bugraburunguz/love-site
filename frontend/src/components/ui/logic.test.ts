@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyColorMode, readColorMode, writeColorMode } from '../../styles/colorMode'
+import { closeModal, isTopModal, openModal } from './modalStack'
 import { tiltFor } from './tilt'
 import { dismissToast, pushToast, type ToastItem } from './toastQueue'
 
@@ -11,6 +12,19 @@ describe('tiltFor', () => {
       expect(Math.abs(t)).toBeLessThanOrEqual(1.5)
     }
     expect(new Set(['1', '2', '3', '4', '5', '6'].map(tiltFor)).size).toBeGreaterThan(1)
+  })
+})
+
+describe('modal stack', () => {
+  it('only the newest open modal is on top; closing it hands the top back', () => {
+    const a = openModal()
+    const b = openModal()
+    expect(isTopModal(a)).toBe(false)
+    expect(isTopModal(b)).toBe(true)
+    closeModal(b)
+    expect(isTopModal(a)).toBe(true)
+    closeModal(a)
+    expect(isTopModal(a)).toBe(false)
   })
 })
 

@@ -536,12 +536,10 @@
 
 /* ---- toasts: a kraft card under a wax seal */
 
-.ui.ui-toasts {
-  min-height: 0;
-  background: none;
-}
-
+/* not a .ui scope on purpose: it is mounted over every screen and must paint nothing while empty */
 .ui-toasts {
+  font-family: var(--ui-font-body);
+  line-height: 1.5;
   position: fixed;
   left: 50%;
   bottom: calc(1rem + env(safe-area-inset-bottom));
@@ -552,6 +550,10 @@
   width: min(420px, calc(100% - 2rem));
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.ui-toasts__region {
+  display: contents;
 }
 
 .ui-toast {

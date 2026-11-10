@@ -9,8 +9,9 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 /** Label, input, hint and error wired together for screen readers. */
-export function TextField({ label, hint, error, icon, className = '', ...input }: FieldProps) {
-  const id = useId()
+export function TextField({ label, hint, error, icon, className = '', id: ownId, 'aria-describedby': ownDescribedBy, ...input }: FieldProps) {
+  const generated = useId()
+  const id = ownId ?? generated
   const hintId = hint ? `${id}-hint` : undefined
   const errorId = error ? `${id}-error` : undefined
   return (
@@ -21,11 +22,11 @@ export function TextField({ label, hint, error, icon, className = '', ...input }
       </div>
       <div className="ui-field__box">
         <input
+          {...input}
           id={id}
           className="ui-input"
           aria-invalid={error ? true : undefined}
-          aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined}
-          {...input}
+          aria-describedby={[ownDescribedBy, hintId, errorId].filter(Boolean).join(' ') || undefined}
         />
         {icon && <span className="ui-field__icon" aria-hidden="true">{icon}</span>}
       </div>
