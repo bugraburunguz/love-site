@@ -10,7 +10,9 @@ export function validateNewAccount(form: { password: string; repeat: string; pri
  * What a route behind the login shows: the app, the sign-in form, or (only for "/" on the web) the visitor page that
  * explains the app. The store app opens straight on the sign-in form.
  */
-export function landingFor(state: { signedIn: boolean; native: boolean; path: string }): 'app' | 'landing' | 'login' {
+export function landingFor(state: { signedIn: boolean; native: boolean; path: string; notice?: string | null }): 'app' | 'landing' | 'login' {
   if (state.signedIn) return 'app'
+  // a session that just ended (e.g. the account was deleted on another device) leaves a note only the sign-in form shows
+  if (state.notice) return 'login'
   return !state.native && state.path === '/' ? 'landing' : 'login'
 }

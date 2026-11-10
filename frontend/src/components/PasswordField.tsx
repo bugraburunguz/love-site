@@ -17,7 +17,7 @@ export default function PasswordField({ label, hint, ...input }: Props) {
         className="auth-pass__toggle"
         onClick={() => setVisible((v) => !v)}
         aria-pressed={visible}
-        aria-label={visible ? 'Gizle' : 'Göster'}
+        aria-label={`${label} göster`}
       >
         {visible ? 'Gizle' : 'Göster'}
       </button>

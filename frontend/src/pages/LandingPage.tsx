@@ -15,8 +15,8 @@ const PRINCIPLES = [
   },
   {
     icon: '♥',
-    title: 'Yalnızca ikiniz görürsünüz',
-    text: 'Fotoğraflarınız herkese kapalı bir depoda durur ve yalnızca ikinize kısa süreli bağlantılarla açılır. Reklam yok, takip yok, hiçbir şey satılmaz.',
+    title: 'Başka hiçbir kullanıcı göremez',
+    text: 'Fotoğraflarınız herkese kapalı bir depoda durur; defterinizi uygulamada yalnızca siz ikiniz açabilirsiniz. Reklam yok, takip yok, hiçbir şey satılmaz.',
   },
   {
     icon: '❦',
@@ -28,7 +28,7 @@ const PRINCIPLES = [
 const STEPS = [
   {
     title: 'Defterini aç',
-    text: 'Bir dakikada hesabını oluştur. Ücretsiz defterle başlarsın; e-posta adresin ve bir şifre yeter.',
+    text: 'Bir dakikada hesabını oluştur. Ücretsiz defterle başlarsın; adın, e-postan ve bir şifre yeter.',
   },
   {
     title: 'Partnerini davet et',
@@ -65,8 +65,7 @@ export default function LandingPage() {
           İkinizin hikâyesi, sayfaların arasında <em>saklı kalsın.</em>
         </h1>
         <p>
-          Sosyal medyanın gürültüsünden ve yabancı gözlerden uzak; kapağı mühürlü bir mektup gibi yalnızca sizin olan dijital
-          bir anı defteri.
+          Sosyal medyanın gürültüsünden ve beğenilerden uzak; yalnızca ikinizin açabildiği dijital bir anı defteri.
         </p>
         <div className="landing__ctas">
           <Link to="/kayit" className={uiButtonClass('primary', 'lg')}>Ücretsiz defterini aç</Link>

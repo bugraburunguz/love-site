@@ -46,7 +46,7 @@ export default function InvitePage() {
       <AuthLayout>
         <div className="auth-state">
           <span className="auth__seal" aria-hidden="true">♥</span>
-          <h2>Zaten bir alana üyesin</h2>
+          <h1>Zaten bir alana üyesin</h1>
           <p>Bu davet bağlantısını kullanmak için önce çıkış yapman gerekir.</p>
           <Link to="/" className={uiButtonClass('secondary')}>Albümlerime dön</Link>
         </div>
@@ -59,10 +59,9 @@ export default function InvitePage() {
       <AuthLayout>
         <div className="auth-state">
           <span className="auth__seal" aria-hidden="true">✉</span>
-          <h2>Davet geçersiz</h2>
+          <h1>Davet geçersiz</h1>
           <p>
-            Bu davet bağlantısı geçersiz, kullanılmış ya da süresi dolmuş (bağlantılar 7 gün geçerlidir). Seni davet eden kişiden
-            yeni bir bağlantı isteyebilirsin.
+            Bu davet bağlantısı geçersiz, kullanılmış ya da süresi dolmuş. Seni davet eden kişiden yeni bir bağlantı isteyebilirsin.
           </p>
           <div className="landing__ctas">
             <Link to="/login" className={uiButtonClass('secondary')}>Giriş yap</Link>
@@ -103,7 +102,7 @@ export default function InvitePage() {
     <AuthLayout wide>
       <div className="auth-letter">
         <span className="auth__seal" aria-hidden="true">✉</span>
-        <div className="ui-eyebrow">Mühürlü davetiye</div>
+        <div className="ui-eyebrow">Kişiye özel davet</div>
         <h1>{owner ? 'Defterin seni bekliyor' : 'Seni bir anı defterine davet ettiler'}</h1>
         <p>
           {owner

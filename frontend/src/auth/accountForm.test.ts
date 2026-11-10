@@ -23,4 +23,8 @@ describe('landingFor', () => {
     expect(landingFor({ signedIn: false, native: true, path: '/' })).toBe('login')
     expect(landingFor({ signedIn: true, native: false, path: '/' })).toBe('app')
   })
+
+  it('a session that just ended goes to the sign-in form, where its note is shown', () => {
+    expect(landingFor({ signedIn: false, native: false, path: '/', notice: 'Oturumun kapandı' })).toBe('login')
+  })
 })

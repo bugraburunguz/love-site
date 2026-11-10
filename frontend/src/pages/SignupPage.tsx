@@ -45,7 +45,7 @@ export default function SignupPage() {
       <AuthLayout>
         <div className="auth-state">
           <span className="auth__seal" aria-hidden="true">✉</span>
-          <h2>Şu an yeni kayıt alınmıyor</h2>
+          <h1>Şu an yeni kayıt alınmıyor</h1>
           <p>Yeni defterler için yer şimdilik doldu. Davet bağlantın varsa onunla katılabilirsin.</p>
           <Link to="/login" className={uiButtonClass('secondary')}>Giriş sayfası</Link>
         </div>
@@ -92,7 +92,7 @@ export default function SignupPage() {
         </p>
       )}
 
-      <form className="auth__form" onSubmit={onSubmit} noValidate={false}>
+      <form className="auth__form" onSubmit={onSubmit}>
         <div className="auth__row">
           <TextField label="Adın" hint="Partnerinin göreceği isim" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} required autoComplete="name" />
           <TextField label="E-posta" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />

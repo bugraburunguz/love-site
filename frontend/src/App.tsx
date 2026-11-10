@@ -20,10 +20,10 @@ const LandingPage = lazy(() => import('./pages/LandingPage'))
 
 /** Everything behind the login; a signed-out visitor of "/" on the website gets the page that explains the app. */
 function AppShell() {
-  const { user, loading } = useAuth()
+  const { user, loading, notice } = useAuth()
   const { pathname } = useLocation()
   if (loading) return <p className="boot">Defter açılıyor…</p>
-  const view = landingFor({ signedIn: !!user, native: isNativeApp, path: pathname })
+  const view = landingFor({ signedIn: !!user, native: isNativeApp, path: pathname, notice })
   if (view === 'landing') {
     return (
       <Suspense fallback={<p className="boot">Defter açılıyor…</p>}>
