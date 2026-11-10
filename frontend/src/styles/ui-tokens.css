@@ -1,0 +1,125 @@
+/*
+ * "Romantic Stationery": the design system of the app chrome (shelf, calendar, forms, dialogs, admin) from the Stitch
+ * designs, LS-8. Album pages keep their own per-theme variables (tokens.css + themes/); these --ui-* variables are what
+ * new and redesigned screens use. Colour pairs are checked for contrast in uiTokens.test.ts, light and dark.
+ *
+ * Dark mode ("Gece okuması") follows the system unless <html data-theme="light|dark"> forces one (styles/colorMode.ts).
+ */
+:root {
+  /* paper and ink */
+  --ui-bg: #f7f0e6;
+  --ui-surface: #fffdf9;
+  --ui-surface-sunk: #fff1ea;
+  --ui-ink: #4a3426;
+  --ui-ink-muted: #75594a;
+  --ui-border: #e3d4c1;
+  /* deep burgundy: actions, titles, focus */
+  --ui-primary: #7a2e3a;
+  --ui-on-primary: #fffdf9;
+  --ui-primary-soft: #f6dedb;
+  /* dusty rose and muted gold: ornaments only, never text */
+  --ui-accent: #d9a5a0;
+  --ui-gold: #c9a36b;
+  --ui-danger: #a3261f;
+  --ui-success: #2f6b3f;
+  --ui-scrim: rgba(31, 23, 20, 0.4);
+  --ui-washi: rgba(217, 165, 160, 0.55);
+  --ui-washi-kraft: rgba(201, 163, 107, 0.45);
+
+  /* typography */
+  --ui-font-display: 'Playfair Display', 'Times New Roman', serif;
+  --ui-font-body: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ui-font-hand: 'Caveat', 'Comic Sans MS', cursive;
+  --ui-text-xl: clamp(1.875rem, 1.4rem + 1.6vw, 2.5rem);
+  --ui-text-lg: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  --ui-text-md: 1.5rem;
+  --ui-text-sm: 1.25rem;
+  --ui-text-body-lg: 1.125rem;
+  --ui-text-body: 0.9375rem;
+  --ui-text-small: 0.8125rem;
+  --ui-text-label: 0.75rem;
+
+  /* shape */
+  --ui-radius-sm: 0.25rem;
+  --ui-radius: 0.5rem;
+  --ui-radius-md: 0.75rem;
+  --ui-radius-lg: 1rem;
+  --ui-radius-xl: 1.5rem;
+  --ui-radius-full: 9999px;
+
+  /* depth: warm umber shadows, never grey */
+  --ui-shadow-card: 0 4px 20px -2px rgba(74, 52, 38, 0.06);
+  --ui-shadow-keepsake: 0 2px 4px rgba(74, 52, 38, 0.08), 0 8px 24px -4px rgba(74, 52, 38, 0.12);
+  --ui-shadow-raised: 0 12px 40px -8px rgba(74, 52, 38, 0.22);
+  --ui-focus-ring: 0 0 0 3px rgba(122, 46, 58, 0.18);
+
+  /* layout */
+  --ui-max-width: 1200px;
+  --ui-gutter: 1rem;
+  --ui-touch: 44px;
+  --ui-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* applied by .ui only, so screens not yet redesigned keep light native controls in a dark system */
+  --ui-color-scheme: light;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ui-gutter: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --ui-gutter: 3rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ui-bg: #1f1714;
+    --ui-surface: #2a201c;
+    --ui-surface-sunk: #18110f;
+    --ui-ink: #f3e9dc;
+    --ui-ink-muted: #c4b2a2;
+    --ui-border: #4a3a31;
+    --ui-primary: #eba7b0;
+    --ui-on-primary: #2a1013;
+    --ui-primary-soft: #4a2a2e;
+    --ui-accent: #b97f7a;
+    --ui-gold: #d8b47a;
+    --ui-danger: #ff9a8f;
+    --ui-success: #93d3a1;
+    --ui-scrim: rgba(0, 0, 0, 0.55);
+    --ui-washi: rgba(185, 127, 122, 0.45);
+    --ui-washi-kraft: rgba(216, 180, 122, 0.35);
+    --ui-shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+    --ui-shadow-keepsake: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+    --ui-shadow-raised: 0 12px 40px -8px rgba(0, 0, 0, 0.6);
+    --ui-focus-ring: 0 0 0 3px rgba(235, 167, 176, 0.3);
+    --ui-color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ui-bg: #1f1714;
+  --ui-surface: #2a201c;
+  --ui-surface-sunk: #18110f;
+  --ui-ink: #f3e9dc;
+  --ui-ink-muted: #c4b2a2;
+  --ui-border: #4a3a31;
+  --ui-primary: #eba7b0;
+  --ui-on-primary: #2a1013;
+  --ui-primary-soft: #4a2a2e;
+  --ui-accent: #b97f7a;
+  --ui-gold: #d8b47a;
+  --ui-danger: #ff9a8f;
+  --ui-success: #93d3a1;
+  --ui-scrim: rgba(0, 0, 0, 0.55);
+  --ui-washi: rgba(185, 127, 122, 0.45);
+  --ui-washi-kraft: rgba(216, 180, 122, 0.35);
+  --ui-shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+  --ui-shadow-keepsake: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+  --ui-shadow-raised: 0 12px 40px -8px rgba(0, 0, 0, 0.6);
+  --ui-focus-ring: 0 0 0 3px rgba(235, 167, 176, 0.3);
+  --ui-color-scheme: dark;
+}

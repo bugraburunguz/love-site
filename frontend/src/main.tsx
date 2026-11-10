@@ -4,9 +4,15 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth/AuthContext'
 import { isNativeApp } from './native/platform'
+import { ToastProvider } from './components/ui'
+import { applyColorMode, readColorMode } from './styles/colorMode'
 import './styles/fonts'
 import './styles/tokens.css'
+import './styles/ui-tokens.css'
 import './styles/base.css'
+
+// before the first paint, so a forced light/dark choice never flashes the other one
+applyColorMode(readColorMode())
 
 // The export render route (only reachable on the worker's loopback port) needs neither the router nor a session.
 const RenderPage = lazy(() => import('./render/RenderPage'))
@@ -21,7 +27,9 @@ function render() {
       <StrictMode>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </AuthProvider>
         </BrowserRouter>
       </StrictMode>
