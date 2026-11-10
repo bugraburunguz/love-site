@@ -13,6 +13,7 @@ const AlbumsPage = lazy(() => import('./pages/AlbumsPage'))
 const AlbumPage = lazy(() => import('./pages/AlbumPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const CalendarDayPage = lazy(() => import('./pages/CalendarDayPage'))
+const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
 
 /** Everything behind the login. */
 function AppShell() {
@@ -36,6 +37,8 @@ export default function App() {
       {/* public: the store listings link here */}
       <Route path="/gizlilik" element={<PrivacyPage />} />
       <Route path="/hesap-silme" element={<AccountDeletionPage />} />
+      {/* design system reference: development, or the admin in production (the page checks) */}
+      <Route path="/tasarim" element={<Suspense fallback={null}><StyleGuidePage /></Suspense>} />
       <Route element={<AppShell />}>
         <Route path="/" element={<AlbumsPage />} />
         <Route path="/albums/:id" element={<AlbumPage />} />

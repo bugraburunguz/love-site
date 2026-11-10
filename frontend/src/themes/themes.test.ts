@@ -126,7 +126,8 @@ describe('start-up bundle', () => {
   it('only the base fonts are imported statically', () => {
     const base = sources['../styles/fonts.ts']
     const imported = [...base.matchAll(/import '@fontsource\/([a-z-]+)\//g)].map((m) => m[1])
-    expect(new Set(imported)).toEqual(new Set(['cinzel', 'cormorant-garamond', 'caveat']))
+    // + the two fonts of the app chrome design system (LS-8), which every screen needs
+    expect(new Set(imported)).toEqual(new Set(['cinzel', 'cormorant-garamond', 'caveat', 'playfair-display', 'plus-jakarta-sans']))
   })
 })
 
