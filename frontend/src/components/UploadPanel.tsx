@@ -1,5 +1,5 @@
 import type { UploadEntry, UploadStatus } from '../upload/useUploadQueue'
-import Clay from './Clay'
+import { Button } from './ui'
 import './upload.css'
 
 const LABELS: Record<UploadStatus, string> = {
@@ -26,9 +26,9 @@ export default function UploadPanel({ entries, onRetry, onClear }: Props) {
       <header className="upload-panel__head">
         <h2>Yüklemeler ({entries.length})</h2>
         {finished && (
-          <Clay size="sm" tone="cream" onClick={onClear}>
+          <Button size="sm" variant="ghost" onClick={onClear}>
             Bitenleri temizle
-          </Clay>
+          </Button>
         )}
       </header>
       <ul className="upload-panel__list">
@@ -45,9 +45,9 @@ export default function UploadPanel({ entries, onRetry, onClear }: Props) {
               <div className="upload-item__error" role="alert">
                 <span>{e.error}</span>
                 {!e.quota && (
-                  <Clay size="sm" onClick={() => onRetry(e.id)}>
+                  <Button size="sm" variant="secondary" onClick={() => onRetry(e.id)}>
                     Tekrar dene
-                  </Clay>
+                  </Button>
                 )}
               </div>
             )}

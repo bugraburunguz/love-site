@@ -7,9 +7,15 @@ import {
 import { pageThemeVars } from '../themes/cssVars'
 import { ThemeContext, useTheme } from '../themes/ThemeContext'
 import type { ThemeDef } from '../themes/types'
-import Clay from './Clay'
-import LivingPhoto from './LivingPhoto'
+import LivingPhoto, { formatDate } from './LivingPhoto'
 import './lightbox.css'
+
+/** An entry of the lightbox's ⋯ menu (the album and the calendar add their own: date, download, share). */
+export function LightboxItem({ danger, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+  return <button type="button" role="menuitem" className={`lightbox__item${danger ? ' lightbox__item--danger' : ''}`} {...props} />
+}
+
+const menuItems = (menu: HTMLElement | null) => Array.from(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])
 
 interface Props {
   items: MediaDto[]
@@ -47,11 +53,27 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   const prev = () => index > 0 && onIndex(index - 1)
   const next = () => index < items.length - 1 && onIndex(index + 1)
 
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (menuOpen) setMenuOpen(false)
-        else onClose()
+        if (menuOpen) {
+          setMenuOpen(false)
+          menuButton.current?.focus()
+        } else onClose()
+        return
+      }
+      // while the menu is open the arrows walk through its entries instead of turning the photo
+      if (menuOpen) {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+        e.preventDefault()
+        const list = menuItems(menuRef.current)
+        if (list.length === 0) return
+        const at = list.indexOf(document.activeElement as HTMLElement)
+        const step = e.key === 'ArrowDown' ? 1 : -1
+        list[(at + step + list.length) % list.length].focus()
         return
       }
       if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
@@ -64,6 +86,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
 
   useEffect(() => {
     if (!menuOpen) return
+    menuItems(menuRef.current)[0]?.focus()
     const close = () => setMenuOpen(false)
     window.addEventListener('pointerdown', close)
     return () => window.removeEventListener('pointerdown', close)
@@ -120,43 +143,41 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
       <div className="lightbox__bar">
         {/* deleting is deliberately tucked away: it lives behind this small menu and still asks for confirmation */}
         <div className="lightbox__menu" onPointerDown={(e) => e.stopPropagation()}>
-          <Clay
-            shape="round"
-            size="sm"
-            tone="cream"
+          <button
+            type="button"
+            ref={menuButton}
+            className="lightbox__icon"
             aria-label="Diğer işlemler"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
           >
             ⋯
-          </Clay>
+          </button>
           {menuOpen && (
-            <div className="lightbox__dropdown" role="menu">
+            <div className="lightbox__dropdown" role="menu" ref={menuRef}>
               {menuExtra?.(media, () => setMenuOpen(false))}
-              <Clay
-                size="sm"
-                tone="rose"
-                role="menuitem"
+              <LightboxItem
+                danger
                 onClick={() => {
                   setMenuOpen(false)
                   onDelete(media)
                 }}
               >
-                Sil
-              </Clay>
+                Çöpe taşı
+              </LightboxItem>
             </div>
           )}
         </div>
-        <Clay shape="round" size="sm" tone="cream" onClick={onClose} aria-label="Kapat" autoFocus>
+        <button type="button" className="lightbox__icon" onClick={onClose} aria-label="Kapat" autoFocus>
           ✕
-        </Clay>
+        </button>
       </div>
 
       <div className="lightbox__stage" ref={stageRef} onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <Clay shape="round" className="lightbox__nav lightbox__nav--prev" onClick={prev} disabled={index === 0} aria-label="Önceki fotoğraf">
+        <button type="button" className="lightbox__icon lightbox__nav lightbox__nav--prev" onClick={prev} disabled={index === 0} aria-label="Önceki fotoğraf">
           ‹
-        </Clay>
+        </button>
         {stageW > 0 && (
           <ThemeContext.Provider value={themeOf?.(media.id) ?? albumTheme}>
           <div className="lightbox__photo" key={media.id} style={pageThemeVars(themeOf?.(media.id) ?? albumTheme)}>
@@ -191,13 +212,14 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
           </div>
           </ThemeContext.Provider>
         )}
-        <Clay shape="round" className="lightbox__nav lightbox__nav--next" onClick={next} disabled={index === items.length - 1} aria-label="Sonraki fotoğraf">
+        <button type="button" className="lightbox__icon lightbox__nav lightbox__nav--next" onClick={next} disabled={index === items.length - 1} aria-label="Sonraki fotoğraf">
           ›
-        </Clay>
+        </button>
       </div>
 
       <div className="lightbox__footer">
-        <span>{index + 1} / {items.length}</span>
+        <span className="lightbox__pill">{index + 1} / {items.length}</span>
+        <span className="lightbox__date">{formatDate(media.displayDate)}{media.dateUncertain && !media.dateOverridden ? ' ?' : ''}</span>
         {media.uploadedByName && <span className="lightbox__by">Ekleyen: {media.uploadedByName}</span>}
         {saveError && <span role="alert" className="lightbox__error">{saveError}</span>}
       </div>

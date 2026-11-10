@@ -1,25 +1,30 @@
-/* ---- export progress cards (bottom left, in the album theme's colours) ---- */
+/* LS-13: export progress cards and the share dialog, on --ui-* tokens. */
+
+/* ---- export progress cards (bottom left of the album) ---- */
 .export-cards {
   position: fixed;
   left: max(12px, env(safe-area-inset-left));
   bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: calc(var(--z-controls) + 1);
   display: grid;
-  gap: 8px;
-  width: min(300px, calc(100vw - 100px));
+  gap: 0.5rem;
+  width: min(320px, calc(100vw - 100px));
 }
 
 .export-card {
-  padding: 10px 12px;
-  border-radius: var(--radius-md, 12px);
-  background: var(--paper-cream, #fbf3e6);
-  border: 1px solid color-mix(in srgb, var(--rose-deep, #a65f70) 35%, transparent);
-  box-shadow: 0 6px 18px rgba(40, 20, 10, 0.28);
-  font-family: var(--font-body);
-  color: var(--ink);
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-raised);
+  color: var(--ui-ink);
+  font-family: var(--ui-font-body);
+  font-size: var(--ui-text-small);
 }
 
 .export-card--compact {
+  background: var(--ui-surface-sunk);
+  border-color: transparent;
   box-shadow: none;
 }
 
@@ -27,46 +32,64 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-family: var(--font-display);
+  gap: 0.5rem;
+}
+
+.export-card__head strong {
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-body);
+  font-weight: 600;
 }
 
 .export-card__close {
+  width: 32px;
+  height: 32px;
   border: 0;
+  border-radius: 50%;
   background: none;
-  font-size: 1rem;
-  color: var(--ink-soft);
+  color: var(--ui-ink-muted);
+  font-size: 0.95rem;
   cursor: pointer;
+}
+
+.export-card__close:hover {
+  background: var(--ui-surface-sunk);
 }
 
 .export-card__progress,
 .export-card__ready,
 .export-card__note,
 .export-card__error {
-  margin: 4px 0;
+  margin: 0.25rem 0;
+}
+
+.export-card__progress {
+  display: flex;
+  align-items: center;
+  color: var(--ui-ink-muted);
 }
 
 .export-card__ready {
-  color: var(--rose-deep);
   font-weight: 600;
+  color: var(--ui-success);
 }
 
 .export-card__note {
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  font-size: var(--ui-text-label);
+  color: var(--ui-ink-muted);
 }
 
 .export-card__error {
-  color: #9b2c2c;
+  color: var(--ui-danger);
 }
 
 .export-card__dots {
   display: inline-block;
   width: 10px;
   height: 10px;
-  margin-right: 8px;
+  margin-right: 0.5rem;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--ui-gold);
   animation: export-pulse 1.1s ease-in-out infinite alternate;
 }
 
@@ -82,71 +105,137 @@
 .export-card__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
 }
 
 .export-card__help {
   width: 100%;
-  font-size: 0.85rem;
+  font-size: var(--ui-text-label);
+}
+
+.export-card__help summary {
+  cursor: pointer;
+  color: var(--ui-primary);
+  font-weight: 600;
 }
 
 .export-card__help p {
-  margin: 4px 0;
+  margin: 0.25rem 0;
 }
 
 .export-card__pngs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .export-card__pngs button {
-  border: 1px solid var(--paper-edge);
-  border-radius: 6px;
-  background: transparent;
-  font-size: 0.75rem;
-  padding: 2px 6px;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  font: 500 var(--ui-text-label) / 1.4 var(--ui-font-body);
   cursor: pointer;
 }
 
 /* ---- share dialog ---- */
 .share-panel {
-  display: grid;
-  gap: 10px;
-  max-height: min(70vh, 640px);
+  max-height: min(68vh, 640px);
   overflow-y: auto;
 }
 
 .share-panel__options {
   display: grid;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
-.share-panel__subtitle {
-  margin: 8px 0 0;
-  font-family: var(--font-display);
-  font-size: 1rem;
+.share-option {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  font-family: var(--ui-font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--ui-ease), background-color 160ms var(--ui-ease);
+}
+
+.share-option:hover:not(:disabled) {
+  border-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-primary-soft) 45%, var(--ui-surface));
+}
+
+.share-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.share-option__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary);
+  font-size: 1.25rem;
+}
+
+.share-option__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.share-option__text strong {
+  font-size: var(--ui-text-body);
+  font-weight: 600;
+}
+
+.share-option__text span {
+  font-size: var(--ui-text-small);
+  color: var(--ui-ink-muted);
+}
+
+.share-option__go {
+  color: var(--ui-ink-muted);
+  font-size: 1.5rem;
+}
+
+/* .ui scope: outranks the dialog's own h3 style */
+.ui .share-panel__subtitle {
+  margin: 0.5rem 0 0;
+  font-family: var(--ui-font-body);
+  font-size: var(--ui-text-label);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-primary);
 }
 
 .share-panel__list {
   display: grid;
-  gap: 8px;
-}
-
-.export-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
+  gap: 0.5rem;
 }
 
 .export-warning {
   margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--gold) 22%, transparent);
-  font-size: 0.9rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-gold) 22%, var(--ui-surface));
+  color: var(--ui-ink);
+  font-size: var(--ui-text-small);
 }
 
 .export-picker {
@@ -164,33 +253,20 @@
   left: 3px;
   min-width: 20px;
   padding: 0 4px;
-  border-radius: 10px;
-  background: var(--rose-deep, #a65f70);
-  color: #fff;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
   font-size: 0.75rem;
+  font-weight: 600;
   line-height: 20px;
   text-align: center;
 }
 
 .export-picker__live {
   position: absolute;
-  bottom: 3px;
   right: 4px;
+  bottom: 3px;
   color: #fff;
   font-size: 0.7rem;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-/* lightbox "İndir / Paylaş" entries */
-.lightbox__dropdown {
-  display: grid;
-  gap: 6px;
-  min-width: 220px;
-}
-
-.lightbox__menu-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  color: var(--ink-soft);
 }

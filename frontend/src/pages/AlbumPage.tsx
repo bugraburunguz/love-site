@@ -11,16 +11,15 @@ import AlbumBar from '../components/AlbumBar'
 import AlbumMusic from '../components/AlbumMusic'
 import { useHistoryState } from '../components/edit/history'
 import { useUndoableEdits } from '../components/edit/useUndoableEdits'
-import { Button } from '../components/ui'
+import { Button, ConfirmModal } from '../components/ui'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
-import Clay from '../components/Clay'
 import CompassNeedle from '../components/CompassNeedle'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ErrorScreen from '../components/ErrorScreen'
 import '../components/clay.css'
-import { ConfirmDialog } from '../components/Dialog'
-import Lightbox from '../components/Lightbox'
+import Clay from '../components/Clay'
+import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
@@ -700,19 +699,19 @@ function AlbumView({ id }: { id: string }) {
             }
             return (
               <>
-                <Clay size="sm" tone="cream" role="menuitem" onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</Clay>
+                <LightboxItem onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</LightboxItem>
                 <p className="lightbox__menu-title">İndir / Paylaş</p>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</Clay>
-                {m.loopUrl && <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { motion: true })}>Hareketli polaroid (video)</Clay>}
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('STORY', {})}>Instagram Story</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POST', {})}>Instagram gönderisi</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" onClick={() => {
+                <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</LightboxItem>
+                <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</LightboxItem>
+                {m.loopUrl && <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { motion: true })}>Hareketli polaroid (video)</LightboxItem>}
+                <LightboxItem disabled={!ready} onClick={() => run('STORY', {})}>Instagram Story</LightboxItem>
+                <LightboxItem disabled={!ready} onClick={() => run('POST', {})}>Instagram gönderisi</LightboxItem>
+                <LightboxItem onClick={() => {
                   close()
                   getOriginal(m.id).then((o) => {
                     download({ url: o.url, name: o.filename, contentType: m.contentType })
                   }).catch((e: Error) => setError(e.message))
-                }}>Orijinal dosya</Clay>
+                }}>Orijinal dosyayı indir</LightboxItem>
               </>
             )
           }}
@@ -749,17 +748,18 @@ function AlbumView({ id }: { id: string }) {
       )}
 
       {toDelete && (
-        <ConfirmDialog
-          title="Fotoğraf silinsin mi?"
+        <ConfirmModal
+          title="Çöpe taşınsın mı?"
           message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak ve 30 gün sonra kalıcı olarak silinir.`}
-          confirmLabel="Sil"
+          confirmLabel="Çöpe taşı"
+          danger
           onClose={() => setToDelete(null)}
           onConfirm={confirmDelete}
         />
       )}
 
       {confirm?.kind === 'unfreeze' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Serbest düzen silinsin mi?"
           message="Fotoğrafların elle verdiğin konumları silinir; fotoğraflar sırayla otomatik yerleşir."
           confirmLabel="Otomatiğe geç"
@@ -771,7 +771,7 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
       {confirm?.kind === 'themeRest' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Tema sonraki sayfalara da uygulansın mı?"
           message={`Bu sayfa ve sonraki ${confirm.pages.length - 1} sayfa (albümün sonuna kadar) seçtiğin temayı alacak.`}
           confirmLabel="Uygula"
@@ -782,10 +782,11 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
       {confirm?.kind === 'deletePage' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Sayfa silinsin mi?"
           message="Sayfadaki fotoğraflar silinmez; tepsiye geri döner ve istediğin sayfaya yeniden koyabilirsin."
           confirmLabel="Sayfayı sil"
+          danger
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
             const { page } = confirm

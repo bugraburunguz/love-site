@@ -12,6 +12,8 @@ interface Props {
   actions?: ReactNode
   /** false for dialogs that must be answered (no backdrop click, no Escape) */
   dismissable?: boolean
+  /** change it when the dialog swaps its content (steps of a wizard): focus moves back into the dialog */
+  refocusKey?: unknown
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -20,7 +22,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * A letter lifted off the page: centred card with a ribbon on desktop, bottom sheet on phones. Focus moves in, stays
  * in (Tab wraps) and returns to the opener on close; the page behind does not scroll.
  */
-export default function Modal({ title, eyebrow, onClose, children, actions, dismissable = true }: Props) {
+export default function Modal({ title, eyebrow, onClose, children, actions, dismissable = true, refocusKey }: Props) {
   const titleId = useId()
   const box = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
@@ -63,6 +65,16 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
       opener?.focus?.()
     }
   }, [])
+
+  // a new step of the dialog: the element that had focus may be gone, so start again at the dialog itself
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    box.current?.focus()
+  }, [refocusKey])
 
   return createPortal(
     <div className="ui ui-modal-backdrop" onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose()}>
