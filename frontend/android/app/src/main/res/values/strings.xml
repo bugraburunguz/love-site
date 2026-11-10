@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Anılarımız</string>
-    <string name="title_activity_main">Anılarımız</string>
+    <string name="app_name">Hatıra Defterim</string>
+    <string name="title_activity_main">Hatıra Defterim</string>
     <string name="package_name">com.hatiradefterim.app</string>
     <string name="custom_url_scheme">com.hatiradefterim.app</string>
 </resources>

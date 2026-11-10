@@ -571,7 +571,7 @@ frame skin, fasteners and stickers, the caption font, the photo filter, the page
 ## Store apps (iOS + Android, Capacitor)
 
 `frontend/` is also a Capacitor project: the same React app, packaged for the App Store and Google Play (`frontend/ios/`,
-`frontend/android/`, `frontend/capacitor.config.ts`). App id `com.hatiradefterim.app`, name "Anılarımız".
+`frontend/android/`, `frontend/capacitor.config.ts`). App id `com.hatiradefterim.app`, name "Hatıra Defterim".
 
 How it differs from the website (all in `frontend/src/native/` and the backend's `mobile/` package):
 

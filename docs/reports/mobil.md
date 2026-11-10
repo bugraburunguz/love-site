@@ -11,7 +11,7 @@
   - Hareketli polaroid MP4'ü 2000 px'te ffmpeg'i 4 GB'lık ortamda bellek yüzünden öldürdü (çıkış 137) → MP4 artık uzun kenarı **1080 px** (Instagram boyutu, ~3,4 kat az bellek); durağan PNG/JPEG 2000 px kalıyor. Video boyutları her zaman çift sayı (H.264 şartı).
   - Export kartları kitabın üstüne binip fotoğraflara tıklamayı engelleyebiliyordu → aynı anda tek kart (en son başlatılan en üstte; diğerleri Paylaş penceresinde), kart her durumda kapatılabiliyor (iş arka planda sürüyor).
 
-Uygulama kimliği `com.hatiradefterim.app`, adı "Anılarımız" (`frontend/capacitor.config.ts`).
+Uygulama kimliği `com.hatiradefterim.app`, adı "Hatıra Defterim" (`frontend/capacitor.config.ts`).
 
 ## Kararlar
 - **Capacitor, uzak URL modu yerine gömülü dosyalar:** Uygulamanın siteyi uzaktan yüklediği mod Capacitor'da üretim için önerilmiyor ve Apple'ın "yalnızca web sitesi sarmalayıcısı" (4.2) gerekçesiyle red riski yüksek. Gömülü dosyalar + native paylaşım/kaydetme daha sağlam.
