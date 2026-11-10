@@ -66,8 +66,8 @@ def new_user_context(browser, label: str) -> tuple[BrowserContext, Page]:
 def login(page: Page, email: str, password: str) -> None:
     page.goto("/login")
     page.get_by_label("E-posta").fill(email)
-    page.get_by_label("Şifre").fill(password)
-    page.get_by_role("button", name="Kapağı aç").click()
+    page.get_by_label("Şifre", exact=True).fill(password)
+    page.get_by_role("button", name="Defteri aç").click()
     page.wait_for_url(f"{BASE}/")
 
 
@@ -87,8 +87,10 @@ def register(page: Page, invite_url: str, name: str, email: str) -> None:
     page.goto(invite_url)
     page.get_by_label("Adın").fill(name)
     page.get_by_label("E-posta").fill(email)
-    page.get_by_label("Şifre (en az 10 karakter)").fill(PASSWORD)
-    page.get_by_role("button", name="Hesabı oluştur").click()
+    page.get_by_label("Şifre", exact=True).fill(PASSWORD)
+    page.get_by_label("Şifre tekrar", exact=True).fill(PASSWORD)
+    page.get_by_label("Gizlilik politikasını okudum ve kabul ediyorum.").check()
+    page.get_by_role("button", name="Daveti kabul et").click()
     page.wait_for_url(f"{BASE}/")
 
 

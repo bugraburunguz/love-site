@@ -2,12 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { formatBytes, signupStatus, type SignupStatus } from '../api/albums'
 import { api, ApiError } from '../api/client'
+import { validateNewAccount } from '../auth/accountForm'
 import { useAuth, type User } from '../auth/AuthContext'
-import Clay from '../components/Clay'
-import '../components/dialog.css'
-import './space.css'
+import AuthLayout from '../components/AuthLayout'
+import PasswordField from '../components/PasswordField'
+import { Button, Checkbox, TextField, uiButtonClass } from '../components/ui'
 
-/** Public signup: opens a small free space of one's own; the partner joins later through the usual invitation. */
+/** Public signup: opens a small free notebook of one's own; the partner joins later through the usual invitation. */
 export default function SignupPage() {
   const { user, loading, setUser } = useAuth()
   const navigate = useNavigate()
@@ -23,12 +24,17 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (loading || user) return
+    let alive = true
     signupStatus()
       .then((s) => {
+        if (!alive) return
         setStatus(s)
         setClosed(!s.open)
       })
-      .catch(() => setError('Kayıt durumu alınamadı, lütfen sayfayı yenile.'))
+      .catch(() => alive && setError('Kayıt durumu alınamadı, lütfen sayfayı yenile.'))
+    return () => {
+      alive = false
+    }
   }, [loading, user])
 
   if (loading) return <p className="boot">Defter açılıyor…</p>
@@ -36,29 +42,22 @@ export default function SignupPage() {
 
   if (closed) {
     return (
-      <main className="plain-page">
-        <h1>Şu an yeni kayıt alınmıyor</h1>
-        <p>Yeni defterler için yer şimdilik doldu. Davet bağlantın varsa onunla katılabilirsin.</p>
-        <Link to="/login">Giriş sayfası</Link>
-      </main>
+      <AuthLayout>
+        <div className="auth-state">
+          <span className="auth__seal" aria-hidden="true">✉</span>
+          <h2>Şu an yeni kayıt alınmıyor</h2>
+          <p>Yeni defterler için yer şimdilik doldu. Davet bağlantın varsa onunla katılabilirsin.</p>
+          <Link to="/login" className={uiButtonClass('secondary')}>Giriş sayfası</Link>
+        </div>
+      </AuthLayout>
     )
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    if (password.length < 10) {
-      setError('Şifre en az 10 karakter olmalı')
-      return
-    }
-    if (password !== repeat) {
-      setError('Şifreler aynı değil')
-      return
-    }
-    if (!privacy) {
-      setError('Gizlilik politikasını onaylaman gerekiyor')
-      return
-    }
+    const problem = validateNewAccount({ password, repeat, privacy })
+    setError(problem)
+    if (problem) return
     setBusy(true)
     try {
       const created = await api<User>('/api/signup', {
@@ -76,47 +75,54 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="plain-page">
-      <h1>Defterini aç</h1>
-      <p>
-        Kendi anı defterini oluştur, sonra partnerini davet et.
-        {status && ` Ücretsiz defterde ${formatBytes(status.freeLimitBytes)} yer var; ikiniz birlikte kullanırsınız.`}
-      </p>
-      <form className="plain-form" onSubmit={onSubmit}>
-        <label>
-          Adın
-          <input className="paper-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} required autoComplete="name" />
-        </label>
-        <label>
-          E-posta
-          <input className="paper-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        </label>
-        <div className="plain-form__row">
-          <label>
-            Şifre (en az 10 karakter)
-            <input className="paper-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required autoComplete="new-password" />
-          </label>
-          <label>
-            Şifre tekrar
-            <input className="paper-input" type="password" value={repeat} onChange={(e) => setRepeat(e.target.value)} minLength={10} required autoComplete="new-password" />
-          </label>
+    <AuthLayout wide>
+      <div className="auth-letter">
+        <span className="auth__seal" aria-hidden="true">❦</span>
+        <div className="ui-eyebrow">Yeni defter</div>
+        <h1>Defterini aç</h1>
+        <p>
+          Kendi anı defterini oluştur, sonra partnerini davet et.
+          {status && ` Ücretsiz defterde ${formatBytes(status.freeLimitBytes)} yer var; ikiniz birlikte kullanırsınız.`}
+        </p>
+      </div>
+
+      {error && (
+        <p role="alert" className="auth__banner">
+          <span>{error}</span>
+        </p>
+      )}
+
+      <form className="auth__form" onSubmit={onSubmit} noValidate={false}>
+        <div className="auth__row">
+          <TextField label="Adın" hint="Partnerinin göreceği isim" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} required autoComplete="name" />
+          <TextField label="E-posta" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </div>
-        <label className="plain-form__check">
-          <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
-          <span>
-            <Link to="/gizlilik" target="_blank" rel="noopener">Gizlilik politikasını</Link> okudum ve kabul ediyorum.
-          </span>
-        </label>
-        <p className="plain-form__hint">Şifre sıfırlama yok; şifreni güvenli bir yerde sakla.</p>
-        <p className="plain-form__hint">30 gün içinde hiçbir şey eklenmeyen ücretsiz defterler kendiliğinden silinir.</p>
-        {error && <p role="alert" className="plain-page__error">{error}</p>}
-        <Clay type="submit" disabled={busy || !status}>
+        <div className="auth__row">
+          <PasswordField label="Şifre" hint="En az 10 karakter" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required autoComplete="new-password" />
+          <PasswordField label="Şifre tekrar" value={repeat} onChange={(e) => setRepeat(e.target.value)} minLength={10} required autoComplete="new-password" />
+        </div>
+        <Checkbox checked={privacy} onChange={(e) => setPrivacy(e.target.checked)}>
+          <Link to="/gizlilik" target="_blank" rel="noopener">Gizlilik politikasını</Link> okudum ve kabul ediyorum.
+        </Checkbox>
+        <Button type="submit" size="lg" block loading={busy} disabled={!status}>
           Hesabı oluştur
-        </Clay>
+        </Button>
       </form>
-      <p>
+
+      <div className="auth__notes">
+        <div className="auth__note">
+          <h3>Şifreni sakla</h3>
+          <p>Şifre sıfırlama yok; şifreni güvenli bir yerde tut.</p>
+        </div>
+        <div className="auth__note">
+          <h3>Boş defter silinir</h3>
+          <p>30 gün içinde hiçbir şey eklenmeyen ücretsiz defterler kendiliğinden silinir.</p>
+        </div>
+      </div>
+
+      <p className="auth__alt">
         Zaten hesabın var mı? <Link to="/login">Giriş yap</Link>
       </p>
-    </main>
+    </AuthLayout>
   )
 }

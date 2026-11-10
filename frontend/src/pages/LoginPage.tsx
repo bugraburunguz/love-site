@@ -1,12 +1,23 @@
-import { useMemo, useState, type CSSProperties, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import Clay from '../components/Clay'
-import '../components/dialog.css'
-import '../components/leather.css'
-import { createRng } from '../layout/prng'
-import './login.css'
+import AuthLayout from '../components/AuthLayout'
+import PasswordField from '../components/PasswordField'
+import { Button, TextField } from '../components/ui'
+
+function Cover() {
+  return (
+    <>
+      <span className="auth__seal" aria-hidden="true">♥</span>
+      <div className="ui-eyebrow">İki kişilik anı defteri</div>
+      <h1>
+        Hatıra <em>Defterim</em>
+      </h1>
+      <p>Zamanın soldurmadığı fotoğraflar, el yazısı notlar ve ikinizin ortak hafıza sandığı.</p>
+    </>
+  )
+}
 
 export default function LoginPage() {
   const { user, loading, login, notice } = useAuth()
@@ -15,19 +26,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  // Fixed seed: the same twinkles every visit.
-  const sparkles = useMemo(() => {
-    const rng = createRng('login-stardust')
-    return Array.from({ length: 34 }, (_, i) => ({
-      id: i,
-      left: rng.range(2, 98),
-      top: rng.range(2, 98),
-      size: rng.range(4, 11),
-      delay: rng.range(0, 5),
-      duration: rng.range(2.6, 5.2),
-    }))
-  }, [])
 
   if (!loading && user) return <Navigate to="/" replace />
 
@@ -46,62 +44,50 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login">
-      <div className="login__dust" aria-hidden="true">
-        {sparkles.map((s) => (
-          <span
-            key={s.id}
-            style={{
-              left: `${s.left}%`,
-              top: `${s.top}%`,
-              width: s.size,
-              height: s.size,
-              animationDelay: `${s.delay}s`,
-              animationDuration: `${s.duration}s`,
-            }}
-          />
-        ))}
+    <AuthLayout cover={<Cover />}>
+      <div className="auth__head">
+        <div className="ui-eyebrow">Giriş</div>
+        <h2>Defteri arala</h2>
       </div>
 
-      <div className="login-book" style={{ '--cover-color': 'var(--leather-bordeaux)' } as CSSProperties}>
-        <div className="login-book__cover leather">
-          <div className="gold-foil login-book__star" aria-hidden="true">✦</div>
-          <h1 className="emboss login-book__title">Anılarımız</h1>
-          <div className="gold-foil login-book__rule" aria-hidden="true">❖</div>
+      {notice && !error && (
+        <p role="status" className="auth__banner auth__banner--info">
+          <span>{notice}</span>
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="auth__banner">
+          <span>
+            <strong>Giriş yapılamadı</strong>
+            {error}
+          </span>
+        </p>
+      )}
 
-          <form className="login-label" onSubmit={onSubmit}>
-            <label>
-              <span>E-posta</span>
-              <input
-                className="paper-input"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              <span>Şifre</span>
-              <input
-                className="paper-input"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-            {notice && !error && <p role="status" className="login-label__note">{notice}</p>}
-            {error && <p role="alert" className="login-label__error">{error}</p>}
-            <Clay type="submit" disabled={submitting} className="login-label__submit">
-              Kapağı aç
-            </Clay>
-          </form>
-          <Link to="/kayit" className="login-book__privacy">Hesabın yok mu? Defterini aç</Link>
-          <Link to="/gizlilik" className="login-book__privacy">Gizlilik</Link>
+      <form className="auth__form" onSubmit={onSubmit}>
+        <TextField label="E-posta" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <PasswordField label="Şifre" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <Button type="submit" size="lg" block loading={submitting}>
+          Defteri aç
+        </Button>
+      </form>
+
+      <p className="auth__alt">
+        Hesabın yok mu? <Link to="/kayit">Kendi defterini aç</Link>
+      </p>
+
+      <div className="auth__notes">
+        <div className="auth__note">
+          <h3>Davet bağlantın mı var?</h3>
+          <p>Partnerinin gönderdiği bağlantıyı açman yeterli; hesabını orada oluşturursun.</p>
+        </div>
+        <div className="auth__note">
+          <h3>Şifreni mi unuttun?</h3>
+          <p>
+            Şifre sıfırlama yok. Hesabına erişemiyorsan <Link to="/gizlilik">gizlilik sayfasındaki</Link> adresten bize yaz.
+          </p>
         </div>
       </div>
-    </main>
+    </AuthLayout>
   )
 }
