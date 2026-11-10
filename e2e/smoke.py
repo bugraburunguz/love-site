@@ -192,6 +192,12 @@ def calendar_check(page: Page, ctx: BrowserContext) -> None:
     page.goto(f"/takvim?ay={today:%Y-%m}")
     page.wait_for_timeout(600)
     page.screenshot(path=str(OUT / "calendar-month-phone.png"))
+    # wide screen, calendar -> shelf without a reload: the calendar's styles stay loaded and must not reshape the shelf
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.goto(f"/takvim?ay={today:%Y-%m}")
+    page.locator(".app-header").get_by_role("link", name="Raf").click()
+    page.wait_for_url(f"{BASE}/")
+    assert page.evaluate("getComputedStyle(document.querySelector('.home')).display") == "block", "the shelf took the calendar's layout"
     page.set_viewport_size({"width": 1280, "height": 900})
 
 

@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { deleteMedia, listAlbums, reprocessMedia, updateCaption, type Album, type MediaDto } from '../api/albums'
 import { calendarDay, type DayView } from '../api/calendar'
 import { longDate, occurrenceLabel, parseDay } from '../calendar/calendarMath'
+import AppHeader from '../components/AppHeader'
 import Clay from '../components/Clay'
-import { ConfirmDialog } from '../components/Dialog'
+import { ConfirmModal, uiButtonClass } from '../components/ui'
 import ErrorScreen from '../components/ErrorScreen'
 import Lightbox from '../components/Lightbox'
 import LivingPhoto from '../components/LivingPhoto'
@@ -64,11 +65,15 @@ export default function CalendarDayPage() {
 
   return (
     <ThemeContext.Provider value={filterTheme}>
-    <main className="calendar calendar--day" style={{ ...themeVars(filterTheme), ...pageVars(filterTheme, 'light', 'textured') } as CSSProperties}>
-      <header className="calendar__header">
-        <Link to={back} className="clay clay--pill clay--sm clay--cream">‹ Takvim</Link>
-        <h1>{longDate(date)}</h1>
-        <span />
+    <div className="ui home">
+    <AppHeader />
+    <main className="ui-container calendar calendar--day" style={{ ...themeVars(filterTheme), ...pageVars(filterTheme, 'light', 'textured') } as CSSProperties}>
+      <header className="calendar__header calendar__header--day">
+        <Link to={back} className={uiButtonClass('ghost', 'sm')}>‹ Takvim</Link>
+        <div>
+          <div className="ui-eyebrow">Günün sayfası</div>
+          <h1 className="calendar__day-title">{longDate(date)}</h1>
+        </div>
       </header>
 
       {day?.specialDays.map((o) => (
@@ -126,10 +131,11 @@ export default function CalendarDayPage() {
         <DateEditDialog media={editing} onClose={() => setEditing(null)} onSaved={() => { setOpen(-1); load() }} />
       )}
       {toDelete && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Fotoğraf silinsin mi?"
           message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak ve 30 gün sonra kalıcı olarak silinir.`}
           confirmLabel="Sil"
+          danger
           onClose={() => setToDelete(null)}
           onConfirm={async () => {
             await deleteMedia(toDelete.id)
@@ -138,8 +144,9 @@ export default function CalendarDayPage() {
           }}
         />
       )}
-      <BottomTabs />
     </main>
+    <BottomTabs />
+    </div>
     </ThemeContext.Provider>
   )
 }

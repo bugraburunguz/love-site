@@ -291,6 +291,18 @@
   margin: 0;
 }
 
+.ui-form__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .ui-form__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .ui-modal .ui-form .ui-modal__actions {
   margin-top: 0.5rem;
 }

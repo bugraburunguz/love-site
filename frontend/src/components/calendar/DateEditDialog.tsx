@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { setMediaDate, type MediaDto } from '../../api/albums'
 import { fromInstant, toInstant } from '../../calendar/calendarMath'
-import Clay from '../Clay'
-import { Frame } from '../Dialog'
+import { Button, Modal, TextField } from '../ui'
 
 /**
  * Corrects the date of a photo / video by hand (day and time, in this device's time zone). The calendar, the date under the
@@ -29,28 +28,24 @@ export default function DateEditDialog({ media, onSaved, onClose }: { media: Med
 
   const instant = toInstant(date, time)
   return (
-    <Frame title="Tarihi düzelt" onClose={onClose}>
-      <div className="dialog__form">
+    <Modal title="Tarihi düzelt" eyebrow="Takvim" onClose={onClose} dismissable={!busy}>
+      <div className="ui-form">
         {media.dateUncertain && !media.dateOverridden && (
-          <p className="dialog__message">Bu fotoğrafın çekim tarihi bilinmiyor; şimdilik telefondaki dosya ya da yükleme tarihi gösteriliyor.</p>
+          <p className="ui-muted ui-modal__text">Bu fotoğrafın çekim tarihi bilinmiyor; şimdilik telefondaki dosya ya da yükleme tarihi gösteriliyor.</p>
         )}
-        <label className="dialog__label">
-          Gün
-          <input className="paper-input" type="date" value={date} min="1900-01-01" max="2100-12-31" onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <label className="dialog__label">
-          Saat
-          <input className="paper-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-        </label>
-        {error && <p role="alert" className="dialog__error">{error}</p>}
-        <div className="dialog__actions">
+        <div className="ui-form__row">
+          <TextField label="Gün" type="date" value={date} min="1900-01-01" max="2100-12-31" onChange={(e) => setDate(e.target.value)} />
+          <TextField label="Saat" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        </div>
+        {error && <p role="alert" className="ui-field__error">{error}</p>}
+        <div className="ui-modal__actions">
           {media.dateOverridden && (
-            <Clay tone="cream" disabled={busy} onClick={() => void save(null)}>Orijinal tarihe dön</Clay>
+            <Button variant="ghost" disabled={busy} onClick={() => void save(null)}>Orijinal tarihe dön</Button>
           )}
-          <Clay tone="cream" onClick={onClose}>Vazgeç</Clay>
-          <Clay disabled={busy || !instant} onClick={() => instant && void save(instant)}>Kaydet</Clay>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Vazgeç</Button>
+          <Button loading={busy} disabled={!instant} onClick={() => instant && void save(instant)}>Kaydet</Button>
         </div>
       </div>
-    </Frame>
+    </Modal>
   )
 }
