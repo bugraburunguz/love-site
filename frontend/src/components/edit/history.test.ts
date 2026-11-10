@@ -55,6 +55,21 @@ describe('EditHistory', () => {
     expect(h.canRedo).toBe(false)
   })
 
+  it('an edit made while a step runs makes the older steps unreliable: only that edit stays', async () => {
+    const h = new EditHistory()
+    const { entry } = recorder()
+    let release!: () => void
+    h.push(entry('a'))
+    h.push({ label: 'slow', undo: () => new Promise<boolean>((r) => { release = () => r(true) }), redo: async () => true })
+    const running = h.undo()
+    h.push(entry('during'))
+    release()
+    await running
+    expect(h.size).toBe(1)
+    expect(h.undoLabel).toBe('during')
+    expect(h.canRedo).toBe(false)
+  })
+
   it('runs one step at a time and tells listeners', async () => {
     const h = new EditHistory()
     let calls = 0

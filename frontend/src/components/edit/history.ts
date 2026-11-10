@@ -18,6 +18,8 @@ export class EditHistory {
   private done: HistoryEntry[] = []
   private undone: HistoryEntry[] = []
   private running = false
+  /** edits pushed while a step was running; the older steps no longer match the pages, so only these survive */
+  private pushedWhileRunning: HistoryEntry[] = []
   private readonly listeners = new Set<() => void>()
   private snapshot = 0
 
@@ -31,6 +33,10 @@ export class EditHistory {
   get redoLabel() { return this.undone.at(-1)?.label ?? null }
 
   push(entry: HistoryEntry) {
+    if (this.running) {
+      this.pushedWhileRunning.push(entry)
+      return
+    }
     this.done.push(entry)
     if (this.done.length > this.limit) this.done.shift()
     this.undone = []
@@ -40,6 +46,7 @@ export class EditHistory {
   clear() {
     this.done = []
     this.undone = []
+    this.pushedWhileRunning = []
     this.emit()
   }
 
@@ -63,7 +70,12 @@ export class EditHistory {
       ok = false
     }
     this.running = false
-    if (ok) to.push(entry)
+    if (this.pushedWhileRunning.length > 0) {
+      // the user edited while the step ran: what the stacks recorded is no longer reliable
+      this.done = this.pushedWhileRunning.slice(-this.limit)
+      this.undone = []
+      this.pushedWhileRunning = []
+    } else if (ok) to.push(entry)
     else {
       this.done = []
       this.undone = []

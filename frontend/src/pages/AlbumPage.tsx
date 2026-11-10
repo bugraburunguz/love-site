@@ -108,7 +108,21 @@ function AlbumView({ id }: { id: string }) {
   const theme = useMemo(() => getTheme(previewThemeId ?? album?.themeId), [previewThemeId, album?.themeId])
   useThemeFonts(theme)
   const pagesState = usePages(id)
-  const { view, run: runPages, refresh: refreshPages } = pagesState
+  const { view, run: runPagesWrite, refresh: refreshPages } = pagesState
+  const edits = useUndoableEdits(pagesState)
+  const historyState = useHistoryState(edits.history)
+  // every write through here is one the undo steps do not know about: they would replay against stale pages
+  const runPages = useCallback(
+    (op: Parameters<typeof runPagesWrite>[0]) => {
+      edits.reset()
+      return runPagesWrite(op)
+    },
+    [edits, runPagesWrite],
+  )
+  // a failed or conflicting save reloaded the pages: forget the undo steps
+  useEffect(() => {
+    if (pagesState.resets > 0) edits.reset()
+  }, [pagesState.resets, edits])
   // pages with a theme of their own: their hand fonts are loaded too (a spread may need two)
   const pageThemeKey = (view?.pages ?? []).map((p) => p.themeId ?? '').join(',')
   useEffect(() => {
@@ -363,9 +377,6 @@ function AlbumView({ id }: { id: string }) {
     [findItem, pages, runPages],
   )
 
-  const edits = useUndoableEdits(pagesState)
-  const historyState = useHistoryState(edits.history)
-
   const editor = useMemo<PageEditor | undefined>(
     () =>
       editing
@@ -382,7 +393,7 @@ function AlbumView({ id }: { id: string }) {
 
   function toggleEditing() {
     // the steps of one editing session are not kept: undoing something from long ago would surprise
-    if (editing) edits.history.clear()
+    if (editing) edits.reset()
     setEditing((on) => !on)
     setSelectedId(null)
     setTrayOpen(false)
@@ -393,8 +404,11 @@ function AlbumView({ id }: { id: string }) {
     if (!editing) return
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      if (e.defaultPrevented || e.isComposing) return
       const target = e.target as HTMLElement | null
       if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      // a dialog over the editor (delete, unfreeze, upload setup …) owns the keyboard
+      if (document.querySelector('[aria-modal="true"]')) return
       e.preventDefault()
       setSelectedId(null)
       void (e.shiftKey ? edits.history.redo() : edits.history.undo())
@@ -638,7 +652,7 @@ function AlbumView({ id }: { id: string }) {
             onTemplate={changePageTemplate}
           />
           <div className="item-bar">
-            <Button size="sm" variant="gold" disabled={!currentPage} aria-pressed={panelOpen}
+            <Button size="sm" variant="gold" disabled={!currentPage}
               onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>
               ✿ Hatıra çantası
             </Button>

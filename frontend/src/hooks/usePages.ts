@@ -21,6 +21,8 @@ export function usePages(albumId: string) {
   const [error, setError] = useState<string | null>(null)
   /** when the server last confirmed a write (the editor's "Otomatik kaydedildi" line) */
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  /** counts reloads after a failed or conflicting write: the pages then differ from what the editor's undo steps recorded */
+  const [resets, setResets] = useState(0)
   const viewRef = useRef<PagesView | null>(null)
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const inflight = useRef(new Set<string>())
@@ -44,6 +46,7 @@ export function usePages(albumId: string) {
 
   const handleError = useCallback(
     async (e: unknown) => {
+      setResets((n) => n + 1)
       if (e instanceof ApiError && e.status === 409) {
         const current = e.problem?.current as (PagesView & PageDto) | undefined
         if (current && viewRef.current) {
@@ -160,6 +163,6 @@ export function usePages(albumId: string) {
 
   return {
     view, notice, error, clearNotice: () => setNotice(null), clearError: () => setError(null),
-    refresh, apply: set, run, runFor, current, setGeometry, savedAt,
+    refresh, apply: set, run, runFor, current, setGeometry, savedAt, resets,
   }
 }

@@ -54,7 +54,7 @@ export default function AlbumBar(p: Props) {
       </div>
 
       {p.editing ? (
-        <div className="album-bar__tools" role="toolbar" aria-label="Düzenleme">
+        <div className="album-bar__tools" role="group" aria-label="Düzenleme">
           <button type="button" className="album-bar__btn" onClick={p.undo.onUndo} disabled={!p.undo.canUndo}
             aria-label={p.undo.undoLabel ? `Geri al: ${p.undo.undoLabel}` : 'Geri al'} title="Geri al (⌘Z)">
             <Icon d={ICONS.undo} />
@@ -66,12 +66,12 @@ export default function AlbumBar(p: Props) {
           <span className="album-bar__saved" role="status">
             {time ? <>Otomatik kaydedildi <span className="album-bar__time">· {time}</span></> : 'Değişiklikler kendiliğinden kaydedilir'}
           </span>
-          <button type="button" className={uiButtonClass('primary', 'sm')} onClick={p.onToggleEdit} aria-pressed="true">
+          <button type="button" className={uiButtonClass('primary', 'sm')} onClick={p.onToggleEdit}>
             Düzenlemeyi bitir
           </button>
         </div>
       ) : (
-        <div className="album-bar__tools" role="toolbar" aria-label="Albüm">
+        <div className="album-bar__tools" role="group" aria-label="Albüm">
           {p.ambient && (
             <button type="button" className="album-bar__btn" onClick={p.ambient.toggle} aria-pressed={p.ambient.on}
               aria-label={p.ambient.on ? 'Süsleri kapat' : 'Süsleri aç'} title={p.ambient.on ? 'Süsleri kapat' : 'Süsleri aç'}>
@@ -87,7 +87,7 @@ export default function AlbumBar(p: Props) {
           <button type="button" className={`${uiButtonClass('secondary', 'sm')} album-bar__wide`} onClick={p.onAdd}>
             <Icon d={ICONS.photo} /> Fotoğraf ekle
           </button>
-          <button type="button" className={uiButtonClass('primary', 'sm')} onClick={p.onToggleEdit} aria-label="Albümü düzenle" aria-pressed="false">
+          <button type="button" className={uiButtonClass('primary', 'sm')} onClick={p.onToggleEdit} aria-label="Albümü düzenle">
             <Icon d={ICONS.edit} /> <span className="album-bar__label">Düzenle</span>
           </button>
         </div>
