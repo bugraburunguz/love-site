@@ -527,9 +527,7 @@
   padding: 1rem 1.25rem 0.75rem;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-lg);
-  background:
-    repeating-linear-gradient(to bottom, transparent 0 29px, color-mix(in srgb, var(--ui-ink) 10%, transparent) 29px 30px),
-    var(--ui-surface);
+  background: var(--ui-surface);
   box-shadow: var(--ui-shadow-card);
 }
 
@@ -550,13 +548,15 @@
   color: var(--ui-ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* the ruling belongs to the text itself, so every line of writing sits on a line of the paper */
+  background: repeating-linear-gradient(to bottom, transparent 0 29px, color-mix(in srgb, var(--ui-ink) 12%, transparent) 29px 30px);
+  background-attachment: local;
 }
 
 textarea.day-note__text {
   width: 100%;
   padding: 0;
   border: 0;
-  background: transparent;
   outline: none;
   resize: vertical;
 }
