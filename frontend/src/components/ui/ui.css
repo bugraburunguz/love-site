@@ -307,6 +307,12 @@
   margin-top: 0.5rem;
 }
 
+.album-settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* account deletion: what goes, on a tinted danger strip */
 .delete-account__list {
   margin: 0;
@@ -476,6 +482,19 @@
   animation: ui-fade 160ms var(--ui-ease);
 }
 
+/* the page behind shows through clearly (live previews) */
+.ui-modal-backdrop--light {
+  background: rgba(31, 23, 20, 0.12);
+  backdrop-filter: none;
+}
+
+@media (min-width: 900px) {
+  /* on wide screens the previewing dialog steps aside so the album stays visible */
+  .ui-modal-backdrop--light {
+    justify-content: flex-end;
+  }
+}
+
 .ui-modal {
   position: relative;
   width: min(560px, 100%);
@@ -526,8 +545,13 @@
   cursor: pointer;
 }
 
-.ui-modal__close:hover {
+.ui-modal__close:hover:not(:disabled) {
   background: var(--ui-surface-sunk);
+}
+
+.ui-modal__close:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .ui-modal__actions {

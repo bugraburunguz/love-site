@@ -1,0 +1,241 @@
+/* LS-15: the admin screen on --ui-* tokens (quieter than the rest, same palette). */
+
+.admin-head p {
+  max-width: 60ch;
+  margin: 0.5rem 0 0;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.ui .admin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.25rem;
+}
+
+.admin-stat__label {
+  font-size: var(--ui-text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-ink-muted);
+}
+
+.admin-stat__value {
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-lg);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.admin-stat .ui-muted {
+  font-size: var(--ui-text-small);
+}
+
+.ui .admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-card h2,
+.admin-title {
+  font-size: var(--ui-text-md);
+}
+
+.admin-create {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+@media (min-width: 760px) {
+  .admin-create {
+    grid-template-columns: 2fr 1fr auto;
+  }
+}
+
+.admin-search {
+  max-width: 280px;
+  min-height: 40px;
+  font-size: var(--ui-text-small);
+}
+
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-space {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.admin-space__main {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+@media (min-width: 760px) {
+  .admin-space__main {
+    grid-template-columns: auto 1fr minmax(200px, 260px);
+  }
+}
+
+.admin-space__meter {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 760px) {
+  .admin-space__meter {
+    grid-column: auto;
+  }
+}
+
+.admin-space__avatars {
+  display: flex;
+}
+
+.admin-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  font-size: var(--ui-text-label);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--ui-surface);
+}
+
+.admin-avatar:first-child {
+  margin-left: 0;
+}
+
+.admin-avatar--empty {
+  background: var(--ui-surface-sunk);
+  color: var(--ui-ink-muted);
+}
+
+.admin-space__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.admin-space__text strong {
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-body-lg);
+  font-weight: 600;
+}
+
+.admin-space__text .ui-muted {
+  font-size: var(--ui-text-small);
+}
+
+.ui .admin-kind {
+  margin-left: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-sunk);
+  font-family: var(--ui-font-body);
+  font-size: var(--ui-text-label);
+  font-weight: 600;
+  color: var(--ui-ink-muted);
+  vertical-align: middle;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.admin-runs {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-sunk);
+  font-size: var(--ui-text-small);
+}
+
+.admin-run__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-status {
+  font-weight: 600;
+  color: var(--ui-ink-muted);
+}
+
+.admin-status--ok {
+  color: var(--ui-success);
+}
+
+.admin-status--bad {
+  color: var(--ui-danger);
+}
+
+/* the copyable invitation link (admin) */
+.invite-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-primary-soft);
+}
+
+.invite-link__row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.invite-link__row .ui-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--ui-text-small);
+}
+
+.invite-link__note {
+  margin: 0;
+  font-size: var(--ui-text-label);
+  color: var(--ui-ink);
+}

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { completeMusicUpload, deleteAlbumMusic, requestMusicUpload, type Album } from '../api/albums'
 import { putFile } from '../upload/putFile'
-import Clay from './Clay'
 import ThemePicker from './ThemePicker'
-import './dialog.css'
+import { Button, Modal } from './ui'
+import './ui/ui.css'
 
 const MUSIC_TYPES: Record<string, string> = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' }
 
@@ -23,20 +23,13 @@ interface Props {
   onClose: () => void
 }
 
-/** Theme (with live preview) and song of an album. */
+/** Theme (with live preview on the album behind) and song of an album. */
 export default function AlbumSettings({ album, previewThemeId, onPreview, onSaveTheme, onAlbum, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const file = useRef<HTMLInputElement>(null)
   const changed = previewThemeId !== album.themeId
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changed])
 
   function close() {
     if (changed) onPreview(album.themeId) // leave without saving: the album goes back to its own theme
@@ -88,19 +81,39 @@ export default function AlbumSettings({ album, previewThemeId, onPreview, onSave
   }
 
   return (
-    <div className="dialog-backdrop dialog-backdrop--light" onClick={(e) => e.target === e.currentTarget && close()}>
-      <div className="dialog dialog--wide" role="dialog" aria-modal="true" aria-label="Albüm ayarları">
-        <h2 className="dialog__title">Albüm ayarları</h2>
+    <Modal
+      title="Albüm ayarları"
+      eyebrow={album.title}
+      onClose={close}
+      dismissable={!busy}
+      light
+      actions={changed ? (
+        <>
+          <Button variant="secondary" onClick={close} disabled={busy}>Vazgeç</Button>
+          <Button loading={busy} onClick={() => void save()}>Temayı kaydet</Button>
+        </>
+      ) : undefined}
+    >
+      <div className="ui-form album-settings">
+        <div className="ui-field">
+          <span className="ui-field__label">Tema</span>
+          <span className="ui-field__hint">Seçtiğin tema arkadaki albümde hemen görünür; kaydedene kadar değişmez.</span>
+          <ThemePicker value={previewThemeId} onChange={onPreview} />
+        </div>
 
-        <span className="dialog__label">Tema (arkadaki albümde canlı görünür)</span>
-        <ThemePicker value={previewThemeId} onChange={onPreview} />
-
-        <div className="album-settings__music">
-          <span className="dialog__label">Müzik</span>
-          <p className="dialog__message">
+        <div className="ui-field album-settings__music">
+          <span className="ui-field__label">Müzik</span>
+          <p className="ui-muted ui-modal__text">
             {album.musicUrl ? `Çalan parça: ${album.musicName ?? 'müzik'}` : 'Bu albümde müzik yok.'} (mp3, m4a, aac veya ogg, en fazla 20 MB)
           </p>
-          {progress !== null && <progress value={progress} max={1} aria-label="Müzik yükleniyor" />}
+          {progress !== null && (
+            <div className="ui-meter">
+              <div className="ui-meter__track" role="progressbar" aria-label="Müzik yükleniyor" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={Math.round(progress * 100)}>
+                <div className="ui-meter__fill" style={{ width: `${progress * 100}%` }} />
+              </div>
+            </div>
+          )}
           <div className="album-settings__actions">
             <input
               ref={file}
@@ -109,23 +122,18 @@ export default function AlbumSettings({ album, previewThemeId, onPreview, onSave
               accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,.mp3,.m4a,.aac,.ogg"
               onChange={(e) => void pickSong(e.target.files)}
             />
-            <Clay size="sm" tone="cream" disabled={busy} onClick={() => file.current?.click()}>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => file.current?.click()}>
               {album.musicUrl ? 'Müziği değiştir' : 'Müzik yükle'}
-            </Clay>
+            </Button>
             {album.musicUrl && (
-              <Clay size="sm" tone="cream" disabled={busy} onClick={() => void removeSong()}>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void removeSong()}>
                 Müziği kaldır
-              </Clay>
+              </Button>
             )}
           </div>
         </div>
-
-        {error && <p role="alert" className="dialog__error">{error}</p>}
-        <div className="dialog__actions">
-          <Clay tone="cream" onClick={close}>{changed ? 'Vazgeç' : 'Kapat'}</Clay>
-          {changed && <Clay disabled={busy} onClick={() => void save()}>Temayı kaydet</Clay>}
-        </div>
+        {error && <p role="alert" className="ui-field__error">{error}</p>}
       </div>
-    </div>
+    </Modal>
   )
 }

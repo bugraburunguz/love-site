@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { deletionConsequences } from './legal'
+import { deletionConsequences, headingId } from './legal'
+
+describe('headingId', () => {
+  it('turns a Turkish heading into a plain anchor', () => {
+    expect(headingId('Hangi verileri topluyoruz?')).toBe('hangi-verileri-topluyoruz')
+    expect(headingId('Nerede ve ne kadar süre saklanıyor?')).toBe('nerede-ve-ne-kadar-sure-saklaniyor')
+    expect(headingId('İletişim & Şikâyet')).toBe('iletisim-sikayet')
+  })
+})
 
 describe('deletionConsequences', () => {
   it('warns the last member that the whole space goes', () => {

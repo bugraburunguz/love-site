@@ -1,8 +1,7 @@
 import { API_BASE } from '../native/platform'
 import { useState } from 'react'
 import type { CreatedInvite } from '../api/albums'
-import Clay from './Clay'
-import '../pages/space.css'
+import { Button } from './ui'
 
 /** the server sends an absolute url when APP_PUBLIC_URL is set; otherwise the link is built from where the owner is browsing */
 export function inviteUrl(invite: Pick<CreatedInvite, 'path' | 'url'>): string {
@@ -24,10 +23,10 @@ export function InviteLink({ invite }: { invite: CreatedInvite }) {
   }
   return (
     <div className="invite-link">
-      <input className="paper-input" readOnly value={url} aria-label="Davet bağlantısı" onFocus={(e) => e.currentTarget.select()} />
-      <Clay size="sm" tone="cream" onClick={() => void copy()}>
-        {copied ? 'Kopyalandı' : 'Kopyala'}
-      </Clay>
+      <div className="invite-link__row">
+        <input className="ui-input" readOnly value={url} aria-label="Davet bağlantısı" onFocus={(e) => e.currentTarget.select()} />
+        <Button size="sm" onClick={() => void copy()}>{copied ? 'Kopyalandı' : 'Kopyala'}</Button>
+      </div>
       <p className="invite-link__note">
         Bağlantı {new Date(invite.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} tarihine kadar geçerli
         ve tek kullanımlık. Yeni bir bağlantı oluşturursan öncekiler geçersiz olur.

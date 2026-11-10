@@ -1,5 +1,16 @@
 import { api } from '../api/client'
 
+const PLAIN: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' }
+
+/** Anchor id of a legal page heading ("Hangi verileri topluyoruz?" → "hangi-verileri-topluyoruz"), Turkish-aware. */
+export function headingId(text: string): string {
+  return text
+    .toLocaleLowerCase('tr-TR')
+    .replace(/[çğıöşüâîû]/g, (c) => PLAIN[c] ?? c)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 export interface LegalInfo {
   /** where privacy questions and deletion requests go; empty when the server has none configured */
   contactEmail: string

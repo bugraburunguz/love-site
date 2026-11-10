@@ -165,18 +165,6 @@
   flex-wrap: wrap;
 }
 
-.dialog--wide {
-  width: min(560px, 100%);
-  max-height: 92vh;
-  overflow-y: auto;
-}
-
-.dialog-backdrop--light {
-  background: rgba(40, 22, 12, 0.18);
-  backdrop-filter: none;
-  align-items: end;
-}
-
 /* ---- page theme picker (edit mode) ---- */
 .page-theme {
   display: grid;
