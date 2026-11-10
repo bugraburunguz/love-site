@@ -102,8 +102,3 @@ button {
 .native-app .plain-page {
   padding-top: max(var(--space-5), calc(env(safe-area-inset-top) + var(--space-3)));
 }
-
-.native-app .login {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}

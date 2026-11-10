@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { landingFor } from './auth/accountForm'
 import { useAuth } from './auth/AuthContext'
+import { isNativeApp } from './native/platform'
 import ErrorBoundary from './components/ErrorBoundary'
 import ErrorScreen from './components/ErrorScreen'
 import InvitePage from './pages/InvitePage'
@@ -14,12 +16,22 @@ const AlbumPage = lazy(() => import('./pages/AlbumPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const CalendarDayPage = lazy(() => import('./pages/CalendarDayPage'))
 const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
 
-/** Everything behind the login. */
+/** Everything behind the login; a signed-out visitor of "/" on the website gets the page that explains the app. */
 function AppShell() {
-  const { user, loading } = useAuth()
+  const { user, loading, notice } = useAuth()
+  const { pathname } = useLocation()
   if (loading) return <p className="boot">Defter açılıyor…</p>
-  if (!user) return <Navigate to="/login" replace />
+  const view = landingFor({ signedIn: !!user, native: isNativeApp, path: pathname, notice })
+  if (view === 'landing') {
+    return (
+      <Suspense fallback={<p className="boot">Defter açılıyor…</p>}>
+        <LandingPage />
+      </Suspense>
+    )
+  }
+  if (view === 'login') return <Navigate to="/login" replace />
   return (
     <Suspense fallback={<p className="boot">Defter açılıyor…</p>}>
       <Outlet />

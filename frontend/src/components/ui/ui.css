@@ -44,7 +44,8 @@
   outline-offset: 2px;
 }
 
-.ui a {
+/* :where keeps this at class weight, so a link styled as a button (.ui-btn--primary) keeps its own colour */
+.ui :where(a) {
   color: var(--ui-primary);
   text-underline-offset: 3px;
 }
