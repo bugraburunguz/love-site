@@ -360,6 +360,23 @@ def main() -> int:
             exports.run(browser, a_ctx, a, OUT / "media-exports")
         a.set_viewport_size({"width": 1280, "height": 900})
 
+        step("trash: a photo moved to the trash comes back")
+        listed = lambda: {m["id"] for m in api(a_ctx, f"/api/albums/{album_id}/media").json()}
+        before = listed()
+        a.goto(f"/albums/{album_id}")
+        a.locator(".page .polaroid").first.click()
+        a.get_by_role("button", name="Diğer işlemler").click()
+        a.get_by_role("menuitem", name="Çöpe taşı").click()
+        a.get_by_role("dialog", name="Çöpe taşınsın mı?").get_by_role("button", name="Çöpe taşı").click()
+        wait_until(lambda: len(listed()) == len(before) - 1, "the photo to leave the album", 30, 1)
+        a.goto("/cop")
+        expect(a.get_by_role("heading", name="Çöp kutusu")).to_be_visible()
+        item = a.locator(".trash-item").first
+        expect(item).to_contain_text("gün sonra kalıcı olarak silinecek")
+        a.screenshot(path=str(OUT / "trash.png"))
+        item.get_by_role("button").click()
+        wait_until(lambda: listed() == before, "the photo to be back in its album", 30, 1)
+
         step("a user of another space gets 404")
         b_ctx, b = new_user_context(browser, "user B")
         register(b, invite_b, "Ali", f"ali-{tag}@e2e.test")

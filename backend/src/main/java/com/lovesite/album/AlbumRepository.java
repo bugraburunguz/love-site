@@ -15,4 +15,8 @@ public interface AlbumRepository extends JpaRepository<Album, UUID> {
     List<Album> findBySpaceIdAndDeletedAtIsNullOrderByCreatedAtDesc(UUID spaceId);
 
     Optional<Album> findByIdAndSpaceIdAndDeletedAtIsNull(UUID id, UUID spaceId);
+
+    Optional<Album> findByIdAndSpaceIdAndDeletedAtIsNotNull(UUID id, UUID spaceId);
+
+    List<Album> findBySpaceIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(UUID spaceId);
 }

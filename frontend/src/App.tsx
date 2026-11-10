@@ -16,6 +16,7 @@ const AlbumPage = lazy(() => import('./pages/AlbumPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const CalendarDayPage = lazy(() => import('./pages/CalendarDayPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const TrashPage = lazy(() => import('./pages/TrashPage'))
 const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/takvim" element={<CalendarPage />} />
         <Route path="/takvim/gun/:date" element={<CalendarDayPage />} />
         <Route path="/profil" element={<ProfilePage />} />
+        <Route path="/cop" element={<TrashPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<ErrorScreen kind="notfound" />} />

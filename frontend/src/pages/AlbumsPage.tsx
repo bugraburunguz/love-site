@@ -222,6 +222,7 @@ export default function AlbumsPage() {
             <Meter label="Anı sandığı" used={space.usedBytes} limit={space.limitBytes} format={formatBytes} />
             <div className="home__storage-links">
               {space.kind === 'FREE' && <span className="ui-muted">Ücretsiz defter · kısa videolar</span>}
+              <Link to="/cop" className={uiButtonClass('ghost', 'sm')}>Çöp kutusu</Link>
               <Link to="/profil" className={uiButtonClass('ghost', 'sm')}>Defter ayarları</Link>
             </div>
           </Card>
