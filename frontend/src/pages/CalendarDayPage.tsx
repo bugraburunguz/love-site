@@ -132,9 +132,9 @@ export default function CalendarDayPage() {
       )}
       {toDelete && (
         <ConfirmModal
-          title="Fotoğraf silinsin mi?"
+          title="Çöpe taşınsın mı?"
           message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak ve 30 gün sonra kalıcı olarak silinir.`}
-          confirmLabel="Sil"
+          confirmLabel="Çöpe taşı"
           danger
           onClose={() => setToDelete(null)}
           onConfirm={async () => {

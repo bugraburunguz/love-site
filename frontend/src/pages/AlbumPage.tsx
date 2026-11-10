@@ -11,14 +11,13 @@ import AlbumBar from '../components/AlbumBar'
 import AlbumMusic from '../components/AlbumMusic'
 import { useHistoryState } from '../components/edit/history'
 import { useUndoableEdits } from '../components/edit/useUndoableEdits'
-import { Button } from '../components/ui'
+import { Button, ConfirmModal } from '../components/ui'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
 import CompassNeedle from '../components/CompassNeedle'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ErrorScreen from '../components/ErrorScreen'
 import '../components/clay.css'
-import { ConfirmDialog } from '../components/Dialog'
 import Clay from '../components/Clay'
 import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
@@ -749,17 +748,18 @@ function AlbumView({ id }: { id: string }) {
       )}
 
       {toDelete && (
-        <ConfirmDialog
-          title="Fotoğraf silinsin mi?"
+        <ConfirmModal
+          title="Çöpe taşınsın mı?"
           message={`"${toDelete.caption || toDelete.originalFilename}" albümden kalkacak ve 30 gün sonra kalıcı olarak silinir.`}
-          confirmLabel="Sil"
+          confirmLabel="Çöpe taşı"
+          danger
           onClose={() => setToDelete(null)}
           onConfirm={confirmDelete}
         />
       )}
 
       {confirm?.kind === 'unfreeze' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Serbest düzen silinsin mi?"
           message="Fotoğrafların elle verdiğin konumları silinir; fotoğraflar sırayla otomatik yerleşir."
           confirmLabel="Otomatiğe geç"
@@ -771,7 +771,7 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
       {confirm?.kind === 'themeRest' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Tema sonraki sayfalara da uygulansın mı?"
           message={`Bu sayfa ve sonraki ${confirm.pages.length - 1} sayfa (albümün sonuna kadar) seçtiğin temayı alacak.`}
           confirmLabel="Uygula"
@@ -782,10 +782,11 @@ function AlbumView({ id }: { id: string }) {
         />
       )}
       {confirm?.kind === 'deletePage' && (
-        <ConfirmDialog
+        <ConfirmModal
           title="Sayfa silinsin mi?"
           message="Sayfadaki fotoğraflar silinmez; tepsiye geri döner ve istediğin sayfaya yeniden koyabilirsin."
           confirmLabel="Sayfayı sil"
+          danger
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
             const { page } = confirm

@@ -79,9 +79,22 @@ export default function SharePanel({ album, pages, media, mediaById, jobs, onSta
   const stickerCount = selected.length
   const reelsSeconds = (cover ? 1.5 : 0) + selected.length * 2.5 + 2 - (selected.length + (cover ? 1 : 0)) * 0.5
   const back = <Button variant="secondary" onClick={() => setMode('menu')} disabled={busy}>Geri</Button>
+  // the dialog's own action row stays visible under a long picker (the panel above it scrolls)
+  const prepare = (type: ExportType, params: Record<string, unknown>, ok: boolean) => (
+    <>
+      {back}
+      <Button loading={busy} disabled={!ok} onClick={() => submit(type, params)}>Hazırla</Button>
+    </>
+  )
+  const actions =
+    mode === 'carousel' ? prepare('CAROUSEL', { albumId: album.id, pageIds: selected, includeCover: cover }, selected.length > 0)
+      : mode === 'reels' ? prepare('REELS', { albumId: album.id, mediaIds: selected, includeCover: cover, includeAlbumMusic: music }, selected.length > 0)
+        : mode === 'stickers' ? prepare('STICKER_PACK', { mediaIds: selected, animated }, stickerCount >= 3)
+          : undefined
 
   return (
-    <Modal title={TITLE[mode]} eyebrow={mode === 'menu' ? album.title : 'Paylaş'} onClose={onClose} dismissable={!busy}>
+    <Modal title={TITLE[mode]} eyebrow={mode === 'menu' ? album.title : 'Paylaş'} onClose={onClose} dismissable={!busy}
+      actions={actions} refocusKey={mode}>
       <div className="share-panel ui-form">
         {mode === 'menu' && (
           <>
@@ -107,10 +120,6 @@ export default function SharePanel({ album, pages, media, mediaById, jobs, onSta
             <Checkbox checked={cover} onChange={(e) => setCover(e.target.checked)}>Albüm kapağı ilk görsel olsun</Checkbox>
             {watermarkToggle}
             {error && <p role="alert" className="ui-field__error">{error}</p>}
-            <div className="ui-modal__actions">
-              {back}
-              <Button loading={busy} disabled={selected.length === 0} onClick={() => submit('CAROUSEL', { albumId: album.id, pageIds: selected, includeCover: cover })}>Hazırla</Button>
-            </div>
           </>
         )}
 
@@ -129,10 +138,6 @@ export default function SharePanel({ album, pages, media, mediaById, jobs, onSta
             )}
             {watermarkToggle}
             {error && <p role="alert" className="ui-field__error">{error}</p>}
-            <div className="ui-modal__actions">
-              {back}
-              <Button loading={busy} disabled={selected.length === 0} onClick={() => submit('REELS', { albumId: album.id, mediaIds: selected, includeCover: cover, includeAlbumMusic: music })}>Hazırla</Button>
-            </div>
           </>
         )}
 
@@ -143,10 +148,6 @@ export default function SharePanel({ album, pages, media, mediaById, jobs, onSta
             <Checkbox checked={animated} onChange={(e) => setAnimated(e.target.checked)}>Hareketli fotoğraflar animasyonlu olsun</Checkbox>
             {watermarkToggle}
             {error && <p role="alert" className="ui-field__error">{error}</p>}
-            <div className="ui-modal__actions">
-              {back}
-              <Button loading={busy} disabled={stickerCount < 3} onClick={() => submit('STICKER_PACK', { mediaIds: selected, animated })}>Hazırla</Button>
-            </div>
           </>
         )}
       </div>

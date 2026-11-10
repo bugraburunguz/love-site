@@ -7,7 +7,7 @@ import {
 import { pageThemeVars } from '../themes/cssVars'
 import { ThemeContext, useTheme } from '../themes/ThemeContext'
 import type { ThemeDef } from '../themes/types'
-import LivingPhoto from './LivingPhoto'
+import LivingPhoto, { formatDate } from './LivingPhoto'
 import './lightbox.css'
 
 /** An entry of the lightbox's ⋯ menu (the album and the calendar add their own: date, download, share). */
@@ -15,7 +15,7 @@ export function LightboxItem({ danger, ...props }: React.ButtonHTMLAttributes<HT
   return <button type="button" role="menuitem" className={`lightbox__item${danger ? ' lightbox__item--danger' : ''}`} {...props} />
 }
 
-const longDay = (iso: string) => new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+const menuItems = (menu: HTMLElement | null) => Array.from(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])
 
 interface Props {
   items: MediaDto[]
@@ -53,11 +53,27 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
   const prev = () => index > 0 && onIndex(index - 1)
   const next = () => index < items.length - 1 && onIndex(index + 1)
 
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (menuOpen) setMenuOpen(false)
-        else onClose()
+        if (menuOpen) {
+          setMenuOpen(false)
+          menuButton.current?.focus()
+        } else onClose()
+        return
+      }
+      // while the menu is open the arrows walk through its entries instead of turning the photo
+      if (menuOpen) {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+        e.preventDefault()
+        const list = menuItems(menuRef.current)
+        if (list.length === 0) return
+        const at = list.indexOf(document.activeElement as HTMLElement)
+        const step = e.key === 'ArrowDown' ? 1 : -1
+        list[(at + step + list.length) % list.length].focus()
         return
       }
       if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
@@ -70,6 +86,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
 
   useEffect(() => {
     if (!menuOpen) return
+    menuItems(menuRef.current)[0]?.focus()
     const close = () => setMenuOpen(false)
     window.addEventListener('pointerdown', close)
     return () => window.removeEventListener('pointerdown', close)
@@ -128,6 +145,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
         <div className="lightbox__menu" onPointerDown={(e) => e.stopPropagation()}>
           <button
             type="button"
+            ref={menuButton}
             className="lightbox__icon"
             aria-label="Diğer işlemler"
             aria-haspopup="menu"
@@ -137,7 +155,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
             ⋯
           </button>
           {menuOpen && (
-            <div className="lightbox__dropdown" role="menu">
+            <div className="lightbox__dropdown" role="menu" ref={menuRef}>
               {menuExtra?.(media, () => setMenuOpen(false))}
               <LightboxItem
                 danger
@@ -201,7 +219,7 @@ export default function Lightbox({ items, index, aspects, onIndex, onClose, onCa
 
       <div className="lightbox__footer">
         <span className="lightbox__pill">{index + 1} / {items.length}</span>
-        <span className="lightbox__date">{longDay(media.displayDate)}{media.dateUncertain && !media.dateOverridden ? ' ?' : ''}</span>
+        <span className="lightbox__date">{formatDate(media.displayDate)}{media.dateUncertain && !media.dateOverridden ? ' ?' : ''}</span>
         {media.uploadedByName && <span className="lightbox__by">Ekleyen: {media.uploadedByName}</span>}
         {saveError && <span role="alert" className="lightbox__error">{saveError}</span>}
       </div>
