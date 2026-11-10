@@ -60,22 +60,27 @@ interface ConfirmProps {
 /** A yes/no question before something that is hard to undo. */
 export function ConfirmModal({ title, message, confirmLabel, danger = false, onConfirm, onClose }: ConfirmProps) {
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   return (
     <Modal
       title={title}
       onClose={onClose}
+      dismissable={!busy}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose}>Vazgeç</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Vazgeç</Button>
           <Button
             variant={danger ? 'danger' : 'primary'}
             loading={busy}
             onClick={async () => {
               setBusy(true)
+              setError(null)
               try {
                 await onConfirm()
-              } finally {
                 onClose()
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Bir şeyler ters gitti')
+                setBusy(false)
               }
             }}
           >
@@ -84,7 +89,8 @@ export function ConfirmModal({ title, message, confirmLabel, danger = false, onC
         </>
       }
     >
-      <p className="ui-muted" style={{ margin: 0 }}>{message}</p>
+      <p className="ui-muted ui-modal__text">{message}</p>
+      {error && <p role="alert" className="ui-field__error">{error}</p>}
     </Modal>
   )
 }

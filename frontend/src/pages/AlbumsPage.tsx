@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { createAlbum, deleteAlbum, formatBytes, getSpace, listAlbums, listMedia, renameAlbum, type Album, type SpaceInfo } from '../api/albums'
 import { onThisDay, type OnThisDay } from '../api/calendar'
@@ -39,12 +39,22 @@ function useAlbumFacts(albumId: string): AlbumFacts | null {
   return facts
 }
 
+/** A disclosure (button + list of actions): Tab moves through the actions, Escape closes and returns to the button. */
 function AlbumMenu({ album, onRename, onDelete }: { album: Album; onRename: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false)
+  const button = useRef<HTMLButtonElement>(null)
+  const list = useRef<HTMLDivElement>(null)
+  const listId = useId()
+
   useEffect(() => {
     if (!open) return
+    list.current?.querySelector<HTMLElement>('a, button')?.focus()
     const close = () => setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      button.current?.focus()
+    }
     window.addEventListener('pointerdown', close)
     window.addEventListener('keydown', onKey)
     return () => {
@@ -52,16 +62,25 @@ function AlbumMenu({ album, onRename, onDelete }: { album: Album; onRename: () =
       window.removeEventListener('keydown', onKey)
     }
   }, [open])
+
   return (
     <div className="album-card__menu" onPointerDown={(e) => e.stopPropagation()}>
-      <button type="button" className="album-card__menu-btn" aria-label={`${album.title} seçenekleri`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button
+        ref={button}
+        type="button"
+        className="album-card__menu-btn"
+        aria-label={`${album.title} seçenekleri`}
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((o) => !o)}
+      >
         ⋯
       </button>
       {open && (
-        <div className="album-card__dropdown" role="menu">
-          <Link role="menuitem" to={`/albums/${album.id}?ayarlar=1`} onClick={() => setOpen(false)}>Tema ve müzik</Link>
-          <button role="menuitem" type="button" onClick={() => { setOpen(false); onRename() }}>Yeniden adlandır</button>
-          <button role="menuitem" type="button" className="album-card__danger" onClick={() => { setOpen(false); onDelete() }}>Sil</button>
+        <div className="album-card__dropdown" id={listId} ref={list}>
+          <Link to={`/albums/${album.id}?ayarlar=1`} onClick={() => setOpen(false)}>Tema ve müzik</Link>
+          <button type="button" onClick={() => { setOpen(false); onRename() }}>Yeniden adlandır</button>
+          <button type="button" className="album-card__danger" onClick={() => { setOpen(false); onDelete() }}>Sil</button>
         </div>
       )}
     </div>
@@ -114,7 +133,8 @@ function OnThisDayStrip() {
         <h2 id="past-title" className="home__past-title">
           <span aria-hidden="true">◷</span> Bugün, {yearsAgoLabel(first.yearsAgo).toLocaleLowerCase('tr-TR')}…
         </h2>
-        <Chip static>{new Date(first.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</Chip>
+        {/* a plain YYYY-MM-DD is parsed as UTC: format it in UTC too, or a phone abroad shows the day before */}
+        <Chip static>{new Date(first.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</Chip>
       </div>
       <div className="home__past-row">
         {prints.map(({ day, item }) => {
@@ -153,13 +173,14 @@ export default function AlbumsPage() {
     <div className="ui home">
       <AppHeader />
       <main className="ui-container home__main">
+        <h1 className="sr-only">Raf</h1>
         {error && <p role="alert" className="ui-field__error">{error}</p>}
 
         <OnThisDayStrip />
 
         <section className="home__shelf" aria-labelledby="shelf-title">
           <div className="home__section-head">
-            <h1 id="shelf-title">Kitaplığımız</h1>
+            <h2 id="shelf-title" className="home__shelf-title">Kitaplığımız</h2>
             {albums && albums.length > 0 && <Chip static>{albums.length} cilt</Chip>}
             <span className="home__spacer" />
             <Button size="sm" variant="secondary" onClick={create} icon={<span aria-hidden="true">+</span>}>Yeni albüm</Button>
@@ -237,11 +258,8 @@ export default function AlbumsPage() {
           danger
           onClose={close}
           onConfirm={async () => {
-            try {
-              await deleteAlbum(dialog.album.id)
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Silinemedi')
-            }
+            // a failure stays in the dialog (ConfirmModal shows it); success closes it
+            await deleteAlbum(dialog.album.id)
             refresh()
           }}
         />

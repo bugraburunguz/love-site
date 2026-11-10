@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createPartnerInvite, formatBytes, getSpace, type CreatedInvite, type SpaceInfo } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
@@ -75,13 +75,17 @@ function PartnerInvite() {
 export default function ProfilePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const [space, setSpace] = useState<SpaceInfo | null>(null)
+  const [spaceError, setSpaceError] = useState(false)
   const [mode, setMode] = useState<ColorMode>(readColorMode())
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    getSpace().then(setSpace).catch(() => undefined)
+  const loadSpace = useCallback(() => {
+    setSpaceError(false)
+    getSpace().then(setSpace).catch(() => setSpaceError(true))
   }, [])
+  useEffect(loadSpace, [loadSpace])
 
   function pick(next: ColorMode) {
     setColorMode(next)
@@ -89,8 +93,12 @@ export default function ProfilePage() {
   }
 
   async function signOut() {
-    await logout()
-    navigate('/login', { replace: true })
+    try {
+      await logout()
+      navigate('/login', { replace: true })
+    } catch {
+      toast('Çıkış yapılamadı. Bağlantını kontrol edip tekrar dene.', 'error')
+    }
   }
 
   const owner = space?.members.find((m) => m.role === 'OWNER')
@@ -142,6 +150,15 @@ export default function ProfilePage() {
               )}
             </div>
           </Card>
+
+          {spaceError && (
+            <Card className="profile__wide" role="alert">
+              <p>Defter bilgileri alınamadı.</p>
+              <div className="profile__actions">
+                <Button variant="secondary" onClick={loadSpace}>Tekrar dene</Button>
+              </div>
+            </Card>
+          )}
 
           {space?.canInvite && (
             <Card tape="rose">

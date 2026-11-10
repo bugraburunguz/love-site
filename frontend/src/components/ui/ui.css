@@ -287,6 +287,10 @@
   gap: 1rem;
 }
 
+.ui-modal__text {
+  margin: 0;
+}
+
 .ui-modal .ui-form .ui-modal__actions {
   margin-top: 0.5rem;
 }
