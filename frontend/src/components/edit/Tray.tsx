@@ -1,7 +1,7 @@
 import interact from 'interactjs'
 import { useEffect, useRef, useState } from 'react'
 import type { MediaDto } from '../../api/albums'
-import Clay from '../Clay'
+import { Button } from '../ui'
 import '../book/edit.css'
 
 interface Props {
@@ -77,7 +77,7 @@ export default function Tray({ media, targetLabel, onAdd, onDrop, onClose }: Pro
     <aside className="tray" aria-label="Tepsi">
       <div className="tray__head">
         <strong>Tepsi ({media.length})</strong>
-        <Clay size="sm" tone="cream" onClick={onClose}>Kapat</Clay>
+        <Button size="sm" variant="secondary" onClick={onClose}>Kapat</Button>
       </div>
       <p className="item-bar__label">Yerleştirilmemiş fotoğraflar. Sürükleyip sayfaya bırak ya da seçip ekle.</p>
       <div className="tray__grid">
@@ -86,7 +86,7 @@ export default function Tray({ media, targetLabel, onAdd, onDrop, onClose }: Pro
         ))}
       </div>
       {chosen && (
-        <Clay onClick={() => { onAdd(chosen.id); setSelected(null) }}>{targetLabel} sayfasına ekle</Clay>
+        <Button onClick={() => { onAdd(chosen.id); setSelected(null) }}>{targetLabel} sayfasına ekle</Button>
       )}
     </aside>
   )

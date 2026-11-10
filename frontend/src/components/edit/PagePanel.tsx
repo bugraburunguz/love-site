@@ -7,7 +7,7 @@ import { useTheme } from '../../themes/ThemeContext'
 import { THEME_LIST } from '../../themes/registry'
 import { PAPER_SLOTS, SWATCH_SLOTS, type ThemeDef } from '../../themes/types'
 import { makeVariant } from '../../themes/variant'
-import Clay from '../Clay'
+import { Button } from '../ui'
 import '../../themes/themes.css'
 import '../book/edit.css'
 
@@ -58,15 +58,15 @@ export default function PagePanel({ page, single, onLook, onTheme, onSticker, on
   ]
 
   return (
-    <aside className="tray" aria-label="Sayfa görünümü">
+    <aside className="tray" aria-label="Hatıra çantası">
       <div className="tray__head">
-        <strong>Sayfa {page.pageIndex + 1}</strong>
-        <Clay size="sm" tone="cream" onClick={onClose}>Kapat</Clay>
+        <strong>Hatıra çantası <span className="tray__sub">· Sayfa {page.pageIndex + 1}</span></strong>
+        <Button size="sm" variant="secondary" onClick={onClose}>Kapat</Button>
       </div>
       <div className="panel-tabs" role="tablist">
-        <Clay size="sm" tone={tab === 'look' ? 'rose' : 'cream'} aria-pressed={tab === 'look'} onClick={() => setTab('look')}>Renk ve doku</Clay>
-        <Clay size="sm" tone={tab === 'theme' ? 'rose' : 'cream'} aria-pressed={tab === 'theme'} onClick={() => setTab('theme')}>Sayfa teması</Clay>
-        <Clay size="sm" tone={tab === 'stickers' ? 'rose' : 'cream'} aria-pressed={tab === 'stickers'} onClick={() => setTab('stickers')}>Çıkartmalar</Clay>
+        <Button size="sm" variant={tab === 'look' ? 'primary' : 'secondary'} aria-pressed={tab === 'look'} onClick={() => setTab('look')}>Renk ve doku</Button>
+        <Button size="sm" variant={tab === 'theme' ? 'primary' : 'secondary'} aria-pressed={tab === 'theme'} onClick={() => setTab('theme')}>Sayfa teması</Button>
+        <Button size="sm" variant={tab === 'stickers' ? 'primary' : 'secondary'} aria-pressed={tab === 'stickers'} onClick={() => setTab('stickers')}>Çıkartmalar</Button>
       </div>
 
       {tab === 'theme' && (
@@ -129,9 +129,9 @@ export default function PagePanel({ page, single, onLook, onTheme, onSticker, on
               />
             ))}
           </div>
-          <Clay size="sm" tone="cream" disabled={!swatch && !paper} onClick={() => onLook({ swatch: 'DEFAULT', paper: 'DEFAULT' })}>
+          <Button size="sm" variant="secondary" disabled={!swatch && !paper} onClick={() => onLook({ swatch: 'DEFAULT', paper: 'DEFAULT' })}>
             Tema varsayılanı
-          </Clay>
+          </Button>
         </div>
       )}
 
@@ -139,9 +139,9 @@ export default function PagePanel({ page, single, onLook, onTheme, onSticker, on
         <>
           <div className="sticker-tabs">
             {themes.map((t) => (
-              <Clay key={t.id} size="sm" tone={t.id === shown ? 'rose' : 'cream'} aria-pressed={t.id === shown} onClick={() => setShown(t.id)}>
+              <Button key={t.id} size="sm" variant={t.id === shown ? 'primary' : 'secondary'} aria-pressed={t.id === shown} onClick={() => setShown(t.id)}>
                 {t.name}
-              </Clay>
+              </Button>
             ))}
           </div>
           <div className="sticker-grid">
