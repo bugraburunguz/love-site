@@ -16,6 +16,7 @@ import { NoteIcon } from '../components/calendar/DayNotes'
 import { themeVars, pageVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
+import './home.css'
 import './calendar.css'
 
 export type CalendarState = { ay?: string | null; yil?: string | null; album?: string | null }
@@ -104,7 +105,7 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
             <Chip active={view === 'year'} onClick={() => go({ yil: String(current.year), ay: null })}>Yıl</Chip>
           </div>
           <label className="calendar__filter">
-            <span className="visually-hidden">Albüm</span>
+            <span className="sr-only">Albüm</span>
             <select className="ui-input" value={albumId ?? ''} onChange={(e) => go({ album: e.target.value || null })} aria-label="Albüm">
               <option value="">Tüm albümler</option>
               {albums.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
@@ -207,7 +208,7 @@ function MonthGrid({ view, year, month, today, dayHref }: {
         const date = dayKey(year, month, d)
         const info = byDay.get(date)
         const sp = specials.get(date) ?? []
-        const label = `${d} ${MONTHS[month - 1]}${info?.count ? `, ${info.count} anı` : ''}${info?.notes ? `, ${info.notes} not` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
+        const label = `${d} ${MONTHS[month - 1]}${date === today ? ', bugün' : ''}${info?.count ? `, ${info.count} anı` : ''}${info?.notes ? `, ${info.notes} not` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
         const content = (
           <>
             <span className="calendar__day-number">{d}</span>
@@ -226,7 +227,8 @@ function MonthGrid({ view, year, month, today, dayHref }: {
         )
         const cls = `calendar__cell${info?.count ? ' calendar__cell--photos' : ''}${info?.notes ? ' calendar__cell--notes' : ''}${date === today ? ' calendar__cell--today' : ''}${sp.length ? ' calendar__cell--special' : ''}`
         // every day opens: a day without photos can still get a diary note
-        return <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}>{content}</Link>
+        return <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}
+          aria-current={date === today ? 'date' : undefined}>{content}</Link>
       })}
     </div>
   )

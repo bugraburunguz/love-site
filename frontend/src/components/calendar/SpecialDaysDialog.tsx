@@ -14,15 +14,23 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   const [days, setDays] = useState<SpecialDay[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = () => listSpecialDays().then(setDays).catch((e: Error) => setError(e.message))
   useEffect(() => {
     void load()
   }, [])
 
-  async function save() {
-    if (!draft) return
+  // switching between the list and the form starts without the other view's message
+  function edit(next: Draft | null) {
     setError(null)
+    setDraft(next)
+  }
+
+  async function save() {
+    if (!draft || busy) return
+    setError(null)
+    setBusy(true)
     try {
       const body = { title: draft.title.trim(), day: draft.day, icon: draft.icon, yearly: draft.yearly }
       if (draft.id) await updateSpecialDay(draft.id, body)
@@ -32,6 +40,8 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
       onChanged()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -46,7 +56,8 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   }
 
   return (
-    <Modal title="Özel günlerimiz" eyebrow="Takvim" onClose={onClose}>
+    // while a day is being written, Escape / backdrop must not throw the draft away ("Vazgeç" goes back to the list)
+    <Modal title="Özel günlerimiz" eyebrow="Takvim" onClose={onClose} dismissable={!draft}>
       <div className="special-days">
         {draft ? (
           <div className="ui-form">
@@ -66,12 +77,12 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
               </div>
             </div>
             <Checkbox checked={draft.yearly} onChange={(e) => setDraft({ ...draft, yearly: e.target.checked })}>
-              Her yıl hatırlat (kapalıysa yalnızca bir kez gösterilir)
+              Her yıl tekrarlansın (kapalıysa yalnızca o yıl görünür)
             </Checkbox>
             {error && <p role="alert" className="ui-field__error">{error}</p>}
             <div className="ui-modal__actions">
-              <Button variant="secondary" onClick={() => setDraft(null)}>Vazgeç</Button>
-              <Button disabled={!draft.title.trim() || !draft.day} onClick={() => void save()}>Kaydet</Button>
+              <Button variant="secondary" onClick={() => edit(null)} disabled={busy}>Vazgeç</Button>
+              <Button loading={busy} disabled={!draft.title.trim() || !draft.day} onClick={() => void save()}>Kaydet</Button>
             </div>
           </div>
         ) : (
@@ -85,7 +96,7 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
                     <SpecialIcon icon={d.icon} size={20} />
                     <span className="special-days__title">{d.title}</span>
                     <span className="special-days__date">{longDate(d.day)}{d.yearly ? ' · her yıl' : ''}</span>
-                    <Button size="sm" variant="ghost" onClick={() => setDraft({ ...d })}>Düzenle</Button>
+                    <Button size="sm" variant="ghost" onClick={() => edit({ ...d })}>Düzenle</Button>
                     <Button size="sm" variant="danger" onClick={() => void remove(d.id)}>Sil</Button>
                   </li>
                 ))}
@@ -93,7 +104,7 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
             )}
             {error && <p role="alert" className="ui-field__error">{error}</p>}
             <div className="ui-modal__actions">
-              <Button onClick={() => setDraft({ ...EMPTY })}>Özel gün ekle</Button>
+              <Button onClick={() => edit({ ...EMPTY })}>Özel gün ekle</Button>
             </div>
           </div>
         )}

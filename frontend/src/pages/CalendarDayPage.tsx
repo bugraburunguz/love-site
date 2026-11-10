@@ -17,6 +17,7 @@ import { pageThemeVars, pageVars, themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts, ThemeContext } from '../themes/ThemeContext'
 import type { ThemeDef } from '../themes/types'
+import './home.css'
 import './calendar.css'
 
 const FRAME = 220

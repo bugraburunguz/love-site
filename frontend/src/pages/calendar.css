@@ -66,15 +66,6 @@
   font-size: var(--ui-text-small);
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .calendar__error {
   margin: 0;
   color: var(--ui-danger);
@@ -162,6 +153,13 @@
 }
 
 /* ---- month and year cards ---- */
+/* a month stays a comfortable size on wide screens instead of growing taller than the window */
+.calendar__month {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
 .calendar__month,
 .calendar__year {
   padding: clamp(1rem, 3vw, 1.75rem);
@@ -636,5 +634,18 @@ textarea.day-note__text::placeholder {
 
   .calendar__filter select {
     max-width: 160px;
+  }
+}
+
+/* touch screens: every control reaches the 44px touch size */
+@media (max-width: 759px) {
+  .calendar__arrow,
+  .calendar__today-btn,
+  .calendar__filter select {
+    min-height: var(--ui-touch);
+  }
+
+  .calendar__arrow {
+    min-width: var(--ui-touch);
   }
 }
