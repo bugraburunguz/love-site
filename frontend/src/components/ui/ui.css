@@ -281,6 +281,33 @@
   accent-color: var(--ui-primary);
 }
 
+.ui-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ui-modal .ui-form .ui-modal__actions {
+  margin-top: 0.5rem;
+}
+
+/* account deletion: what goes, on a tinted danger strip */
+.delete-account__list {
+  margin: 0;
+  padding: 0.875rem 1rem 0.875rem 2rem;
+  border-left: 3px solid var(--ui-danger);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-danger) 8%, var(--ui-surface));
+  font-size: var(--ui-text-small);
+  line-height: 1.55;
+}
+
+.delete-account__fine {
+  margin: 0;
+  font-size: var(--ui-text-label);
+  text-align: center;
+}
+
 /* ---- cards: pressed cotton paper */
 
 .ui-card {
@@ -320,6 +347,8 @@
   position: relative;
   display: inline-flex;
   flex-direction: column;
+  max-width: 100%;
+  margin: 0; /* it is a <figure>: no browser default side margins */
   padding: 12px 12px 0;
   background: #fffdf9; /* a real photo print stays white in dark mode */
   box-shadow: var(--ui-shadow-keepsake);
