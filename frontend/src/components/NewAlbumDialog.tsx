@@ -1,8 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { DEFAULT_THEME_ID } from '../themes/types'
-import Clay from './Clay'
 import ThemePicker from './ThemePicker'
-import './dialog.css'
+import { Button, Modal, TextField } from './ui'
 
 interface Props {
   onSubmit: (title: string, themeId: string) => void | Promise<void>
@@ -15,12 +14,6 @@ export default function NewAlbumDialog({ onSubmit, onClose }: Props) {
   const [themeId, setThemeId] = useState(DEFAULT_THEME_ID)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -37,25 +30,19 @@ export default function NewAlbumDialog({ onSubmit, onClose }: Props) {
   }
 
   return (
-    <div className="dialog-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog dialog--wide" role="dialog" aria-modal="true" aria-label="Yeni albüm">
-        <h2 className="dialog__title">Yeni albüm</h2>
-        <form onSubmit={submit} className="dialog__form">
-          <label className="dialog__label">
-            Albümün adı
-            <input className="paper-input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} autoFocus />
-          </label>
-          <div>
-            <span className="dialog__label">Tema</span>
-            <ThemePicker value={themeId} onChange={setThemeId} />
-          </div>
-          {error && <p role="alert" className="dialog__error">{error}</p>}
-          <div className="dialog__actions">
-            <Clay tone="cream" onClick={onClose}>Vazgeç</Clay>
-            <Clay type="submit" disabled={busy || !title.trim()}>Oluştur</Clay>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal eyebrow="Yeni cilt" title="Yeni albüm" onClose={onClose}>
+      <form onSubmit={submit} className="ui-form">
+        <TextField label="Albümün adı" placeholder="Örn. Kapadokya kaçamağımız" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} autoFocus />
+        <div className="ui-field">
+          <span className="ui-field__label">Tema</span>
+          <ThemePicker value={themeId} onChange={setThemeId} />
+        </div>
+        {error && <p role="alert" className="ui-field__error">{error}</p>}
+        <div className="ui-modal__actions">
+          <Button variant="secondary" onClick={onClose}>Vazgeç</Button>
+          <Button type="submit" loading={busy} disabled={!title.trim()}>Oluştur</Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

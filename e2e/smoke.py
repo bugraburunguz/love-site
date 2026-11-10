@@ -3,7 +3,7 @@ Browser smoke test: the whole journey of a new couple against the production ima
 
   admin creates a space -> invitation link -> registration -> an album for each theme -> photo + video upload ->
   both become READY -> edit a page (FREE template, add a sticker) -> album music -> a user of ANOTHER space gets 404 ->
-  the public privacy pages -> that other user deletes their account from the shelf.
+  the public privacy pages -> that other user deletes their account from the profile page.
 
 It also fails on any Content-Security-Policy violation or uncaught page error seen in the browser on the way.
 Test media are generated with ffmpeg at the start; nothing personal is involved. Screenshots go to $OUTPUT_DIR.
@@ -111,16 +111,17 @@ def wait_until(check, what: str, timeout: float = 180, every: float = 2):
 
 def calendar_check(page: Page, ctx: BrowserContext) -> None:
     import datetime
-    # wide screens: the calendar sits next to the shelf; narrow ones reach it through the bottom tab bar
+    # wide screens: the sections sit in the top bar; phones reach them through the bottom tab bar
     page.set_viewport_size({"width": 1440, "height": 900})
     page.goto("/")
-    expect(page.locator("aside.home__calendar .calendar__cell").first).to_be_visible()
+    expect(page.locator(".app-header").get_by_role("link", name="Takvim")).to_be_visible()
     expect(page.locator(".bottom-tabs")).to_be_hidden()
     page.wait_for_timeout(800)
-    page.screenshot(path=str(OUT / "home-calendar-wide.png"))
+    page.screenshot(path=str(OUT / "home-wide.png"))
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto("/")
-    expect(page.locator("aside.home__calendar")).to_have_count(0)
+    expect(page.locator(".bottom-tabs")).to_be_visible()
+    expect(page.locator(".app-header").get_by_role("link", name="Takvim")).to_be_hidden()
     page.wait_for_timeout(500)
     page.screenshot(path=str(OUT / "home-tabs-phone.png"))
     page.locator(".bottom-tabs").get_by_role("link", name="Takvim").click()
@@ -262,7 +263,7 @@ def main() -> int:
         step("user A registers through the invitation link")
         a_ctx, a = new_user_context(browser, "user A")
         register(a, invite_a, "Ayse", f"ayse-{tag}@e2e.test")
-        expect(a.get_by_role("button", name="Yeni albüm")).to_be_visible()
+        expect(a.get_by_role("button", name="Yeni albüm", exact=True)).to_be_visible()
         # the invitation is single use
         again = a_ctx.new_page()
         again.goto(invite_a)
@@ -270,12 +271,12 @@ def main() -> int:
         again.close()
 
         step("an album for each theme")
-        a.get_by_role("button", name="Yeni albüm").click()
+        a.get_by_role("button", name="Yeni albüm", exact=True).click()
         names = [t.inner_text().strip().split("\n")[-1] for t in a.locator(".theme-card").all()]
         assert len(names) == 6, f"expected 6 themes, got {names}"
         a.get_by_role("button", name="Vazgeç").click()
         for name in names:
-            a.get_by_role("button", name="Yeni albüm").click()
+            a.get_by_role("button", name="Yeni albüm", exact=True).click()
             dialog = a.get_by_role("dialog", name="Yeni albüm")
             dialog.get_by_label("Albümün adı").fill(f"{name} albümü")
             dialog.locator(".theme-card", has_text=name).click()
@@ -366,10 +367,11 @@ def main() -> int:
         step("store app API: session token in a header, CORS for the app origins only, uploads from the app origin")
         mobile_api_check()
 
-        step("store requirements: public privacy pages, deleting an account from the shelf")
+        step("store requirements: public privacy pages, deleting an account from the profile")
         anon_ctx, anon = new_user_context(browser, "anonymous")
         anon.goto("/login")
-        anon.get_by_role("link", name="Gizlilik").click()
+        # the footer link (the sign-in card also links "gizlilik sayfasındaki" in its password note)
+        anon.get_by_role("link", name="Gizlilik", exact=True).click()
         expect(anon.get_by_role("heading", name="Gizlilik Politikası")).to_be_visible()
         anon.screenshot(path=str(OUT / "privacy.png"), full_page=True)
         anon.goto("/hesap-silme")
@@ -378,9 +380,8 @@ def main() -> int:
         anon_ctx.close()
         # B is the only member of space B: the space goes with the account, A's space is untouched
         a_albums = sorted(x["id"] for x in api(a_ctx, "/api/albums").json())
-        b.goto("/")
-        b.get_by_role("button", name="Hesap seçenekleri").click()
-        b.get_by_role("button", name="Hesabımı sil").click()
+        b.goto("/profil")
+        b.get_by_role("button", name="Hesabımı sil", exact=True).click()
         dialog = b.get_by_role("dialog", name="Hesabımı sil")
         expect(dialog.get_by_text("tek üyesisin")).to_be_visible()
         dialog.get_by_label("Onaylamak için şifren").fill(PASSWORD)

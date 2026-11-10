@@ -41,9 +41,7 @@ export default function CalendarPage() {
   )
 }
 
-export function CalendarBoard({ state, onChange, embedded = false }: {
-  state: CalendarState; onChange: (next: CalendarState) => void; embedded?: boolean
-}) {
+export function CalendarBoard({ state, onChange }: { state: CalendarState; onChange: (next: CalendarState) => void }) {
   const today = todayKey()
   const albumId = state.album ?? null
   const yearParam = Number(state.yil)
@@ -91,13 +89,11 @@ export function CalendarBoard({ state, onChange, embedded = false }: {
   const style = { ...themeVars(theme), ...pageVars(theme, 'light', 'textured') } as CSSProperties
   const dayHref = (date: string) => `/takvim/gun/${date}${albumId ? `?album=${albumId}` : ''}`
 
-  const fullPage = `/takvim?${new URLSearchParams(Object.entries(state).filter(([, v]) => v) as [string, string][]).toString()}`
-  const Root = embedded ? 'section' : 'main'
   return (
-    <Root className={`calendar${embedded ? ' calendar--embedded' : ''}`} style={style} data-page-theme={theme.id} aria-label={embedded ? 'Takvim' : undefined}>
+    <main className="calendar" style={style} data-page-theme={theme.id}>
       <header className="calendar__header">
-        {embedded ? <span /> : <Link to="/" className="clay clay--pill clay--sm clay--cream calendar__back">‹ Albümler</Link>}
-        {embedded ? <h2 className="calendar__heading"><Link to={fullPage} title="Takvimi tam ekran aç">Takvimimiz</Link></h2> : <h1>Takvimimiz</h1>}
+        <Link to="/" className="clay clay--pill clay--sm clay--cream calendar__back">‹ Albümler</Link>
+        <h1>Takvimimiz</h1>
         <div className="calendar__tools">
           <div className="calendar__switch" role="group" aria-label="Görünüm">
             <Clay size="sm" tone={view === 'month' ? 'rose' : 'cream'} aria-pressed={view === 'month'}
@@ -171,7 +167,7 @@ export function CalendarBoard({ state, onChange, embedded = false }: {
       )}
 
       {specialOpen && <SpecialDaysDialog onChanged={() => setReload((n) => n + 1)} onClose={() => setSpecialOpen(false)} />}
-    </Root>
+    </main>
   )
 }
 

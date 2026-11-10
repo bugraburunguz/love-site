@@ -1,63 +1,3 @@
-.space-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-start;
-  margin-bottom: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--paper-edge);
-  border-radius: 10px;
-  background: rgba(255, 248, 232, 0.6);
-  max-width: 460px;
-}
-
-.space-panel__row {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  width: 100%;
-  font-size: 0.95rem;
-  color: var(--ink-soft);
-}
-
-.space-panel__name {
-  font-style: italic;
-}
-
-.space-panel__bar {
-  width: 100%;
-  height: 10px;
-  appearance: none;
-  border: 0;
-  border-radius: 6px;
-  overflow: hidden;
-  background: rgba(120, 90, 60, 0.18);
-  accent-color: var(--rose-deep);
-}
-
-.space-panel__bar::-webkit-progress-bar {
-  background: rgba(120, 90, 60, 0.18);
-}
-
-.space-panel__bar::-webkit-progress-value {
-  background: var(--rose-deep);
-  border-radius: 6px;
-}
-
-.space-panel__bar--near::-webkit-progress-value {
-  background: #b9772e;
-}
-
-.space-panel__bar--full::-webkit-progress-value {
-  background: #8d2a2a;
-}
-
-.space-panel__warn {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--rose-deep);
-}
-
 .invite-link {
   display: flex;
   flex-wrap: wrap;
@@ -118,12 +58,6 @@
 
 .plain-page__error {
   color: var(--rose-deep);
-}
-
-.space-panel__note {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--ink-soft);
 }
 
 .admin-kind {

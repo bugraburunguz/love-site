@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { getSpace } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
 import { deleteAccount, deletionConsequences } from '../legal/legal'
-import Clay from './Clay'
-import { Frame } from './Dialog'
+import { Button, Checkbox, Modal, TextField } from './ui'
 
 /** "Hesabımı sil": says exactly what goes, asks for the password, then signs out for good. */
 export default function DeleteAccountDialog({ onClose }: { onClose: () => void }) {
@@ -29,7 +28,7 @@ export default function DeleteAccountDialog({ onClose }: { onClose: () => void }
     setError(null)
     try {
       await deleteAccount(password)
-      // the shelf's guard then sends the browser to the login page, which shows the note
+      // the app shell then sends the browser to the login page, which shows the note
       endSession('Hesabın silindi. Hoşça kal.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hesap silinemedi')
@@ -38,43 +37,39 @@ export default function DeleteAccountDialog({ onClose }: { onClose: () => void }
   }
 
   return (
-    <Frame title="Hesabımı sil" onClose={busy ? () => undefined : onClose}>
+    <Modal title="Hesabımı sil" eyebrow="Geri alınamaz" onClose={onClose} dismissable={!busy}>
       {members === null && !error ? (
-        <p className="dialog__message">Alan bilgisi alınıyor…</p>
+        <p className="ui-muted">Alan bilgisi alınıyor…</p>
       ) : (
-        <form onSubmit={submit} className="dialog__form" data-testid="delete-account">
-          <ul className="dialog__warning" role="note">
+        <form onSubmit={submit} className="ui-form" data-testid="delete-account">
+          <ul className="delete-account__list" role="note">
             {deletionConsequences(members ?? 1, user?.role === 'OWNER').map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <label className="dialog__label">
-            Onaylamak için şifren
-            <input
-              className="paper-input"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-            />
-          </label>
-          <label className="dialog__check">
-            <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} />
+          <TextField
+            label="Onaylamak için şifren"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+          />
+          <Checkbox checked={understood} onChange={(e) => setUnderstood(e.target.checked)}>
             Ne olacağını okudum, hesabım silinsin.
-          </label>
-          {error && <p role="alert" className="dialog__error">{error}</p>}
-          <div className="dialog__actions">
-            <Clay tone="cream" onClick={onClose} disabled={busy}>Vazgeç</Clay>
-            <Clay type="submit" tone="rose" disabled={busy || !password || !understood || members === null}>
-              {busy ? 'Siliniyor…' : 'Hesabımı kalıcı olarak sil'}
-            </Clay>
+          </Checkbox>
+          {error && <p role="alert" className="ui-field__error">{error}</p>}
+          <div className="ui-modal__actions">
+            <Button variant="secondary" onClick={onClose} disabled={busy}>Vazgeç</Button>
+            <Button type="submit" variant="danger" loading={busy} disabled={!password || !understood || members === null}>
+              Hesabımı kalıcı olarak sil
+            </Button>
           </div>
-          <p className="dialog__fine">
+          <p className="ui-muted delete-account__fine">
             Ayrıntılar: <Link to="/gizlilik" onClick={onClose}>Gizlilik politikası</Link>
           </p>
         </form>
       )}
-    </Frame>
+    </Modal>
   )
 }
