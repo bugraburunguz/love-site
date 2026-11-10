@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 11
+Görev sayacı: 12
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -17,5 +17,6 @@ Görev sayacı: 11
 | LS-8 Tasarım temeli "Romantik Kırtasiye": `--ui-*` renk/yazı/gölge değişkenleri (açık + koyu, WCAG testli), Playfair + Plus Jakarta Sans, temel bileşenler (`components/ui`), stil rehberi `/tasarim` | merge edildi, canlıda | #8 | — | 2026-11-10 |
 | LS-9 Yeni tasarımda tanıtım sayfası (giriş yapmamış web ziyaretçisine `/`; uygulama doğrudan girişe açılır), giriş, kayıt ve davet ekranları; şifre göster/gizle; davette gizlilik onayı (istemci tarafı) | merge edildi, canlıda | #9 | — | 2026-11-10 |
 | LS-10 Yeni tasarımda raf (üst menü, telefonda 3 sekme, "bugün n yıl önce", albüm kartları, kota) ve `/profil` (üyeler, partner daveti, kota, gündüz/gece, hesap); yan takvim kaldırıldı; hesap silme ve yeni albüm penceresi yeni tasarımda | merge edildi, canlıda | #10 | — | 2026-11-10 |
-| LS-11 Albüm ekranı: yeni üst çubuk (görüntüleme/düzenleme), "Hatıra çantası" ve düzenleme araçları yeni tasarımda, geri al/yinele (konum, kaldırma, çıkartma; ⌘Z), "Otomatik kaydedildi" notu; kitap ve sayfa teması dokunulmadı | PR açık; tam e2e yeşil (geri al/yinele dahil) | dal `ls-11-album-screen` | merge → LS-12 takvim, lightbox, yükleme, dışa aktarma | 2026-11-10 |
-| Sonraki: LS-12 takvim/lightbox/yükleme/dışa aktarma, 13 çöp/admin/yasal/404, 14 iOS'a özel düzenler | planlandı | — | LS-12 | 2026-11-10 |
+| LS-11 Albüm ekranı: yeni üst çubuk (görüntüleme/düzenleme), "Hatıra çantası" ve düzenleme araçları yeni tasarımda, geri al/yinele (konum, kaldırma, çıkartma; ⌘Z), "Otomatik kaydedildi" notu; kitap ve sayfa teması dokunulmadı | merge edildi, canlıda | #11 | — | 2026-11-10 |
+| LS-12 Takvim yeni tasarımda: ay/yıl/gün sayfaları, üst menü, Ay/Yıl seçici, "Bugün", tarih düzeltme ve özel günler pencereleri; geniş ekranda takvimden rafa geçince rafın bozulduğu canlı hata (`.home` CSS sızıntısı) düzeltildi | PR açık; tam e2e yeşil | dal `ls-12-calendar-media` | merge → LS-13 lightbox, yükleme, dışa aktarma | 2026-11-10 |
+| Sonraki (iş bölündü): LS-13 lightbox/yükleme/dışa aktarma, LS-14 çöp/admin/yasal/404, LS-15 iOS'a özel düzenler | planlandı | — | LS-13 | 2026-11-10 |

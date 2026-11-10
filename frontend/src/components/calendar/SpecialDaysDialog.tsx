@@ -3,8 +3,7 @@ import {
   createSpecialDay, deleteSpecialDay, listSpecialDays, updateSpecialDay, type SpecialDay, type SpecialIcon as Icon,
 } from '../../api/calendar'
 import { longDate } from '../../calendar/calendarMath'
-import Clay from '../Clay'
-import { Frame } from '../Dialog'
+import { Button, Checkbox, Modal, TextField } from '../ui'
 import SpecialIcon, { ICON_LABEL, ICONS } from './SpecialIcon'
 
 type Draft = { id?: string; title: string; day: string; icon: Icon; yearly: boolean }
@@ -15,15 +14,23 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   const [days, setDays] = useState<SpecialDay[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = () => listSpecialDays().then(setDays).catch((e: Error) => setError(e.message))
   useEffect(() => {
     void load()
   }, [])
 
-  async function save() {
-    if (!draft) return
+  // switching between the list and the form starts without the other view's message
+  function edit(next: Draft | null) {
     setError(null)
+    setDraft(next)
+  }
+
+  async function save() {
+    if (!draft || busy) return
+    setError(null)
+    setBusy(true)
     try {
       const body = { title: draft.title.trim(), day: draft.day, icon: draft.icon, yearly: draft.yearly }
       if (draft.id) await updateSpecialDay(draft.id, body)
@@ -33,6 +40,8 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
       onChanged()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -47,44 +56,39 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   }
 
   return (
-    <Frame title="Özel günlerimiz" onClose={onClose}>
+    // while a day is being written, Escape / backdrop must not throw the draft away ("Vazgeç" goes back to the list)
+    <Modal title="Özel günlerimiz" eyebrow="Takvim" onClose={onClose} dismissable={!draft}>
       <div className="special-days">
         {draft ? (
-          <div className="dialog__form">
-            <label className="dialog__label">
-              Ad
-              <input className="paper-input" value={draft.title} maxLength={80} placeholder="Tanışma günümüz" autoFocus
-                onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
-            </label>
-            <label className="dialog__label">
-              Tarih
-              <input className="paper-input" type="date" value={draft.day} min="1900-01-01" max="2100-12-31"
-                onChange={(e) => setDraft({ ...draft, day: e.target.value })} />
-            </label>
-            <div className="special-days__icons" role="radiogroup" aria-label="Simge">
-              {ICONS.map((icon) => (
-                <button key={icon} type="button" role="radio" aria-checked={draft.icon === icon} aria-label={ICON_LABEL[icon]}
-                  className="special-days__icon" onClick={() => setDraft({ ...draft, icon })}>
-                  <SpecialIcon icon={icon} size={22} />
-                </button>
-              ))}
+          <div className="ui-form">
+            <TextField label="Ad" value={draft.title} maxLength={80} placeholder="Tanışma günümüz" autoFocus
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+            <TextField label="Tarih" type="date" value={draft.day} min="1900-01-01" max="2100-12-31"
+              onChange={(e) => setDraft({ ...draft, day: e.target.value })} />
+            <div className="ui-field">
+              <span className="ui-field__label">Simge</span>
+              <div className="special-days__icons" role="radiogroup" aria-label="Simge">
+                {ICONS.map((icon) => (
+                  <button key={icon} type="button" role="radio" aria-checked={draft.icon === icon} aria-label={ICON_LABEL[icon]}
+                    className="special-days__icon" onClick={() => setDraft({ ...draft, icon })}>
+                    <SpecialIcon icon={icon} size={22} />
+                  </button>
+                ))}
+              </div>
             </div>
-            <label className="export-option">
-              <input type="radio" name="repeat" checked={draft.yearly} onChange={() => setDraft({ ...draft, yearly: true })} /> Her yıl
-            </label>
-            <label className="export-option">
-              <input type="radio" name="repeat" checked={!draft.yearly} onChange={() => setDraft({ ...draft, yearly: false })} /> Yalnızca bir kez
-            </label>
-            {error && <p role="alert" className="dialog__error">{error}</p>}
-            <div className="dialog__actions">
-              <Clay tone="cream" onClick={() => setDraft(null)}>Vazgeç</Clay>
-              <Clay disabled={!draft.title.trim() || !draft.day} onClick={() => void save()}>Kaydet</Clay>
+            <Checkbox checked={draft.yearly} onChange={(e) => setDraft({ ...draft, yearly: e.target.checked })}>
+              Her yıl tekrarlansın (kapalıysa yalnızca o yıl görünür)
+            </Checkbox>
+            {error && <p role="alert" className="ui-field__error">{error}</p>}
+            <div className="ui-modal__actions">
+              <Button variant="secondary" onClick={() => edit(null)} disabled={busy}>Vazgeç</Button>
+              <Button loading={busy} disabled={!draft.title.trim() || !draft.day} onClick={() => void save()}>Kaydet</Button>
             </div>
           </div>
         ) : (
-          <>
-            {days === null ? <p className="dialog__message">Yükleniyor…</p> : days.length === 0 ? (
-              <p className="dialog__message">Henüz özel gün yok. Tanıştığınız gün, yıldönümünüz…</p>
+          <div className="ui-form">
+            {days === null ? <p className="ui-muted ui-modal__text">Yükleniyor…</p> : days.length === 0 ? (
+              <p className="ui-muted ui-modal__text">Henüz özel gün yok. Tanıştığınız gün, yıldönümünüz…</p>
             ) : (
               <ul className="special-days__list">
                 {days.map((d) => (
@@ -92,20 +96,19 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
                     <SpecialIcon icon={d.icon} size={20} />
                     <span className="special-days__title">{d.title}</span>
                     <span className="special-days__date">{longDate(d.day)}{d.yearly ? ' · her yıl' : ''}</span>
-                    <Clay size="sm" tone="cream" onClick={() => setDraft({ ...d })}>Düzenle</Clay>
-                    <Clay size="sm" tone="rose" onClick={() => void remove(d.id)}>Sil</Clay>
+                    <Button size="sm" variant="ghost" onClick={() => edit({ ...d })}>Düzenle</Button>
+                    <Button size="sm" variant="danger" onClick={() => void remove(d.id)}>Sil</Button>
                   </li>
                 ))}
               </ul>
             )}
-            {error && <p role="alert" className="dialog__error">{error}</p>}
-            <div className="dialog__actions">
-              <Clay tone="cream" onClick={onClose}>Kapat</Clay>
-              <Clay onClick={() => setDraft({ ...EMPTY })}>Özel gün ekle</Clay>
+            {error && <p role="alert" className="ui-field__error">{error}</p>}
+            <div className="ui-modal__actions">
+              <Button onClick={() => edit({ ...EMPTY })}>Özel gün ekle</Button>
             </div>
-          </>
+          </div>
         )}
       </div>
-    </Frame>
+    </Modal>
   )
 }

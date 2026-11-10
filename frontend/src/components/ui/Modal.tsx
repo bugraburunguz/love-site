@@ -25,6 +25,9 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
   const box = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  // read through a ref: a dialog that becomes busy must not re-run the effect (that would move focus back to the first field)
+  const dismissableRef = useRef(dismissable)
+  dismissableRef.current = dismissable
 
   useEffect(() => {
     const token = openModal()
@@ -36,7 +39,7 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
 
     function onKey(e: KeyboardEvent) {
       if (!isTopModal(token)) return
-      if (e.key === 'Escape' && dismissable) {
+      if (e.key === 'Escape' && dismissableRef.current) {
         e.stopPropagation()
         closeRef.current()
       } else if (e.key === 'Tab' && box.current) {
@@ -59,7 +62,7 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
       document.body.style.overflow = overflow
       opener?.focus?.()
     }
-  }, [dismissable])
+  }, [])
 
   return createPortal(
     <div className="ui ui-modal-backdrop" onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose()}>

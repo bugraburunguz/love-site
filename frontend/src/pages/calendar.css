@@ -1,196 +1,257 @@
-/* ---- the calendar: a page of the theme's paper ---- */
+/*
+ * The calendar (LS-12) on the --ui-* design tokens. The chosen album's theme still lends its photo frame paper
+ * (--frame-paper), photo filter (--media-filter) and hand font to the polaroids and diary notes; everything else is the
+ * app's own paper and ink.
+ */
 .calendar {
-  min-height: 100dvh;
-  padding: max(var(--space-4), calc(env(safe-area-inset-top) + var(--space-2))) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
-  background-color: var(--page-bg, #fbf3e6);
-  background-image: var(--page-paper, none), var(--tex-paper);
-  background-blend-mode: soft-light, multiply;
-  color: var(--page-ink, var(--ink));
-}
-
-.calendar > * {
-  max-width: 980px;
-  margin-left: auto;
-  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  color: var(--ui-ink);
 }
 
 .calendar__header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .calendar__header h1 {
-  margin: 0;
-  text-align: center;
-  font-family: var(--font-title);
-  font-size: clamp(1.3rem, 4.5vw, 2rem);
+  font-size: var(--ui-text-lg);
+}
+
+.calendar__header--day {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.calendar__day-title {
+  font-style: italic;
 }
 
 .calendar__tools {
-  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   align-items: center;
-  gap: var(--space-2);
-}
-
-@media (min-width: 760px) {
-  .calendar__header {
-    grid-template-columns: auto 1fr auto;
-  }
-  .calendar__tools {
-    grid-column: auto;
-  }
+  gap: 0.5rem;
 }
 
 .calendar__switch {
   display: inline-flex;
-  gap: 4px;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-sunk);
+}
+
+.calendar__switch .ui-chip {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calendar__switch .ui-chip[aria-pressed='true'] {
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .calendar__filter select {
-  padding: 6px 10px;
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 250, 238, 0.85);
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--ink);
-  max-width: 200px;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  min-height: 36px;
+  max-width: 220px;
+  padding: 0.375rem 0.75rem;
+  font-size: var(--ui-text-small);
 }
 
 .calendar__error {
-  color: var(--rose-deep);
+  margin: 0;
+  color: var(--ui-danger);
 }
 
 .calendar__empty {
+  margin: 0;
+  padding: 2rem 0;
   text-align: center;
-  font-style: italic;
-  color: var(--ink-soft);
+  color: var(--ui-ink-muted);
 }
 
 /* ---- "n years ago today" ---- */
 .calendar__past {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  justify-content: center;
-  margin-bottom: var(--space-4);
+  gap: 0.75rem;
 }
 
 .calendar__today-special {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 0.5rem;
   width: 100%;
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-hand);
-  font-size: 1.35rem;
-  color: var(--rose-deep);
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-gold) 18%, var(--ui-surface));
+  font-weight: 600;
+  color: var(--ui-ink);
 }
 
-.calendar__past-day {
+.calendar__today-special .special-icon {
+  color: var(--ui-primary);
+}
+
+.ui .calendar__past-day {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 250, 238, 0.75);
-  box-shadow: 0 2px 8px rgba(60, 35, 20, 0.15);
-  color: inherit;
+  gap: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-card);
+  color: var(--ui-ink);
   text-decoration: none;
 }
 
 .calendar__past-label {
-  font-family: var(--font-hand);
-  font-size: 1.3rem;
+  font-family: var(--ui-font-display);
+  font-style: italic;
+  font-size: var(--ui-text-sm);
+  color: var(--ui-primary);
 }
 
 .calendar__past-photos {
   display: flex;
+  padding-left: 10px;
 }
 
 .calendar__past-photos img {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   object-fit: cover;
-  border: 3px solid var(--frame-paper, #fff9f2);
-  border-bottom-width: 7px;
+  border: 3px solid var(--frame-paper, #fffdf9);
+  border-bottom-width: 8px;
   margin-left: -10px;
   transform: rotate(var(--tilt, 0deg));
-  box-shadow: 0 1px 4px rgba(40, 20, 10, 0.35);
+  box-shadow: var(--ui-shadow-keepsake);
+  filter: var(--media-filter);
 }
 
 .calendar__past-count {
-  font-style: italic;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
+  font-size: var(--ui-text-small);
+  color: var(--ui-ink-muted);
 }
 
-/* ---- month ---- */
+.calendar__past-note {
+  max-width: 240px;
+  font-family: var(--ui-font-hand);
+  font-size: 1.1rem;
+  color: var(--ui-ink-muted);
+}
+
+/* ---- month and year cards ---- */
+/* a month stays a comfortable size on wide screens instead of growing taller than the window */
+.calendar__month {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.calendar__month,
+.calendar__year {
+  padding: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-card);
+}
+
 .calendar__nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .calendar__title {
   margin: 0;
-  min-width: 7em;
-  text-align: center;
-  font-family: var(--font-hand);
-  font-weight: 500;
-  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-lg);
+  font-weight: 600;
 }
 
 .calendar__title span {
-  font-size: 0.7em;
-  opacity: 0.75;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ui-ink-muted);
+}
+
+.calendar__arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-sunk);
+}
+
+.calendar__arrow,
+.calendar__today-btn {
+  min-width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  background: transparent;
+  color: var(--ui-ink);
+  font: 600 var(--ui-text-small) / 1 var(--ui-font-body);
+  cursor: pointer;
+}
+
+.calendar__arrow {
+  font-size: 1.25rem;
+}
+
+.calendar__today-btn {
+  padding: 0 0.875rem;
+}
+
+.calendar__arrow:hover,
+.calendar__today-btn:hover {
+  background: var(--ui-surface);
 }
 
 .calendar__jumps {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-2);
-  margin: var(--space-2) 0 var(--space-3);
+  gap: 0.5rem;
   min-height: 1.5em;
+  margin: 0.75rem 0 1rem;
 }
 
 .calendar__link {
   padding: 0;
   border: 0;
   background: none;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.95rem;
-  color: var(--ink-soft);
-  text-decoration: underline dotted;
+  font: 500 var(--ui-text-small) / 1.4 var(--ui-font-body);
+  color: var(--ui-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .calendar__link--warn {
-  color: var(--rose-deep);
+  color: var(--ui-danger);
 }
 
+/* ---- month grid ---- */
 .calendar__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: clamp(3px, 1vw, 8px);
+  gap: clamp(3px, 0.8vw, 8px);
   transition: opacity 0.2s ease;
 }
 
@@ -199,58 +260,69 @@
 }
 
 .calendar__weekday {
+  padding-bottom: 0.25rem;
   text-align: center;
-  font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: var(--ui-text-label);
+  font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--ink-soft);
+  color: var(--ui-ink-muted);
 }
 
-.calendar__cell {
+.ui .calendar__cell {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--page-ink, #4a2f23) 14%, transparent);
-  background: rgba(255, 252, 244, 0.45);
-  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-sunk);
+  color: var(--ui-ink);
   text-decoration: none;
   overflow: visible;
+  transition: background-color 160ms var(--ui-ease), border-color 160ms var(--ui-ease);
 }
 
-.calendar__cell--empty {
-  border: 0;
+.ui .calendar__cell--empty {
   background: none;
 }
 
-.calendar__cell--today {
-  box-shadow: 0 0 0 2px var(--rose-deep, #a65f70);
+.ui .calendar__cell--photos {
+  background: color-mix(in srgb, var(--ui-primary-soft) 70%, var(--ui-surface));
 }
 
-a.calendar__cell:hover,
-a.calendar__cell:focus-visible {
-  background: rgba(255, 252, 244, 0.9);
+.ui .calendar__cell--special {
+  border-color: var(--ui-gold);
+}
+
+.ui .calendar__cell--today {
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 2px var(--ui-primary-soft);
+}
+
+.ui a.calendar__cell:hover,
+.ui a.calendar__cell:focus-visible {
+  border-color: var(--ui-accent);
+  background: var(--ui-surface);
 }
 
 .calendar__day-number {
   position: absolute;
-  top: 3px;
-  left: 5px;
+  top: 4px;
+  left: 6px;
   z-index: 2;
-  font-family: var(--font-body);
-  font-size: clamp(0.7rem, 2.2vw, 0.95rem);
-  text-shadow: 0 0 3px rgba(255, 250, 238, 0.9);
+  font-size: clamp(0.7rem, 2vw, 0.875rem);
+  font-weight: 600;
+  text-shadow: 0 0 3px var(--ui-surface);
 }
 
 /* a tiny polaroid on days with photos */
 .calendar__thumb {
   position: absolute;
-  inset: 14% 10% 6%;
-  width: 80%;
-  height: 80%;
+  inset: 16% 12% 8%;
+  width: 76%;
+  height: 76%;
   object-fit: cover;
-  border: clamp(2px, 0.6vw, 4px) solid var(--frame-paper, #fff9f2);
+  border: clamp(2px, 0.6vw, 4px) solid var(--frame-paper, #fffdf9);
   border-bottom-width: clamp(5px, 1.4vw, 9px);
-  box-shadow: 0 1px 4px rgba(40, 20, 10, 0.35);
+  box-shadow: var(--ui-shadow-keepsake);
   filter: var(--media-filter);
   transform: rotate(-2deg);
 }
@@ -260,48 +332,49 @@ a.calendar__cell:focus-visible {
 }
 
 .calendar__thumb--blank {
-  background: #c9b48e;
+  background: var(--ui-accent);
 }
 
 .calendar__count {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
+  right: 3px;
+  bottom: 3px;
   z-index: 3;
   min-width: 1.4em;
   padding: 0 4px;
-  border-radius: var(--radius-pill);
-  background: var(--rose-deep, #a65f70);
-  color: #fff;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
   font-size: 0.7rem;
+  font-weight: 600;
   line-height: 1.4em;
   text-align: center;
 }
 
 .calendar__uncertain {
   position: absolute;
-  left: 2px;
-  bottom: 2px;
+  left: 3px;
+  bottom: 3px;
   z-index: 3;
-  width: 1.3em;
-  height: 1.3em;
+  width: 1.4em;
+  height: 1.4em;
   border-radius: 50%;
-  background: var(--gold, #e5c158);
+  background: var(--ui-gold);
   color: #3a2418;
   font-size: 0.7rem;
   font-weight: 700;
-  line-height: 1.3em;
+  line-height: 1.4em;
   text-align: center;
 }
 
 .calendar__specials {
   position: absolute;
-  top: 2px;
-  right: 3px;
+  top: 3px;
+  right: 4px;
   z-index: 3;
   display: flex;
   gap: 1px;
-  color: var(--rose-deep, #a65f70);
+  color: var(--ui-primary);
 }
 
 .special-icon {
@@ -309,37 +382,66 @@ a.calendar__cell:focus-visible {
   vertical-align: -2px;
 }
 
-/* ---- year ---- */
+/* a day with a diary note */
+.calendar__note-mark {
+  position: absolute;
+  right: 3px;
+  top: 22px;
+  z-index: 3;
+  color: var(--ui-primary);
+}
+
+.calendar__note-only {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--ui-primary) 70%, transparent);
+}
+
+.calendar__note-only svg {
+  width: 42%;
+  height: 42%;
+}
+
+/* ---- year: a heat map per month ---- */
 .calendar__months {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--space-4);
-  margin-top: var(--space-4);
+  gap: 1rem;
+  margin-top: 1.25rem;
 }
 
 .calendar__mini {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--page-ink, #4a2f23) 14%, transparent);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 252, 244, 0.5);
-  color: inherit;
-  cursor: pointer;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-bg);
+  color: var(--ui-ink);
+  font-family: var(--ui-font-body);
   text-align: left;
+  cursor: pointer;
+}
+
+.calendar__mini:hover {
+  border-color: var(--ui-accent);
 }
 
 .calendar__mini-title {
-  font-family: var(--font-hand);
-  font-size: 1.25rem;
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-body-lg);
+  font-weight: 600;
 }
 
 .calendar__mini-title small {
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  color: var(--ink-soft);
+  font-family: var(--ui-font-body);
+  font-size: var(--ui-text-label);
+  font-weight: 500;
+  color: var(--ui-ink-muted);
 }
 
 .calendar__mini-grid {
@@ -352,24 +454,28 @@ a.calendar__cell:focus-visible {
 .calendar__dot {
   aspect-ratio: 1;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--page-ink, #4a2f23) 8%, transparent);
+  background: var(--ui-surface-sunk);
 }
 
 .calendar__dot--empty {
   background: none;
 }
 
-.calendar__dot--1 { background: color-mix(in srgb, var(--rose-deep, #a65f70) 30%, transparent); }
-.calendar__dot--2 { background: color-mix(in srgb, var(--rose-deep, #a65f70) 52%, transparent); }
-.calendar__dot--3 { background: color-mix(in srgb, var(--rose-deep, #a65f70) 75%, transparent); }
-.calendar__dot--4 { background: var(--rose-deep, #a65f70); }
+.calendar__dot--1 { background: color-mix(in srgb, var(--ui-primary) 25%, var(--ui-surface)); }
+.calendar__dot--2 { background: color-mix(in srgb, var(--ui-primary) 48%, var(--ui-surface)); }
+.calendar__dot--3 { background: color-mix(in srgb, var(--ui-primary) 72%, var(--ui-surface)); }
+.calendar__dot--4 { background: var(--ui-primary); }
 
 .calendar__dot--special {
-  box-shadow: inset 0 0 0 1.5px var(--gold, #e5c158);
+  box-shadow: inset 0 0 0 1.5px var(--ui-gold);
+}
+
+.calendar__dot--note {
+  background-image: radial-gradient(circle at 50% 50%, var(--ui-gold) 0 28%, transparent 32%);
 }
 
 .calendar__dot--today {
-  outline: 1.5px solid var(--page-ink, #4a2f23);
+  outline: 1.5px solid var(--ui-ink);
 }
 
 /* ---- one day ---- */
@@ -377,16 +483,16 @@ a.calendar__cell:focus-visible {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--space-5);
-  padding: 0;
-  margin: var(--space-4) auto 0;
+  gap: 2rem;
+  margin: 0;
+  padding: 1rem 0;
   list-style: none;
 }
 
 .calendar__day-item {
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .calendar__day-item:nth-child(odd) .polaroid {
@@ -400,20 +506,82 @@ a.calendar__cell:focus-visible {
 .calendar__day-meta {
   display: grid;
   justify-items: center;
-  gap: 2px;
-  font-style: italic;
-  font-size: 0.9rem;
-  color: var(--ink-soft);
+  gap: 0.25rem;
   max-width: 220px;
+  font-size: var(--ui-text-small);
+  color: var(--ui-ink-muted);
   text-align: center;
+}
+
+/* ---- day notes: each partner's diary line on a ruled card ---- */
+.day-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.day-note {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.day-note__author {
+  font-size: var(--ui-text-label);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-primary);
+}
+
+.day-note__text {
+  margin: 0;
+  min-height: 120px;
+  font-family: var(--font-hand, var(--ui-font-hand));
+  font-size: 1.35rem;
+  line-height: 30px;
+  color: var(--ui-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* the ruling belongs to the text itself, so every line of writing sits on a line of the paper */
+  background: repeating-linear-gradient(to bottom, transparent 0 29px, color-mix(in srgb, var(--ui-ink) 12%, transparent) 29px 30px);
+  background-attachment: local;
+}
+
+textarea.day-note__text {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: vertical;
+}
+
+textarea.day-note__text::placeholder {
+  color: color-mix(in srgb, var(--ui-ink-muted) 70%, transparent);
+}
+
+.day-note__state {
+  min-height: 1.2em;
+  font-size: var(--ui-text-label);
+  color: var(--ui-ink-muted);
+  text-align: right;
+}
+
+.day-note__error {
+  color: var(--ui-danger);
 }
 
 /* ---- special days dialog ---- */
 .special-days__list {
   display: grid;
-  gap: 8px;
-  padding: 0;
+  gap: 0.5rem;
   margin: 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -422,176 +590,62 @@ a.calendar__cell:focus-visible {
   grid-template-columns: auto 1fr auto auto;
   grid-template-areas: 'icon title edit del' 'icon date edit del';
   align-items: center;
-  column-gap: 8px;
-  color: var(--rose-deep);
+  column-gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-sunk);
+  color: var(--ui-primary);
 }
 
 .special-days__list li > :first-child { grid-area: icon; }
-.special-days__title { grid-area: title; color: var(--ink); font-weight: 600; }
-.special-days__date { grid-area: date; color: var(--ink-soft); font-size: 0.85rem; font-style: italic; }
+.special-days__title { grid-area: title; color: var(--ui-ink); font-weight: 600; }
+.special-days__date { grid-area: date; color: var(--ui-ink-muted); font-size: var(--ui-text-small); }
 
 .special-days__icons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .special-days__icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 2px solid var(--paper-edge);
+  width: var(--ui-touch);
+  height: var(--ui-touch);
+  border: 1px solid var(--ui-border);
   border-radius: 50%;
-  background: rgba(255, 250, 238, 0.85);
-  color: var(--rose-deep);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
   cursor: pointer;
 }
 
 .special-days__icon[aria-checked='true'] {
-  border-color: var(--rose-deep);
-  box-shadow: 0 0 0 2px var(--rose-deep);
+  border-color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  box-shadow: 0 0 0 2px var(--ui-primary-soft);
 }
 
-/* on wide screens a month stays a comfortable size instead of filling the window */
-.calendar__month {
-  max-width: 760px;
-}
-
-/* ---- next to the shelf (wide screens) ---- */
-.home {
-  min-height: 100dvh;
-}
-
-@media (min-width: 1100px) {
-  .home {
-    display: grid;
-    grid-template-columns: minmax(480px, 600px) minmax(0, 1fr);
-    gap: var(--space-5);
-    padding-left: var(--space-5);
+@media (max-width: 559px) {
+  .calendar__month,
+  .calendar__year {
+    padding: 0.75rem;
+    border-radius: var(--ui-radius-lg);
   }
-  .home .shelf {
-    width: 100%;
-    margin: 0;
+
+  .calendar__filter select {
+    max-width: 160px;
   }
 }
 
-/* phones: room for the bottom tab bar; the bar replaces the "back to albums" button (it shows up to 759px, see appnav.css) */
+/* touch screens: every control reaches the 44px touch size */
 @media (max-width: 759px) {
-  .calendar {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  .calendar__arrow,
+  .calendar__today-btn,
+  .calendar__filter select {
+    min-height: var(--ui-touch);
   }
-  .calendar__back {
-    display: none;
+
+  .calendar__arrow {
+    min-width: var(--ui-touch);
   }
-  .calendar:not(.calendar--day) .calendar__header {
-    grid-template-columns: 1fr;
-    justify-items: center;
-  }
-  .calendar:not(.calendar--day) .calendar__header > :first-child {
-    display: none;
-  }
-}
-
-/* ---- day notes: each partner's diary line on a piece of paper ---- */
-.day-notes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-4);
-  margin: 0 auto var(--space-5);
-  max-width: 860px;
-}
-
-.day-note {
-  position: relative;
-  display: grid;
-  gap: 4px;
-  padding: 14px 18px 10px;
-  border-radius: 3px;
-  background:
-    repeating-linear-gradient(to bottom, transparent 0 29px, color-mix(in srgb, var(--page-ink, #4a2f23) 14%, transparent) 29px 30px),
-    var(--frame-paper, #fffaf0);
-  box-shadow: 0 1px 2px rgba(60, 35, 20, 0.2), 0 8px 18px rgba(60, 35, 20, 0.14);
-  transform: rotate(-0.6deg);
-}
-
-.day-note:nth-child(even) {
-  transform: rotate(0.8deg);
-}
-
-.day-note__author {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-  color: var(--rose-deep, #a65f70);
-}
-
-.day-note__text {
-  margin: 0;
-  min-height: 120px;
-  font-family: var(--font-hand);
-  font-size: 1.35rem;
-  line-height: 30px;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-textarea.day-note__text {
-  width: 100%;
-  resize: vertical;
-  border: 0;
-  background: transparent;
-  outline: none;
-  padding: 0;
-}
-
-textarea.day-note__text::placeholder {
-  color: color-mix(in srgb, var(--ink-soft, #7a5a48) 70%, transparent);
-}
-
-.day-note__state {
-  min-height: 1.2em;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-  text-align: right;
-}
-
-.day-note__error {
-  color: #9b2c2c;
-}
-
-/* calendar cells: a day with a note */
-.calendar__note-mark {
-  position: absolute;
-  right: 3px;
-  top: 20px;
-  z-index: 3;
-  color: var(--rose-deep, #a65f70);
-}
-
-.calendar__note-only {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: color-mix(in srgb, var(--rose-deep, #a65f70) 75%, transparent);
-}
-
-.calendar__note-only svg {
-  width: 45%;
-  height: 45%;
-}
-
-.calendar__dot--note {
-  background-image: radial-gradient(circle at 50% 50%, var(--gold, #e5c158) 0 28%, transparent 32%);
-}
-
-.calendar__past-note {
-  max-width: 240px;
-  font-family: var(--font-hand);
-  font-size: 1.05rem;
-  color: var(--ink-soft);
 }

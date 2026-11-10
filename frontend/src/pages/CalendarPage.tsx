@@ -7,7 +7,8 @@ import {
 import {
   MONTHS, WEEKDAYS, addMonths, dayKey, intensity, monthGrid, monthKey, nearestMonth, occurrenceLabel, parseMonth, todayKey, yearsAgoLabel,
 } from '../calendar/calendarMath'
-import Clay from '../components/Clay'
+import AppHeader from '../components/AppHeader'
+import { Button, Chip } from '../components/ui'
 import SpecialDaysDialog from '../components/calendar/SpecialDaysDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
 import BottomTabs from '../components/BottomTabs'
@@ -15,6 +16,7 @@ import { NoteIcon } from '../components/calendar/DayNotes'
 import { themeVars, pageVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
+import './home.css'
 import './calendar.css'
 
 export type CalendarState = { ay?: string | null; yil?: string | null; album?: string | null }
@@ -34,10 +36,11 @@ export default function CalendarPage() {
     setSearch(params)
   }, [setSearch])
   return (
-    <>
+    <div className="ui home">
+      <AppHeader />
       <CalendarBoard state={state} onChange={onChange} />
       <BottomTabs />
-    </>
+    </div>
   )
 }
 
@@ -90,25 +93,25 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
   const dayHref = (date: string) => `/takvim/gun/${date}${albumId ? `?album=${albumId}` : ''}`
 
   return (
-    <main className="calendar" style={style} data-page-theme={theme.id}>
+    <main className="ui-container calendar" style={style} data-page-theme={theme.id}>
       <header className="calendar__header">
-        <Link to="/" className="clay clay--pill clay--sm clay--cream calendar__back">‹ Albümler</Link>
-        <h1>Takvimimiz</h1>
+        <div>
+          <div className="ui-eyebrow">Zaman tüneli</div>
+          <h1>Takvimimiz</h1>
+        </div>
         <div className="calendar__tools">
           <div className="calendar__switch" role="group" aria-label="Görünüm">
-            <Clay size="sm" tone={view === 'month' ? 'rose' : 'cream'} aria-pressed={view === 'month'}
-              onClick={() => go({ yil: null, ay: key })}>Ay</Clay>
-            <Clay size="sm" tone={view === 'year' ? 'rose' : 'cream'} aria-pressed={view === 'year'}
-              onClick={() => go({ yil: String(current.year), ay: null })}>Yıl</Clay>
+            <Chip active={view === 'month'} onClick={() => go({ yil: null, ay: key })}>Ay</Chip>
+            <Chip active={view === 'year'} onClick={() => go({ yil: String(current.year), ay: null })}>Yıl</Chip>
           </div>
           <label className="calendar__filter">
-            <span className="visually-hidden">Albüm</span>
-            <select value={albumId ?? ''} onChange={(e) => go({ album: e.target.value || null })} aria-label="Albüm">
+            <span className="sr-only">Albüm</span>
+            <select className="ui-input" value={albumId ?? ''} onChange={(e) => go({ album: e.target.value || null })} aria-label="Albüm">
               <option value="">Tüm albümler</option>
               {albums.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
             </select>
           </label>
-          <Clay size="sm" tone="cream" onClick={() => setSpecialOpen(true)}>Özel günler</Clay>
+          <Button size="sm" variant="secondary" icon={<span aria-hidden="true">♥</span>} onClick={() => setSpecialOpen(true)}>Özel günler</Button>
         </div>
       </header>
 
@@ -138,19 +141,23 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
       {view === 'month' ? (
         <section className="calendar__month" aria-label={`${MONTHS[current.month - 1]} ${current.year}`}>
           <div className="calendar__nav">
-            <Clay shape="round" size="sm" tone="cream" aria-label="Önceki ay" onClick={() => {
-              const p = addMonths(current.year, current.month, -1)
-              go({ ay: monthKey(p.year, p.month) })
-            }}>‹</Clay>
             <h2 className="calendar__title">{MONTHS[current.month - 1]} <span>{current.year}</span></h2>
-            <Clay shape="round" size="sm" tone="cream" aria-label="Sonraki ay" onClick={() => {
-              const n = addMonths(current.year, current.month, 1)
-              go({ ay: monthKey(n.year, n.month) })
-            }}>›</Clay>
+            <div className="calendar__arrows">
+              <button type="button" className="calendar__arrow" aria-label="Önceki ay" onClick={() => {
+                const p = addMonths(current.year, current.month, -1)
+                go({ ay: monthKey(p.year, p.month) })
+              }}>‹</button>
+              {key !== today.slice(0, 7) && (
+                <button type="button" className="calendar__today-btn" onClick={() => go({ ay: today.slice(0, 7) })}>Bugün</button>
+              )}
+              <button type="button" className="calendar__arrow" aria-label="Sonraki ay" onClick={() => {
+                const n = addMonths(current.year, current.month, 1)
+                go({ ay: monthKey(n.year, n.month) })
+              }}>›</button>
+            </div>
           </div>
           <div className="calendar__jumps">
             <MemoryJump months={months} current={key} dir={-1} onGo={(m) => go({ ay: m })} />
-            {key !== today.slice(0, 7) && <button type="button" className="calendar__link" onClick={() => go({ ay: today.slice(0, 7) })}>Bugüne dön</button>}
             <MemoryJump months={months} current={key} dir={1} onGo={(m) => go({ ay: m })} />
           </div>
           <MonthGrid view={month} year={current.year} month={current.month} today={today} dayHref={dayHref} />
@@ -158,9 +165,11 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
       ) : (
         <section className="calendar__year" aria-label={String(yearParam)}>
           <div className="calendar__nav">
-            <Clay shape="round" size="sm" tone="cream" aria-label="Önceki yıl" onClick={() => go({ yil: String(yearParam - 1) })}>‹</Clay>
-            <h2 className="calendar__title">{yearParam}</h2>
-            <Clay shape="round" size="sm" tone="cream" aria-label="Sonraki yıl" onClick={() => go({ yil: String(yearParam + 1) })}>›</Clay>
+            <h2 className="calendar__title">{yearParam} <span>anı haritası</span></h2>
+            <div className="calendar__arrows">
+              <button type="button" className="calendar__arrow" aria-label="Önceki yıl" onClick={() => go({ yil: String(yearParam - 1) })}>‹</button>
+              <button type="button" className="calendar__arrow" aria-label="Sonraki yıl" onClick={() => go({ yil: String(yearParam + 1) })}>›</button>
+            </div>
           </div>
           <YearGrid view={year} year={yearParam} today={today} onMonth={(m) => go({ yil: null, ay: monthKey(yearParam, m) })} />
         </section>
@@ -199,7 +208,7 @@ function MonthGrid({ view, year, month, today, dayHref }: {
         const date = dayKey(year, month, d)
         const info = byDay.get(date)
         const sp = specials.get(date) ?? []
-        const label = `${d} ${MONTHS[month - 1]}${info?.count ? `, ${info.count} anı` : ''}${info?.notes ? `, ${info.notes} not` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
+        const label = `${d} ${MONTHS[month - 1]}${date === today ? ', bugün' : ''}${info?.count ? `, ${info.count} anı` : ''}${info?.notes ? `, ${info.notes} not` : ''}${sp.length ? `, ${sp.map((o) => o.title).join(', ')}` : ''}`
         const content = (
           <>
             <span className="calendar__day-number">{d}</span>
@@ -218,7 +227,8 @@ function MonthGrid({ view, year, month, today, dayHref }: {
         )
         const cls = `calendar__cell${info?.count ? ' calendar__cell--photos' : ''}${info?.notes ? ' calendar__cell--notes' : ''}${date === today ? ' calendar__cell--today' : ''}${sp.length ? ' calendar__cell--special' : ''}`
         // every day opens: a day without photos can still get a diary note
-        return <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}>{content}</Link>
+        return <Link key={date} to={dayHref(date)} className={cls} role="gridcell" aria-label={label}
+          aria-current={date === today ? 'date' : undefined}>{content}</Link>
       })}
     </div>
   )
