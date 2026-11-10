@@ -10,7 +10,7 @@
     "test": "vitest run",
     "build:mobile": "tsc -b && vite build --mode mobile --outDir dist-mobile",
     "cap:sync": "npm run build:mobile && cap sync",
-    "cap:assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor \"#E9D7B0\" --iconBackgroundColorDark \"#E9D7B0\" --splashBackgroundColor \"#E4D0A9\" --splashBackgroundColorDark \"#E4D0A9\""
+    "cap:assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor \"#E9D7B0\" --iconBackgroundColorDark \"#E9D7B0\" --splashBackgroundColor \"#F7F0E6\" --splashBackgroundColorDark \"#F7F0E6\""
   },
   "dependencies": {
     "@capacitor/android": "8.5.3",

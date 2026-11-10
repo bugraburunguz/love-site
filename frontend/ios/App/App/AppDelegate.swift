@@ -1,6 +1,14 @@
 import UIKit
 import Capacitor
 
+/// The app's web view controller (Main.storyboard). Lives here so the Xcode project needs no new file:
+/// turns on the iOS edge swipe for going back through the app's pages.
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        webView?.allowsBackForwardNavigationGestures = true
+    }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
