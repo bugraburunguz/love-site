@@ -1,0 +1,156 @@
+/* LS-11: the bar above the book, on --ui-* tokens; it floats as a frosted card over whatever the album theme paints. */
+
+.album-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 70%, transparent);
+  border-radius: var(--ui-radius-lg);
+  background: color-mix(in srgb, var(--ui-surface) 86%, transparent);
+  box-shadow: var(--ui-shadow-card);
+  backdrop-filter: blur(8px);
+  color: var(--ui-ink);
+  font-family: var(--ui-font-body);
+}
+
+.album-bar--editing {
+  border-color: color-mix(in srgb, var(--ui-primary) 35%, var(--ui-border));
+}
+
+.album-bar .ui-btn {
+  text-decoration: none;
+}
+
+.album-bar .ui-btn--ghost {
+  color: var(--ui-primary);
+}
+
+.album-bar .ui-btn--ghost:hover {
+  background: var(--ui-primary-soft);
+}
+
+.album-bar__lead {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.album-bar__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.album-bar__title {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-title, var(--ui-font-display));
+  font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ui-ink);
+}
+
+.album-bar__subtitle {
+  font-size: var(--ui-text-label);
+  color: var(--ui-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-bar__tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.album-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: var(--ui-ink);
+  cursor: pointer;
+}
+
+.album-bar__btn:hover:not(:disabled) {
+  background: var(--ui-surface-sunk);
+}
+
+.album-bar__btn[aria-pressed='true'] {
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+}
+
+.album-bar__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.album-bar__btn:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 1px;
+}
+
+.album-bar__icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.album-bar .ui-btn .album-bar__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.album-bar__saved {
+  margin: 0 0.5rem;
+  font-size: var(--ui-text-label);
+  color: var(--ui-ink-muted);
+  white-space: nowrap;
+}
+
+/* phones: icons only; the round "+" seal keeps adding photos */
+@media (max-width: 700px) {
+  .album-bar__wide {
+    display: none;
+  }
+
+  .album-bar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .album-bar__saved {
+    display: none;
+  }
+
+  .album-bar__btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* wide screens add photos from the bar; the seal stays for touch screens */
+@media (min-width: 701px) {
+  .album-screen__add {
+    display: none;
+  }
+}

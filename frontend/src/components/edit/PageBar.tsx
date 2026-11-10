@@ -2,7 +2,7 @@ import interact from 'interactjs'
 import { useEffect, useRef } from 'react'
 import type { MediaDto } from '../../api/albums'
 import type { PageDto, PageTemplate } from '../../api/pages'
-import Clay from '../Clay'
+import { Button } from '../ui'
 import '../book/edit.css'
 
 interface Props {
@@ -131,13 +131,13 @@ export default function PageBar({ pages, mediaById, current, onGo, onReorder, on
           <span className="item-bar__label">Sayfa {page.pageIndex + 1}</span>
           <span className="page-bar__templates" role="group" aria-label="Sayfa düzeni">
             {(Object.keys(TEMPLATE_LABEL) as PageTemplate[]).map((t) => (
-              <Clay key={t} size="sm" tone={page.template === t ? 'rose' : 'cream'} aria-pressed={page.template === t}
+              <Button key={t} size="sm" variant={page.template === t ? 'primary' : 'secondary'} aria-pressed={page.template === t}
                 onClick={() => page.template !== t && onTemplate(page, t)}>
                 {TEMPLATE_LABEL[t]}
-              </Clay>
+              </Button>
             ))}
           </span>
-          <Clay size="sm" tone="cream" onClick={() => onDelete(page)}>Sayfayı sil</Clay>
+          <Button size="sm" variant="danger" onClick={() => onDelete(page)}>Sayfayı sil</Button>
         </div>
       )}
     </div>

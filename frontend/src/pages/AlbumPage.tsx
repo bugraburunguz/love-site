@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   changeAlbumTheme, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
 import {
-  addSticker, applyPageTheme, changePageLook, changePageTheme, changeTemplate, createPage, deletePage, featureMedia, initializePages,
-  moveItem, placeMedia, removeItem, reorderPages, type PageDto, type PageItemDto, type PageTemplate,
+  applyPageTheme, changePageLook, changePageTheme, changeTemplate, createPage, deletePage, featureMedia, initializePages,
+  moveItem, placeMedia, reorderPages, type PageDto, type PageItemDto, type PageTemplate,
 } from '../api/pages'
+import AlbumBar from '../components/AlbumBar'
 import AlbumMusic from '../components/AlbumMusic'
+import { useHistoryState } from '../components/edit/history'
+import { useUndoableEdits } from '../components/edit/useUndoableEdits'
+import { Button } from '../components/ui'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
 import Clay from '../components/Clay'
@@ -98,7 +102,6 @@ function AlbumView({ id }: { id: string }) {
   const [ambientOn, setAmbientOn] = useAmbientPreference()
   const reduced = useReducedMotion()
   const hoverCapable = useHoverCapable()
-  const pendingSticker = useRef<string | null>(null)
   const [goTo, setGoTo] = useState<{ index: number; nonce: number }>({ index: 0, nonce: 0 })
   const layouts = useRef<PageLayout[]>([])
 
@@ -360,6 +363,9 @@ function AlbumView({ id }: { id: string }) {
     [findItem, pages, runPages],
   )
 
+  const edits = useUndoableEdits(pagesState)
+  const historyState = useHistoryState(edits.history)
+
   const editor = useMemo<PageEditor | undefined>(
     () =>
       editing
@@ -367,18 +373,35 @@ function AlbumView({ id }: { id: string }) {
             selectedId,
             onSelect: setSelectedId,
             onFocusPage: setFocusPageId,
-            onGeometry: pagesState.setGeometry,
+            onGeometry: edits.onGeometry,
             onDrop: handleDrop,
           }
         : undefined,
-    [editing, selectedId, pagesState.setGeometry, handleDrop],
+    [editing, selectedId, edits.onGeometry, handleDrop],
   )
 
   function toggleEditing() {
+    // the steps of one editing session are not kept: undoing something from long ago would surprise
+    if (editing) edits.history.clear()
     setEditing((on) => !on)
     setSelectedId(null)
     setTrayOpen(false)
   }
+
+  // ⌘Z / Ctrl+Z undo, with Shift redo; not while typing in a field
+  useEffect(() => {
+    if (!editing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      const target = e.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      e.preventDefault()
+      setSelectedId(null)
+      void (e.shiftKey ? edits.history.redo() : edits.history.undo())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editing, edits.history])
 
   const selected = selectedId ? findItem(selectedId) : null
   const selectedMedia = selected?.item.mediaId ? mediaById.get(selected.item.mediaId) : undefined
@@ -405,7 +428,7 @@ function AlbumView({ id }: { id: string }) {
     if (!selected) return
     const zs = selected.page.items.map((i) => i.zIndex ?? 0)
     const z = front ? Math.max(...zs) + 1 : Math.max(0, Math.min(...zs) - 1)
-    pagesState.setGeometry(selected.item.id, { zIndex: z }, true)
+    edits.onGeometry(selected.item.id, { zIndex: z }, true)
   }
 
   const trayTarget = pages[focusIndex]
@@ -434,17 +457,6 @@ function AlbumView({ id }: { id: string }) {
     }
   }
 
-  // a sticker that was just added is selected, so it can be moved at once
-  useEffect(() => {
-    const pageId = pendingSticker.current
-    if (!pageId || !view) return
-    const page = view.pages.find((p) => p.id === pageId)
-    const stickers = page?.items.filter((i) => i.kind === 'STICKER') ?? []
-    if (stickers.length === 0) return
-    pendingSticker.current = null
-    setSelectedId(stickers.reduce((a, b) => ((b.zIndex ?? 0) > (a.zIndex ?? 0) ? b : a)).id)
-  }, [view])
-
   /** Page theme from the page panel: the spread (default), only this page, or this page and every later one (asks first). */
   function changeTheme(themeId: string | null, scope: ThemeScope) {
     const index = focusIndex
@@ -465,8 +477,10 @@ function AlbumView({ id }: { id: string }) {
   function addStickerToPage(variant: string) {
     const page = pages[focusIndex]
     if (!page) return
-    pendingSticker.current = page.id
-    void runPages(() => addSticker(page.id, variant, { x: 500, y: 700, width: 170, rotation: 0 }))
+    // the new sticker is selected, so it can be moved at once
+    void edits.addStickerTo(page.id, variant, { x: 500, y: 700, width: 170, rotation: 0 }).then((stickerId) => {
+      if (stickerId) setSelectedId(stickerId)
+    })
   }
 
   const currentPage = pages[focusIndex]
@@ -532,30 +546,23 @@ function AlbumView({ id }: { id: string }) {
     <ErrorBoundary>
     <Ambient enabled={ambientOn} editing={editing} lightboxOpen={lightboxOpen}>
     <main className={rootClass} style={rootStyle}>
-      <header className="album-screen__header">
-        <Link to="/" className="clay clay--pill clay--sm clay--cream album-screen__back">
-          ‹ Albümler
-        </Link>
-        <h1 className="album-screen__title">{album?.title ?? ''}</h1>
-        <span className="album-screen__tools">
-          {!reduced && (
-            <Clay shape="round" size="sm" tone="cream" onClick={() => setAmbientOn(!ambientOn)} aria-pressed={ambientOn}
-              aria-label={ambientOn ? 'Süsleri kapat' : 'Süsleri aç'} title={ambientOn ? 'Süsleri kapat' : 'Süsleri aç'}>
-              ✦
-            </Clay>
-          )}
-          <Clay shape="round" size="sm" tone="cream" onClick={() => setShareOpen(true)} aria-label="Paylaş" title="Paylaş" disabled={!album || editing}>
-            ⇪
-          </Clay>
-          <Clay shape="round" size="sm" tone="cream" onClick={() => setSettingsOpen(true)} aria-label="Albüm ayarları" title="Albüm ayarları" disabled={!album}>
-            ⚙
-          </Clay>
-          <Clay shape="round" size="sm" tone={editing ? 'rose' : 'cream'} onClick={toggleEditing}
-            aria-label={editing ? 'Düzenlemeyi bitir' : 'Albümü düzenle'} aria-pressed={editing}>
-            {editing ? '✓' : '✎'}
-          </Clay>
-        </span>
-      </header>
+      <AlbumBar
+        title={album?.title ?? ''}
+        subtitle={`${theme.name}${pages.length > 0 ? ` · ${pages.length} sayfa` : ''}`}
+        editing={editing}
+        ready={!!album}
+        ambient={reduced ? null : { on: ambientOn, toggle: () => setAmbientOn(!ambientOn) }}
+        onAdd={() => fileInput.current?.click()}
+        onShare={() => setShareOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+        onToggleEdit={toggleEditing}
+        undo={{
+          ...historyState,
+          onUndo: () => { setSelectedId(null); void edits.history.undo() },
+          onRedo: () => { setSelectedId(null); void edits.history.redo() },
+        }}
+        savedAt={pagesState.savedAt}
+      />
 
       {shownError && (
         <p role="alert" className="album-screen__error" onClick={() => { setError(null); pagesState.clearError() }}>
@@ -593,31 +600,31 @@ function AlbumView({ id }: { id: string }) {
           {selected && !selectedMedia && selected.item.kind === 'STICKER' && (
             <div className="item-bar" role="toolbar" aria-label="Seçili çıkartma">
               <span className="item-bar__label">Seçili çıkartma</span>
-              <Clay size="sm" tone="cream" onClick={() => bringTo(true)}>Öne getir</Clay>
-              <Clay size="sm" tone="cream" onClick={() => bringTo(false)}>Arkaya gönder</Clay>
-              <Clay size="sm" tone="rose" onClick={() => { void runPages(() => removeItem(selected.item.id)); setSelectedId(null) }}>Sil</Clay>
+              <Button size="sm" variant="secondary" onClick={() => bringTo(true)}>Öne getir</Button>
+              <Button size="sm" variant="secondary" onClick={() => bringTo(false)}>Arkaya gönder</Button>
+              <Button size="sm" variant="danger" onClick={() => { void edits.removeFromPage(selected.item.id); setSelectedId(null) }}>Sil</Button>
             </div>
           )}
           {selected && selectedMedia && (
             <div className="item-bar" role="toolbar" aria-label="Seçili fotoğraf">
               <span className="item-bar__label">Seçili fotoğraf</span>
-              <Clay size="sm" tone="cream" onClick={() => void runPages(() => featureMedia(selectedMedia.id))}>Öne çıkar</Clay>
-              <Clay size="sm" tone="cream" disabled={!canMoveTo(neighbour(selected.page, -1))}
+              <Button size="sm" variant="secondary" onClick={() => void runPages(() => featureMedia(selectedMedia.id))}>Öne çıkar</Button>
+              <Button size="sm" variant="secondary" disabled={!canMoveTo(neighbour(selected.page, -1))}
                 onClick={() => void runPages(() => moveItem(selected.item.id, neighbour(selected.page, -1)!.id))}>
                 ‹ Önceki sayfaya
-              </Clay>
-              <Clay size="sm" tone="cream" disabled={!canMoveTo(neighbour(selected.page, 1))}
+              </Button>
+              <Button size="sm" variant="secondary" disabled={!canMoveTo(neighbour(selected.page, 1))}
                 onClick={() => void runPages(() => moveItem(selected.item.id, neighbour(selected.page, 1)!.id))}>
                 Sonraki sayfaya ›
-              </Clay>
+              </Button>
               {selected.page.template === 'FREE' && (
                 <>
-                  <Clay size="sm" tone="cream" onClick={() => bringTo(true)}>Öne getir</Clay>
-                  <Clay size="sm" tone="cream" onClick={() => bringTo(false)}>Arkaya gönder</Clay>
+                  <Button size="sm" variant="secondary" onClick={() => bringTo(true)}>Öne getir</Button>
+                  <Button size="sm" variant="secondary" onClick={() => bringTo(false)}>Arkaya gönder</Button>
                 </>
               )}
-              <Clay size="sm" tone="cream" onClick={() => void runPages(() => removeItem(selected.item.id))}>Sayfadan kaldır</Clay>
-              <Clay size="sm" tone="rose" onClick={() => setToDelete(selectedMedia)}>Sil</Clay>
+              <Button size="sm" variant="secondary" onClick={() => { void edits.removeFromPage(selected.item.id); setSelectedId(null) }}>Sayfadan kaldır</Button>
+              <Button size="sm" variant="danger" onClick={() => setToDelete(selectedMedia)}>Sil</Button>
             </div>
           )}
           <PageBar
@@ -631,9 +638,12 @@ function AlbumView({ id }: { id: string }) {
             onTemplate={changePageTemplate}
           />
           <div className="item-bar">
-            <Clay size="sm" tone="cream" disabled={!currentPage} onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>Tema, renk, doku, çıkartma</Clay>
+            <Button size="sm" variant="gold" disabled={!currentPage} aria-pressed={panelOpen}
+              onClick={() => { setPanelOpen(true); setTrayOpen(false) }}>
+              ✿ Hatıra çantası
+            </Button>
             {trayMedia.length > 0 && !trayOpen && (
-              <Clay size="sm" tone="cream" onClick={() => { setTrayOpen(true); setPanelOpen(false) }}>Tepsi ({trayMedia.length})</Clay>
+              <Button size="sm" variant="secondary" onClick={() => { setTrayOpen(true); setPanelOpen(false) }}>Tepsi ({trayMedia.length})</Button>
             )}
           </div>
         </div>

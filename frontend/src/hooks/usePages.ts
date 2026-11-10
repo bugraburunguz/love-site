@@ -19,6 +19,8 @@ export function usePages(albumId: string) {
   const [view, setView] = useState<PagesView | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** when the server last confirmed a write (the editor's "Otomatik kaydedildi" line) */
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const viewRef = useRef<PagesView | null>(null)
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const inflight = useRef(new Set<string>())
@@ -65,19 +67,27 @@ export function usePages(albumId: string) {
     [albumId, set],
   )
 
-  /** Runs a write that answers with the whole new state. */
-  const run = useCallback(
-    async (op: () => Promise<PagesView>): Promise<boolean> => {
+  /** Runs a write that answers with the whole new state; resolves to that state, or null when it failed. */
+  const runFor = useCallback(
+    async (op: () => Promise<PagesView>): Promise<PagesView | null> => {
       try {
-        set(await op())
-        return true
+        const next = await op()
+        set(next)
+        setSavedAt(new Date())
+        return next
       } catch (e) {
         await handleError(e)
-        return false
+        return null
       }
     },
     [handleError, set],
   )
+
+  /** Runs a write that answers with the whole new state. */
+  const run = useCallback(async (op: () => Promise<PagesView>): Promise<boolean> => (await runFor(op)) !== null, [runFor])
+
+  /** The current state, also inside callbacks created before the last render (undo steps). */
+  const current = useCallback(() => viewRef.current, [])
 
   const flush = useCallback(
     (itemId: string) => {
@@ -93,7 +103,10 @@ export function usePages(albumId: string) {
         rotation: item.rotation ?? undefined, zIndex: item.zIndex ?? undefined,
       }
       patchItem(itemId, sent, item.version)
-        .then((saved) => updateItem(itemId, (i) => ({ ...i, version: saved.version })))
+        .then((saved) => {
+          updateItem(itemId, (i) => ({ ...i, version: saved.version }))
+          setSavedAt(new Date())
+        })
         .catch((e) => handleError(e))
         .finally(() => {
           inflight.current.delete(itemId)
@@ -147,6 +160,6 @@ export function usePages(albumId: string) {
 
   return {
     view, notice, error, clearNotice: () => setNotice(null), clearError: () => setError(null),
-    refresh, apply: set, run, setGeometry,
+    refresh, apply: set, run, runFor, current, setGeometry, savedAt,
   }
 }

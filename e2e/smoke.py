@@ -321,7 +321,7 @@ def main() -> int:
         expect(group).to_be_visible()
         group.get_by_role("button", name="Serbest").click()
         wait_until(lambda: api(a_ctx, f"/api/albums/{album_id}/pages").json()["pages"][0]["template"] == "FREE", "FREE template", 30, 1)
-        a.get_by_role("button", name="Renk, doku, çıkartma").click()
+        a.get_by_role("button", name="Hatıra çantası").click()
         a.get_by_role("button", name="Çıkartmalar").click()
         a.locator(".sticker-grid button").first.click()
 
@@ -331,6 +331,12 @@ def main() -> int:
 
         wait_until(has_sticker, "the sticker to be stored", 30, 1)
         a.screenshot(path=str(OUT / "edit-free.png"))
+        # undo takes the sticker off again, redo brings it back; the bar says the edits were saved
+        expect(a.get_by_text("Otomatik kaydedildi")).to_be_visible()
+        a.get_by_role("button", name="Geri al: Çıkartma ekleme").click()
+        wait_until(lambda: not has_sticker(), "undo to remove the sticker", 30, 1)
+        a.get_by_role("button", name="Yinele: Çıkartma ekleme").click()
+        wait_until(has_sticker, "redo to bring the sticker back", 30, 1)
         a.get_by_role("button", name="Düzenlemeyi bitir").click()
 
         step("album music")
