@@ -8,6 +8,7 @@ import com.lovesite.media.Media;
 import com.lovesite.media.MediaDtos.MediaResponse;
 import com.lovesite.media.MediaRepository;
 import com.lovesite.media.MediaService;
+import com.lovesite.media.MediaStatus;
 import com.lovesite.page.PageService;
 import com.lovesite.space.SpaceProperties;
 import com.lovesite.system.ApiException;
@@ -19,9 +20,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The trash: albums and single photos / videos deleted in the last 30 days (TrashPurgeJob removes them for good after
@@ -31,6 +38,12 @@ import java.util.UUID;
 public class TrashService {
 
     private static final Logger log = LoggerFactory.getLogger(TrashService.class);
+
+    /** what counts as a memory (unconfirmed and rejected uploads do not); the same set the album lists show */
+    private static final Set<MediaStatus> RESTORABLE =
+            EnumSet.of(MediaStatus.UPLOADED, MediaStatus.PROCESSING, MediaStatus.READY, MediaStatus.FAILED);
+    private static final String RESTORABLE_SQL =
+            RESTORABLE.stream().map((s) -> "'" + s.name() + "'").collect(Collectors.joining(", "));
 
     public record TrashAlbum(AlbumResponse album, int mediaCount, Instant deletedAt, Instant purgeAt) {
     }
@@ -64,20 +77,37 @@ public class TrashService {
 
     public TrashView list(CurrentUser me) {
         UUID spaceId = me.requireSpace();
+        Instant since = restorableSince();
         List<TrashAlbum> deletedAlbums = albums.findBySpaceIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(spaceId).stream()
+                .filter((a) -> a.getDeletedAt().isAfter(since))
                 .map((a) -> new TrashAlbum(albumService.toResponse(a), countMedia(a.getId()), a.getDeletedAt(), purgeAt(a.getDeletedAt())))
                 .toList();
         // single deleted items of albums that are still there; unconfirmed / rejected uploads are not "memories"
-        List<UUID> ids = jdbc.queryForList(
-                "SELECT m.id FROM media m JOIN album a ON a.id = m.album_id WHERE m.space_id = ? AND m.deleted_at IS NOT NULL "
-                        + "AND a.deleted_at IS NULL AND m.status IN ('UPLOADED', 'PROCESSING', 'READY', 'FAILED') ORDER BY m.deleted_at DESC",
-                UUID.class, spaceId);
-        List<Media> found = media.findAllById(ids);
-        List<TrashMedia> deletedMedia = ids.stream()
-                .flatMap((id) -> found.stream().filter((m) -> m.getId().equals(id)).findFirst().stream())
-                .map((m) -> new TrashMedia(mediaService.toResponse(m), m.getAlbumId(), albumTitle(m.getAlbumId()), m.getDeletedAt(), purgeAt(m.getDeletedAt())))
+        Map<UUID, String> titles = new LinkedHashMap<>();
+        jdbc.query(
+                "SELECT m.id, a.title FROM media m JOIN album a ON a.id = m.album_id WHERE m.space_id = ? AND m.deleted_at > ? "
+                        + "AND a.deleted_at IS NULL AND m.status IN (" + RESTORABLE_SQL + ") ORDER BY m.deleted_at DESC",
+                (rs) -> {
+                    titles.put(rs.getObject(1, UUID.class), rs.getString(2));
+                },
+                spaceId, Timestamp.from(since));
+        Map<UUID, Media> found = media.findAllById(titles.keySet()).stream().collect(Collectors.toMap(Media::getId, (m) -> m));
+        List<TrashMedia> deletedMedia = titles.entrySet().stream()
+                .filter((e) -> found.containsKey(e.getKey()))
+                .map((e) -> {
+                    Media m = found.get(e.getKey());
+                    return new TrashMedia(mediaService.toResponse(m), m.getAlbumId(), e.getValue(), m.getDeletedAt(), purgeAt(m.getDeletedAt()));
+                })
                 .toList();
         return new TrashView((int) properties.trashRetention().toDays(), deletedAlbums, deletedMedia);
+    }
+
+    /**
+     * Only what is still inside the retention period can come back. The nightly purge fixes its cutoff before it starts
+     * and only takes rows deleted before it, so nothing it is removing (or failed to remove halfway) can be restored.
+     */
+    private Instant restorableSince() {
+        return Instant.now().minus(properties.trashRetention());
     }
 
     /** Puts a photo / video back; it is placed in its album again like a fresh upload. */
@@ -86,8 +116,9 @@ public class TrashService {
         Media restored;
         try {
             restored = tx.execute((status) -> {
+                Instant since = restorableSince();
                 Media m = media.findByIdAndSpaceIdAndDeletedAtIsNotNull(mediaId, spaceId)
-                        .filter((x) -> !"PENDING_UPLOAD".equals(x.getStatus().name()) && !"REJECTED".equals(x.getStatus().name()))
+                        .filter((x) -> RESTORABLE.contains(x.getStatus()) && x.getDeletedAt().isAfter(since))
                         .orElseThrow(() -> ApiException.notFound("Çöpte böyle bir şey yok"));
                 if (albums.findByIdAndSpaceIdAndDeletedAtIsNull(m.getAlbumId(), spaceId).isEmpty()) {
                     throw ApiException.conflict("Önce albümü çöpten geri al");
@@ -114,7 +145,9 @@ public class TrashService {
     public void restoreAlbum(CurrentUser me, UUID albumId) {
         UUID spaceId = me.requireSpace();
         tx.executeWithoutResult((status) -> {
+            Instant since = restorableSince();
             Album album = albums.findByIdAndSpaceIdAndDeletedAtIsNotNull(albumId, spaceId)
+                    .filter((a) -> a.getDeletedAt().isAfter(since))
                     .orElseThrow(() -> ApiException.notFound("Çöpte böyle bir şey yok"));
             album.restore();
             albums.save(album);
@@ -127,10 +160,6 @@ public class TrashService {
 
     private int countMedia(UUID albumId) {
         return jdbc.queryForObject("SELECT count(*) FROM media WHERE album_id = ? AND deleted_at IS NULL "
-                + "AND status IN ('UPLOADED', 'PROCESSING', 'READY', 'FAILED')", Integer.class, albumId);
-    }
-
-    private String albumTitle(UUID albumId) {
-        return albums.findById(albumId).map(Album::getTitle).orElse(null);
+                + "AND status IN (" + RESTORABLE_SQL + ")", Integer.class, albumId);
     }
 }

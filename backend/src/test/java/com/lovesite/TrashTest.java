@@ -129,6 +129,22 @@ class TrashTest {
     }
 
     @Test
+    void whatIsPastTheThirtyDaysIsNoLongerOffered() throws Exception {
+        // the nightly purge may not have reached it yet (or failed halfway): it must not come back with missing files
+        UUID album = album("Eski");
+        UUID photo = photo(album, "f".repeat(64));
+        jdbc.update("UPDATE media SET deleted_at = now() - interval '31 days' WHERE id = ?", photo);
+        UUID oldAlbum = album("Eski albüm");
+        jdbc.update("UPDATE album SET deleted_at = now() - interval '31 days' WHERE id = ?", oldAlbum);
+
+        String t = trash(me);
+        assertThat(JsonPath.<List<String>>read(t, "$.media[*].media.id")).doesNotContain(photo.toString());
+        assertThat(JsonPath.<List<String>>read(t, "$.albums[*].album.id")).doesNotContain(oldAlbum.toString());
+        assertThat(status(post("/api/trash/media/" + photo + "/restore"), me)).isEqualTo(404);
+        assertThat(status(post("/api/trash/albums/" + oldAlbum + "/restore"), me)).isEqualTo(404);
+    }
+
+    @Test
     void anotherSpaceSeesNothingAndRestoresNothing() throws Exception {
         UUID album = album("Gizli");
         UUID photo = photo(album, "e".repeat(64));

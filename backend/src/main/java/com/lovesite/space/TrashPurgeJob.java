@@ -17,8 +17,8 @@ import java.util.UUID;
 /**
  * "Deleting" a photo, video or album only hides it (soft delete); it keeps counting against the space quota. Once it has
  * been in the trash for the retention period (30 days) this job removes the bucket objects (original and every variant)
- * and the rows for good, which is what finally frees the space. There is no restore UI: the 30 days are a safety net
- * for support, not a feature.
+ * and the rows for good, which is what finally frees the space. Until then the trash page (TrashService) can put things
+ * back; it only offers rows deleted after now - retention, so nothing this job is removing can be restored meanwhile.
  */
 @Component
 public class TrashPurgeJob {

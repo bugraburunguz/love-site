@@ -20,7 +20,12 @@ export default function TrashPage() {
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    getTrash().then(setTrash).catch((e: Error) => setError(e.message))
+    getTrash()
+      .then((t) => {
+        setTrash(t)
+        setError(null)
+      })
+      .catch((e: Error) => setError(e.message))
   }, [])
   useEffect(load, [load])
 
@@ -77,7 +82,7 @@ export default function TrashPage() {
                     <strong>{t.album.title}</strong>
                     <span className="ui-muted">{memoryCount(t.mediaCount)} · {purgeLabel(t.purgeAt)}</span>
                   </div>
-                  <Button size="sm" variant="secondary" loading={busy === t.album.id}
+                  <Button size="sm" variant="secondary" loading={busy === t.album.id} aria-label={`${t.album.title} albümünü geri al`}
                     onClick={() => void restore(t.album.id, () => restoreAlbum(t.album.id), `"${t.album.title}" rafına geri döndü`)}>
                     Geri al
                   </Button>
