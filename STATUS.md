@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 10
+Görev sayacı: 11
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -16,5 +16,6 @@ Görev sayacı: 10
 | LS-7 Herkese açık kayıt (`/kayit`, 50 MB ücretsiz alan, toplam 3 GB havuz, IP başına 3/saat, ücretsiz alanda video ≤ 20 MB, günde toplam 10 kayıt, 30 gün boş kalan ücretsiz alan silinir), davetli varsayılan 1 GB, ilk alan 5 GB, disk %85 uyarısı | merge edildi, canlıda; kabul edilen risk: kayıt bir e-postanın üye olup olmadığını söyler (409); sınır sayaçları bellekte, deploy'da sıfırlanır | #7 | Buğra: `/admin`'de eski alanı 5 GB yap, disk uyarısını kur (`deploy/vds/README.md` 6b) | 2026-11-09 |
 | LS-8 Tasarım temeli "Romantik Kırtasiye": `--ui-*` renk/yazı/gölge değişkenleri (açık + koyu, WCAG testli), Playfair + Plus Jakarta Sans, temel bileşenler (`components/ui`), stil rehberi `/tasarim` | merge edildi, canlıda | #8 | — | 2026-11-10 |
 | LS-9 Yeni tasarımda tanıtım sayfası (giriş yapmamış web ziyaretçisine `/`; uygulama doğrudan girişe açılır), giriş, kayıt ve davet ekranları; şifre göster/gizle; davette gizlilik onayı (istemci tarafı) | merge edildi, canlıda | #9 | — | 2026-11-10 |
-| LS-10 Yeni tasarımda raf (üst menü, telefonda 3 sekme, "bugün n yıl önce", albüm kartları, kota) ve `/profil` (üyeler, partner daveti, kota, gündüz/gece, hesap); yan takvim kaldırıldı; hesap silme ve yeni albüm penceresi yeni tasarımda | PR açık; tam e2e (üretim imajı) yeşil | dal `ls-10-shelf-profile` | merge → LS-11 albüm + düzenleme | 2026-11-10 |
-| Sonraki: LS-11 albüm+düzenleme, 12 takvim/lightbox/yükleme/dışa aktarma, 13 çöp/admin/yasal/404, 14 iOS'a özel düzenler | planlandı | — | LS-11 | 2026-11-10 |
+| LS-10 Yeni tasarımda raf (üst menü, telefonda 3 sekme, "bugün n yıl önce", albüm kartları, kota) ve `/profil` (üyeler, partner daveti, kota, gündüz/gece, hesap); yan takvim kaldırıldı; hesap silme ve yeni albüm penceresi yeni tasarımda | merge edildi, canlıda | #10 | — | 2026-11-10 |
+| LS-11 Albüm ekranı: yeni üst çubuk (görüntüleme/düzenleme), "Hatıra çantası" ve düzenleme araçları yeni tasarımda, geri al/yinele (konum, kaldırma, çıkartma; ⌘Z), "Otomatik kaydedildi" notu; kitap ve sayfa teması dokunulmadı | PR açık; tam e2e yeşil (geri al/yinele dahil) | dal `ls-11-album-screen` | merge → LS-12 takvim, lightbox, yükleme, dışa aktarma | 2026-11-10 |
+| Sonraki: LS-12 takvim/lightbox/yükleme/dışa aktarma, 13 çöp/admin/yasal/404, 14 iOS'a özel düzenler | planlandı | — | LS-12 | 2026-11-10 |
