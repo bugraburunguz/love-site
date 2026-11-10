@@ -48,7 +48,7 @@ public class AlbumService {
         this.mediaProperties = mediaProperties;
     }
 
-    AlbumResponse toResponse(Album a) {
+    public AlbumResponse toResponse(Album a) {
         String url = a.getMusicKey() == null ? null : storage.presignGet(a.getMusicKey());
         return new AlbumResponse(a.getId(), a.getTitle(), a.getThemeId(), url, a.getMusicOriginalFilename(), a.getCreatedAt(), a.getUpdatedAt());
     }

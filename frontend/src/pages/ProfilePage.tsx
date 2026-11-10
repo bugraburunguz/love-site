@@ -196,6 +196,7 @@ export default function ProfilePage() {
               {user?.admin && (
                 <li><Link to="/admin" className="profile__row">Yönetim <span aria-hidden="true">›</span></Link></li>
               )}
+              <li><Link to="/cop" className="profile__row">Çöp kutusu <span aria-hidden="true">›</span></Link></li>
               <li><Link to="/gizlilik" className="profile__row">Gizlilik politikası <span aria-hidden="true">›</span></Link></li>
               <li><button type="button" className="profile__row" onClick={() => void signOut()}>Çıkış yap <span aria-hidden="true">›</span></button></li>
               <li><button type="button" className="profile__row profile__row--danger" onClick={() => setDeleting(true)}>Hesabımı sil <span aria-hidden="true">›</span></button></li>

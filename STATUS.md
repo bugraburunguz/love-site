@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 13
+Görev sayacı: 14
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -19,5 +19,6 @@ Görev sayacı: 13
 | LS-10 Yeni tasarımda raf (üst menü, telefonda 3 sekme, "bugün n yıl önce", albüm kartları, kota) ve `/profil` (üyeler, partner daveti, kota, gündüz/gece, hesap); yan takvim kaldırıldı; hesap silme ve yeni albüm penceresi yeni tasarımda | merge edildi, canlıda | #10 | — | 2026-11-10 |
 | LS-11 Albüm ekranı: yeni üst çubuk (görüntüleme/düzenleme), "Hatıra çantası" ve düzenleme araçları yeni tasarımda, geri al/yinele (konum, kaldırma, çıkartma; ⌘Z), "Otomatik kaydedildi" notu; kitap ve sayfa teması dokunulmadı | merge edildi, canlıda | #11 | — | 2026-11-10 |
 | LS-12 Takvim yeni tasarımda: ay/yıl/gün sayfaları, üst menü, Ay/Yıl seçici, "Bugün", tarih düzeltme ve özel günler pencereleri; geniş ekranda takvimden rafa geçince rafın bozulduğu canlı hata (`.home` CSS sızıntısı) düzeltildi | merge edildi, canlıda | #12 | — | 2026-11-10 |
-| LS-13 Lightbox (buzlu kontroller, menü telefonda alt sayfa, klavye), yükleme paneli ve "Yüklenecek dosyalar" penceresi, Paylaş penceresi (seçenek kartları) ve dışa aktarma kartları yeni tasarımda; "Sil" → "Çöpe taşı"; albümdeki eski onay pencereleri yeni Modal'a geçti, eski `Dialog.tsx` kaldırıldı | PR açık; tam e2e (dışa aktarma testleri dahil) yeşil | dal `ls-13-lightbox-export` | merge → LS-14 çöp, admin, yasal, 404 | 2026-11-10 |
-| Sonraki: LS-14 çöp/admin/yasal/404 (+ albüm ayarları penceresi), LS-15 iOS'a özel düzenler | planlandı | — | LS-14 | 2026-11-10 |
+| LS-13 Lightbox (buzlu kontroller, menü telefonda alt sayfa, klavye), yükleme paneli ve "Yüklenecek dosyalar" penceresi, Paylaş penceresi (seçenek kartları) ve dışa aktarma kartları yeni tasarımda; "Sil" → "Çöpe taşı"; albümdeki eski onay pencereleri yeni Modal'a geçti, eski `Dialog.tsx` kaldırıldı | merge edildi, canlıda | #13 | — | 2026-11-10 |
+| LS-14 Çöp kutusu (`/cop`): son 30 günde silinen albüm ve fotoğraflar, "Geri al" (fotoğraf albümüne yerleşir; albümü silinmişse önce albüm; aynı dosya yeniden yüklendiyse 409; 30 günü geçmiş olan geri alınamaz). Yeni uçlar `GET /api/trash`, `POST /api/trash/{media,albums}/{id}/restore`. Kalıcı silme elle yok (gece temizliği yapar) | PR açık; tam e2e yeşil (lightbox → çöp → geri al) | dal `ls-14-trash` | merge → LS-15 admin, yasal sayfalar, 404, albüm ayarları | 2026-11-10 |
+| Sonraki: LS-15 admin/yasal/404/albüm ayarları, LS-16 iOS'a özel düzenler | planlandı | — | LS-15 | 2026-11-10 |

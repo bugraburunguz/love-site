@@ -154,6 +154,11 @@ public class Media {
         this.deletedAt = Instant.now();
     }
 
+    /** Back from the trash (only until the purge removed it for good). */
+    public void restore() {
+        this.deletedAt = null;
+    }
+
     /** Result of a successful processing run. */
     public void markReady(int version, Integer width, Integer height, Long durationMs, Instant takenAt,
                           String thumbKey, String displayKey, String loopKey, String posterKey, long variantsBytes) {

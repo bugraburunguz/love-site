@@ -160,6 +160,12 @@ public class Album {
         this.updatedAt = this.deletedAt;
     }
 
+    /** Back from the trash with everything still in it. */
+    public void restore() {
+        this.deletedAt = null;
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

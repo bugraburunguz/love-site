@@ -24,6 +24,8 @@ public interface MediaRepository extends JpaRepository<Media, UUID> {
 
     Optional<Media> findByIdAndSpaceIdAndDeletedAtIsNull(UUID id, UUID spaceId);
 
+    Optional<Media> findByIdAndSpaceIdAndDeletedAtIsNotNull(UUID id, UUID spaceId);
+
     // ---- system jobs (no user context)
 
     List<Media> findByStatusAndCreatedAtBefore(MediaStatus status, Instant cutoff);
