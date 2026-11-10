@@ -4,10 +4,9 @@ import { deleteMedia, listAlbums, reprocessMedia, updateCaption, type Album, typ
 import { calendarDay, type DayView } from '../api/calendar'
 import { longDate, occurrenceLabel, parseDay } from '../calendar/calendarMath'
 import AppHeader from '../components/AppHeader'
-import Clay from '../components/Clay'
 import { ConfirmModal, uiButtonClass } from '../components/ui'
 import ErrorScreen from '../components/ErrorScreen'
-import Lightbox from '../components/Lightbox'
+import Lightbox, { LightboxItem } from '../components/Lightbox'
 import LivingPhoto from '../components/LivingPhoto'
 import DateEditDialog from '../components/calendar/DateEditDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
@@ -121,8 +120,8 @@ export default function CalendarDayPage() {
           themeOf={themeOf}
           menuExtra={(m, close) => (
             <>
-              <Clay size="sm" tone="cream" role="menuitem" onClick={() => { close(); setEditing(m) }}>Tarihi düzelt</Clay>
-              {m.albumId && <Clay size="sm" tone="cream" role="menuitem" onClick={() => { close(); showInAlbum(m) }}>Albümde göster</Clay>}
+              <LightboxItem onClick={() => { close(); setEditing(m) }}>Tarihi düzelt</LightboxItem>
+              {m.albumId && <LightboxItem onClick={() => { close(); showInAlbum(m) }}>Albümde göster</LightboxItem>}
             </>
           )}
         />

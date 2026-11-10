@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ExportJob } from '../../api/exports'
 import { canShareFiles, download, isTouchDevice, prefetchFiles, shareFiles } from '../../export/share'
 import { isNativeApp } from '../../native/platform'
-import Clay from '../Clay'
+import { Button } from '../ui'
 import './export.css'
 
 export const EXPORT_LABEL: Record<ExportJob['type'], string> = {
@@ -85,7 +85,7 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
           {job.notes.map((n) => <p key={n} className="export-card__note">{n}</p>)}
           {job.type === 'STICKER_PACK' ? (
             <div className="export-card__actions">
-              {zip && <Clay size="sm" onClick={() => download(zip)}>{isNativeApp ? 'Paketi paylaş / kaydet (.zip)' : 'Paketi indir (.zip)'}</Clay>}
+              {zip && <Button size="sm" onClick={() => download(zip)}>{isNativeApp ? 'Paketi paylaş / kaydet (.zip)' : 'Paketi indir (.zip)'}</Button>}
               <details className="export-card__help">
                 <summary>WhatsApp'a nasıl eklenir?</summary>
                 <p>Paketin tamamı için: telefonuna bir sticker maker (sticker oluşturucu) uygulaması kur, zip'teki <code>stickers</code> klasörünü
@@ -100,7 +100,7 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
             </div>
           ) : isNativeApp ? (
             <div className="export-card__actions">
-              <Clay size="sm" disabled={state === 'loading'} onClick={() => {
+              <Button size="sm" disabled={state === 'loading'} onClick={() => {
                 setError(null)
                 setState('loading')
                 void import('../../native/share')
@@ -109,22 +109,22 @@ export default function ExportCard({ job, onDismiss, compact }: { job: ExportJob
                   .finally(() => setState('idle'))
               }}>
                 {state === 'loading' ? 'Hazırlanıyor…' : 'Paylaş / Kaydet'}
-              </Clay>
+              </Button>
               <p className="export-card__note">Açılan menüden Instagram, WhatsApp ya da "Resmi kaydet" / "Videoyu kaydet"i seç.</p>
             </div>
           ) : touch && typeof navigator.canShare === 'function' && total <= PREFETCH_LIMIT ? (
             <div className="export-card__actions">
-              <Clay size="sm" disabled={!canShare} onClick={onShare}>
+              <Button size="sm" disabled={!canShare} onClick={onShare}>
                 {state === 'loading' ? 'Hazırlanıyor…' : 'Paylaş'}
-              </Clay>
-              <Clay size="sm" tone="cream" onClick={onDownload}>Galeriye kaydet / İndir</Clay>
+              </Button>
+              <Button size="sm" variant="secondary" onClick={onDownload}>Galeriye kaydet / İndir</Button>
               {state === 'failed' && <p className="export-card__note">Dosya önceden alınamadı; "İndir" ile kaydedebilirsin.</p>}
               {files && !canShare && <p className="export-card__note">Bu tarayıcı dosya paylaşımını desteklemiyor; indirip galeriden paylaşabilirsin.</p>}
             </div>
           ) : (
             <div className="export-card__actions">
-              <Clay size="sm" onClick={onDownload}>{shareable.length > 1 ? `İndir (${shareable.length} dosya)` : 'İndir'}</Clay>
-              {zip && shareable.length > 1 && <Clay size="sm" tone="cream" onClick={() => download(zip)}>Hepsi tek dosyada (.zip)</Clay>}
+              <Button size="sm" onClick={onDownload}>{shareable.length > 1 ? `İndir (${shareable.length} dosya)` : 'İndir'}</Button>
+              {zip && shareable.length > 1 && <Button size="sm" variant="secondary" onClick={() => download(zip)}>Hepsi tek dosyada (.zip)</Button>}
             </div>
           )}
           {error && <p role="alert" className="export-card__error">{error}</p>}

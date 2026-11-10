@@ -339,32 +339,6 @@
   text-align: center;
 }
 
-.upload-setup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 50vh;
-  overflow-y: auto;
-  margin: var(--space-2) 0;
-  padding: 0;
-  list-style: none;
-}
-
-.upload-setup li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-}
-
-.upload-setup__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .page--editing .page-item {
   transition: none;
 }

@@ -2,13 +2,19 @@ import { useState } from 'react'
 import type { Album, MediaDto } from '../../api/albums'
 import type { ExportJob, ExportType } from '../../api/exports'
 import type { PageDto } from '../../api/pages'
-import Clay from '../Clay'
-import { Frame } from '../Dialog'
+import { Button, Checkbox, Modal } from '../ui'
 import ExportCard from './ExportCard'
 import { MediaPicker, PagePicker } from './Pickers'
 import './export.css'
 
 type Mode = 'menu' | 'carousel' | 'reels' | 'stickers'
+
+const TITLE: Record<Mode, string> = {
+  menu: 'Paylaş',
+  carousel: 'Instagram carousel',
+  reels: 'Reels oluştur',
+  stickers: 'WhatsApp sticker paketi',
+}
 
 interface Props {
   album: Album
@@ -19,6 +25,19 @@ interface Props {
   jobs: ExportJob[]
   onStart: (type: ExportType, params: Record<string, unknown>) => Promise<unknown>
   onClose: () => void
+}
+
+function Option({ icon, title, text, disabled, onClick }: { icon: string; title: string; text: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="share-option" disabled={disabled} onClick={onClick}>
+      <span className="share-option__icon" aria-hidden="true">{icon}</span>
+      <span className="share-option__text">
+        <strong>{title}</strong>
+        <span>{text}</span>
+      </span>
+      <span className="share-option__go" aria-hidden="true">›</span>
+    </button>
+  )
 }
 
 /** The album's "Paylaş" menu: Instagram carousel, a Reels video, a WhatsApp sticker pack, and the exports of the last 24 h. */
@@ -55,86 +74,82 @@ export default function SharePanel({ album, pages, media, mediaById, jobs, onSta
   }
 
   const watermarkToggle = (
-    <label className="export-option">
-      <input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} />
-      Köşede site adı (filigran)
-    </label>
+    <Checkbox checked={watermark} onChange={(e) => setWatermark(e.target.checked)}>Köşede site adı (filigran)</Checkbox>
   )
   const stickerCount = selected.length
   const reelsSeconds = (cover ? 1.5 : 0) + selected.length * 2.5 + 2 - (selected.length + (cover ? 1 : 0)) * 0.5
+  const back = <Button variant="secondary" onClick={() => setMode('menu')} disabled={busy}>Geri</Button>
 
   return (
-    <Frame title={mode === 'menu' ? 'Paylaş' : mode === 'carousel' ? 'Instagram carousel' : mode === 'reels' ? 'Reels oluştur' : 'WhatsApp sticker paketi'} onClose={onClose}>
-      <div className="share-panel">
+    <Modal title={TITLE[mode]} eyebrow={mode === 'menu' ? album.title : 'Paylaş'} onClose={onClose} dismissable={!busy}>
+      <div className="share-panel ui-form">
         {mode === 'menu' && (
           <>
             <div className="share-panel__options">
-              <Clay onClick={() => open('carousel')} disabled={pages.length === 0}>Instagram carousel</Clay>
-              <Clay onClick={() => open('reels')} disabled={media.length === 0}>Reels oluştur</Clay>
-              <Clay onClick={() => open('stickers')} disabled={media.length < 3}>WhatsApp sticker paketi</Clay>
+              <Option icon="▦" title="Instagram carousel" text="Sayfalar 1080×1350 görseller olur, kapakla birlikte"
+                disabled={pages.length === 0} onClick={() => open('carousel')} />
+              <Option icon="▶" title="Reels oluştur" text="Fotoğraflar ve kısa videolar dikey bir video olur"
+                disabled={media.length === 0} onClick={() => open('reels')} />
+              <Option icon="☺" title="WhatsApp sticker paketi" text="3–30 fotoğraftan şeffaf sticker'lar"
+                disabled={media.length < 3} onClick={() => open('stickers')} />
             </div>
             <h3 className="share-panel__subtitle">Son 24 saat</h3>
-            {jobs.length === 0 ? <p className="dialog__message">Henüz dışa aktarma yok. Dosyalar 24 saat sonra silinir.</p> : (
+            {jobs.length === 0 ? <p className="ui-muted ui-modal__text">Henüz dışa aktarma yok. Dosyalar 24 saat sonra silinir.</p> : (
               <div className="share-panel__list">{jobs.map((j) => <ExportCard key={j.id} job={j} compact />)}</div>
             )}
-            <div className="dialog__actions"><Clay tone="cream" onClick={onClose}>Kapat</Clay></div>
           </>
         )}
 
         {mode === 'carousel' && (
           <>
-            <p className="dialog__message">En fazla 20 sayfa seç ({selected.length}/20). Her sayfa 1080×1350 bir görsel olur; videolar kapak karesiyle görünür.</p>
+            <p className="ui-muted ui-modal__text">En fazla 20 sayfa seç ({selected.length}/20). Her sayfa 1080×1350 bir görsel olur; videolar kapak karesiyle görünür.</p>
             <PagePicker pages={pages} mediaById={mediaById} selected={selected} onChange={setSelected} max={20} />
-            <label className="export-option"><input type="checkbox" checked={cover} onChange={(e) => setCover(e.target.checked)} />Albüm kapağı ilk görsel olsun</label>
+            <Checkbox checked={cover} onChange={(e) => setCover(e.target.checked)}>Albüm kapağı ilk görsel olsun</Checkbox>
             {watermarkToggle}
-            {error && <p role="alert" className="dialog__error">{error}</p>}
-            <div className="dialog__actions">
-              <Clay tone="cream" onClick={() => setMode('menu')}>Geri</Clay>
-              <Clay disabled={busy || selected.length === 0} onClick={() => submit('CAROUSEL', { albumId: album.id, pageIds: selected, includeCover: cover })}>Hazırla</Clay>
+            {error && <p role="alert" className="ui-field__error">{error}</p>}
+            <div className="ui-modal__actions">
+              {back}
+              <Button loading={busy} disabled={selected.length === 0} onClick={() => submit('CAROUSEL', { albumId: album.id, pageIds: selected, includeCover: cover })}>Hazırla</Button>
             </div>
           </>
         )}
 
         {mode === 'reels' && (
           <>
-            <p className="dialog__message">En fazla 30 medya ({selected.length}/30, yaklaşık {Math.max(0, Math.round(reelsSeconds))} sn). Hareketli fotoğraflar videoda oynar.</p>
+            <p className="ui-muted ui-modal__text">En fazla 30 medya ({selected.length}/30, yaklaşık {Math.max(0, Math.round(reelsSeconds))} sn). Hareketli fotoğraflar videoda oynar.</p>
             <MediaPicker media={media} selected={selected} onChange={setSelected} max={30} />
-            <label className="export-option"><input type="checkbox" checked={cover} onChange={(e) => setCover(e.target.checked)} />Albüm kapağıyla başlasın</label>
-            <label className="export-option">
-              <input type="checkbox" checked={music} disabled={!album.musicUrl} onChange={(e) => setMusic(e.target.checked)} />
+            <Checkbox checked={cover} onChange={(e) => setCover(e.target.checked)}>Albüm kapağıyla başlasın</Checkbox>
+            <Checkbox checked={music} disabled={!album.musicUrl} onChange={(e) => setMusic(e.target.checked)}>
               Albüm müziğini ekle{!album.musicUrl && ' (albümün müziği yok)'}
-            </label>
+            </Checkbox>
             {music && (
               <p className="export-warning" role="note">
                 Telifli müzik içeren videolar Instagram'da sessize alınabilir veya kaldırılabilir. Sessiz bırakıp müziği Instagram'da eklemek daha güvenli.
               </p>
             )}
             {watermarkToggle}
-            {error && <p role="alert" className="dialog__error">{error}</p>}
-            <div className="dialog__actions">
-              <Clay tone="cream" onClick={() => setMode('menu')}>Geri</Clay>
-              <Clay disabled={busy || selected.length === 0} onClick={() => submit('REELS', { albumId: album.id, mediaIds: selected, includeCover: cover, includeAlbumMusic: music })}>Hazırla</Clay>
+            {error && <p role="alert" className="ui-field__error">{error}</p>}
+            <div className="ui-modal__actions">
+              {back}
+              <Button loading={busy} disabled={selected.length === 0} onClick={() => submit('REELS', { albumId: album.id, mediaIds: selected, includeCover: cover, includeAlbumMusic: music })}>Hazırla</Button>
             </div>
           </>
         )}
 
         {mode === 'stickers' && (
           <>
-            <p className="dialog__message">3–30 fotoğraf seç ({stickerCount}/30). Her biri 512×512 şeffaf bir sticker olur.</p>
+            <p className="ui-muted ui-modal__text">3–30 fotoğraf seç ({stickerCount}/30). Her biri 512×512 şeffaf bir sticker olur.</p>
             <MediaPicker media={media} selected={selected} onChange={setSelected} max={30} />
-            <label className="export-option">
-              <input type="checkbox" checked={animated} onChange={(e) => setAnimated(e.target.checked)} />
-              Hareketli fotoğraflar animasyonlu olsun
-            </label>
+            <Checkbox checked={animated} onChange={(e) => setAnimated(e.target.checked)}>Hareketli fotoğraflar animasyonlu olsun</Checkbox>
             {watermarkToggle}
-            {error && <p role="alert" className="dialog__error">{error}</p>}
-            <div className="dialog__actions">
-              <Clay tone="cream" onClick={() => setMode('menu')}>Geri</Clay>
-              <Clay disabled={busy || stickerCount < 3} onClick={() => submit('STICKER_PACK', { mediaIds: selected, animated })}>Hazırla</Clay>
+            {error && <p role="alert" className="ui-field__error">{error}</p>}
+            <div className="ui-modal__actions">
+              {back}
+              <Button loading={busy} disabled={stickerCount < 3} onClick={() => submit('STICKER_PACK', { mediaIds: selected, animated })}>Hazırla</Button>
             </div>
           </>
         )}
       </div>
-    </Frame>
+    </Modal>
   )
 }

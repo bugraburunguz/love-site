@@ -14,13 +14,13 @@ import { useUndoableEdits } from '../components/edit/useUndoableEdits'
 import { Button } from '../components/ui'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
-import Clay from '../components/Clay'
 import CompassNeedle from '../components/CompassNeedle'
 import ErrorBoundary from '../components/ErrorBoundary'
 import ErrorScreen from '../components/ErrorScreen'
 import '../components/clay.css'
 import { ConfirmDialog } from '../components/Dialog'
-import Lightbox from '../components/Lightbox'
+import Clay from '../components/Clay'
+import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
@@ -700,19 +700,19 @@ function AlbumView({ id }: { id: string }) {
             }
             return (
               <>
-                <Clay size="sm" tone="cream" role="menuitem" onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</Clay>
+                <LightboxItem onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</LightboxItem>
                 <p className="lightbox__menu-title">İndir / Paylaş</p>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</Clay>
-                {m.loopUrl && <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POLAROID', { motion: true })}>Hareketli polaroid (video)</Clay>}
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('STORY', {})}>Instagram Story</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" disabled={!ready} onClick={() => run('POST', {})}>Instagram gönderisi</Clay>
-                <Clay size="sm" tone="cream" role="menuitem" onClick={() => {
+                <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</LightboxItem>
+                <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</LightboxItem>
+                {m.loopUrl && <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { motion: true })}>Hareketli polaroid (video)</LightboxItem>}
+                <LightboxItem disabled={!ready} onClick={() => run('STORY', {})}>Instagram Story</LightboxItem>
+                <LightboxItem disabled={!ready} onClick={() => run('POST', {})}>Instagram gönderisi</LightboxItem>
+                <LightboxItem onClick={() => {
                   close()
                   getOriginal(m.id).then((o) => {
                     download({ url: o.url, name: o.filename, contentType: m.contentType })
                   }).catch((e: Error) => setError(e.message))
-                }}>Orijinal dosya</Clay>
+                }}>Orijinal dosyayı indir</LightboxItem>
               </>
             )
           }}
