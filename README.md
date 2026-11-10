@@ -571,13 +571,15 @@ frame skin, fasteners and stickers, the caption font, the photo filter, the page
 ## Store apps (iOS + Android, Capacitor)
 
 `frontend/` is also a Capacitor project: the same React app, packaged for the App Store and Google Play (`frontend/ios/`,
-`frontend/android/`, `frontend/capacitor.config.ts`). App id `com.hatiradefterim.app`, name "Anılarımız".
+`frontend/android/`, `frontend/capacitor.config.ts`). App id `com.hatiradefterim.app`, name "Hatıra Defterim".
 
 How it differs from the website (all in `frontend/src/native/` and the backend's `mobile/` package):
 
 - The app carries its own copy of the SPA (`npm run build:mobile` → `dist-mobile/`) and calls the live API at `VITE_API_BASE`
-  (`frontend/.env.mobile`, today `https://hatiradefterim.up.railway.app`; change it and rebuild the apps after the move to the
-  custom domain).
+  (`frontend/.env.mobile`, today `https://hatiradefterim.duckdns.org`, the VDS; change it and rebuild the apps after the move
+  to the custom domain).
+- **iOS:** the web view is `MainViewController` (in `ios/App/App/AppDelegate.swift`, set in `Main.storyboard`), which turns on
+  the edge swipe for going back. The status bar text follows the light/dark choice (`src/native/statusBar.ts`).
 - **Session:** the same server-side session as the website, but its id travels in the `X-Auth-Token` header (stored with
   Capacitor Preferences) instead of a cookie; app requests send `X-Client: love-site-app`. For those requests the backend reads
   only the header, never the cookie, so they need no CSRF token. CORS (`/api/**`) and the bucket CORS rule allow exactly the

@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
  */
 const config: CapacitorConfig = {
   appId: 'com.hatiradefterim.app',
-  appName: 'Anılarımız',
+  appName: 'Hatıra Defterim',
   webDir: 'dist-mobile',
   server: {
     // Android serves the app from https://localhost (an allowed CORS origin of the backend); iOS uses capacitor://localhost
@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchAutoHide: false,
-      backgroundColor: '#E4D0A9',
+      backgroundColor: '#F7F0E6', // the cream paper of the new design (light theme --ui-bg)
       showSpinner: false,
     },
   },

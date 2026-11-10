@@ -24,6 +24,19 @@ body {
   overscroll-behavior: none;
 }
 
+/* Store app: no grey tap flash and no iOS long-press link/image menu on the app chrome (photos keep theirs for saving) */
+.native-app {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.native-app :is(a, button, nav, header) {
+  -webkit-touch-callout: none;
+}
+
+.native-app :is(a, button) img {
+  -webkit-touch-callout: default;
+}
+
 h1,
 h2,
 h3 {

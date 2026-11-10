@@ -49,8 +49,12 @@ export function applyColorMode(mode: ColorMode, root: RootLike = document.docume
   else root.setAttribute('data-theme', mode)
 }
 
+/** fired on window after the user picked a mode (the store app's status bar follows it) */
+export const COLOR_MODE_EVENT = 'ui-color-mode'
+
 /** Remember and apply in one go (the settings toggle). */
 export function setColorMode(mode: ColorMode): void {
   writeColorMode(mode)
   applyColorMode(mode)
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent<ColorMode>(COLOR_MODE_EVENT, { detail: mode }))
 }

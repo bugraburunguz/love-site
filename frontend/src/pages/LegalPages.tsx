@@ -79,7 +79,7 @@ export function PrivacyPage() {
   return (
     <LegalShell title="Gizlilik Politikası" updated={UPDATED}>
       <p>
-        Anılarımız, çiftlerin özel bir fotoğraf albümüdür: kendi defterini açarsın, partnerin davetle katılır. Herkese açık bir profil, arama ya da
+        Hatıra Defterim, çiftlerin özel bir fotoğraf albümüdür: kendi defterini açarsın, partnerin davetle katılır. Herkese açık bir profil, arama ya da
         paylaşım akışı yoktur: bir alandaki içeriği yalnızca o alanın üyeleri görür.
       </p>
 
@@ -143,7 +143,7 @@ export function AccountDeletionPage() {
   const contact = useContact()
   return (
     <LegalShell title="Hesap Silme" updated={UPDATED}>
-      <p>Anılarımız hesabını ve verilerini, uygulamadan ya da siteden dilediğin an kendin silebilirsin.</p>
+      <p>Hatıra Defterim hesabını ve verilerini, uygulamadan ya da siteden dilediğin an kendin silebilirsin.</p>
 
       <h2>Nasıl silinir?</h2>
       <ol>
