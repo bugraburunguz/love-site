@@ -33,6 +33,10 @@ body {
   -webkit-touch-callout: none;
 }
 
+.native-app :is(a, button) img {
+  -webkit-touch-callout: default;
+}
+
 h1,
 h2,
 h3 {

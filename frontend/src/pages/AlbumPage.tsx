@@ -21,6 +21,7 @@ import '../components/clay.css'
 import Clay from '../components/Clay'
 import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
+import { useNoSwipeBack } from '../native/swipeBack'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
 import PagePanel from '../components/edit/PagePanel'
@@ -58,6 +59,7 @@ const MAX_AUTO = 4
 
 export default function AlbumPage() {
   const { id = '' } = useParams()
+  useNoSwipeBack() // iOS: the edge swipe turns the book's pages here, it must not leave the album
   // key: a different album is a fresh page, with its own aspect cache and state
   return <AlbumView key={id} id={id} />
 }

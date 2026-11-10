@@ -1,11 +1,29 @@
 import UIKit
+import WebKit
 import Capacitor
 
 /// The app's web view controller (Main.storyboard). Lives here so the Xcode project needs no new file:
-/// turns on the iOS edge swipe for going back through the app's pages.
-class MainViewController: CAPBridgeViewController {
+/// turns on the iOS edge swipe for going back through the app's pages. Pages whose own swipes would clash
+/// (the album book) switch it off with `webkit.messageHandlers.swipeBack.postMessage(false)` (src/native/swipeBack.ts).
+class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     override func capacitorDidLoad() {
         webView?.allowsBackForwardNavigationGestures = true
+        webView?.configuration.userContentController.add(WeakScriptHandler(self), name: "swipeBack")
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "swipeBack", let enabled = message.body as? Bool else { return }
+        webView?.allowsBackForwardNavigationGestures = enabled
+    }
+}
+
+/// WKUserContentController keeps its handlers strongly; this breaks the cycle with the view controller.
+private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+    init(_ target: WKScriptMessageHandler) { self.target = target }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }
 
