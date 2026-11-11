@@ -4,6 +4,7 @@ import { createAlbum, deleteAlbum, formatBytes, getSpace, listAlbums, listMedia,
 import { onThisDay, type OnThisDay } from '../api/calendar'
 import { yearsAgoLabel } from '../calendar/calendarMath'
 import AppHeader from '../components/AppHeader'
+import { haptic } from '../native/haptics'
 import BottomTabs from '../components/BottomTabs'
 import NewAlbumDialog from '../components/NewAlbumDialog'
 import { Button, Card, Chip, ConfirmModal, EmptyState, Meter, Polaroid, PromptModal, uiButtonClass } from '../components/ui'
@@ -171,7 +172,14 @@ export default function AlbumsPage() {
 
   return (
     <div className="ui home">
-      <AppHeader />
+      <AppHeader
+        title="Kitaplığımız"
+        action={
+          <button type="button" className="app-header__icon-btn" onClick={create} aria-label="Yeni albüm">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+          </button>
+        }
+      />
       <main className="ui-container home__main">
         <h1 className="sr-only">Raf</h1>
         {error && <p role="alert" className="ui-field__error">{error}</p>}
@@ -183,7 +191,7 @@ export default function AlbumsPage() {
             <h2 id="shelf-title" className="home__shelf-title">Kitaplığımız</h2>
             {albums && albums.length > 0 && <Chip static>{albums.length} cilt</Chip>}
             <span className="home__spacer" />
-            <Button size="sm" variant="secondary" onClick={create} icon={<span aria-hidden="true">+</span>}>Yeni albüm</Button>
+            <Button size="sm" variant="secondary" onClick={create} icon={<span aria-hidden="true">+</span>} className="home__new-btn">Yeni albüm</Button>
           </div>
 
           {albums === null ? (
@@ -222,8 +230,8 @@ export default function AlbumsPage() {
             <Meter label="Anı sandığı" used={space.usedBytes} limit={space.limitBytes} format={formatBytes} />
             <div className="home__storage-links">
               {space.kind === 'FREE' && <span className="ui-muted">Ücretsiz defter · kısa videolar</span>}
-              <Link to="/cop" className={uiButtonClass('ghost', 'sm')}>Çöp kutusu</Link>
-              <Link to="/profil" className={uiButtonClass('ghost', 'sm')}>Defter ayarları</Link>
+              <Link to="/cop" className={`${uiButtonClass('ghost', 'sm')} home__web-link`}>Çöp kutusu</Link>
+              <Link to="/profil" className={`${uiButtonClass('ghost', 'sm')} home__web-link`}>Defter ayarları</Link>
             </div>
           </Card>
         )}
@@ -234,6 +242,7 @@ export default function AlbumsPage() {
           onClose={close}
           onSubmit={async (title, themeId) => {
             await createAlbum(title, themeId)
+            haptic('success')
             refresh()
           }}
         />
@@ -261,6 +270,7 @@ export default function AlbumsPage() {
           onConfirm={async () => {
             // a failure stays in the dialog (ConfirmModal shows it); success closes it
             await deleteAlbum(dialog.album.id)
+            haptic('warning')
             refresh()
           }}
         />

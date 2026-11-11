@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 16
+Görev sayacı: 17
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -22,4 +22,5 @@ Görev sayacı: 16
 | LS-13 Lightbox (buzlu kontroller, menü telefonda alt sayfa, klavye), yükleme paneli ve "Yüklenecek dosyalar" penceresi, Paylaş penceresi (seçenek kartları) ve dışa aktarma kartları yeni tasarımda; "Sil" → "Çöpe taşı"; albümdeki eski onay pencereleri yeni Modal'a geçti, eski `Dialog.tsx` kaldırıldı | merge edildi, canlıda | #13 | — | 2026-11-10 |
 | LS-14 Çöp kutusu (`/cop`): son 30 günde silinen albüm ve fotoğraflar, "Geri al" (fotoğraf albümüne yerleşir; albümü silinmişse önce albüm; aynı dosya yeniden yüklendiyse 409; 30 günü geçmiş olan geri alınamaz). Yeni uçlar `GET /api/trash`, `POST /api/trash/{media,albums}/{id}/restore`. Kalıcı silme elle yok (gece temizliği yapar) | merge edildi, canlıda | #14 | — | 2026-11-10 |
 | LS-15 Admin (istatistik kartları, aranabilir ve süzülebilir alan listesi, yeniden adlandırma/limit pencereleri), yasal sayfalar (içindekiler), 404/hata ekranı (yırtık sayfa) ve albüm ayarları penceresi yeni tasarımda; eski `dialog.css`/`space.css` kaldırıldı — web arayüzünün tamamı yeni tasarımda | merge edildi, canlıda | dal `ls-15-admin-legal` | — | 2026-11-10 |
-| LS-16 iOS'a özel düzenler: kenardan kaydırarak geri (`MainViewController`), durum çubuğu açık/koyu seçimi izler, uygulama API'si VDS'e (`.env.mobile` → duckdns), açılış ekranı yeni krem renk, dokunma vurgusu/uzun basma menüsü kapalı | PR açık; vitest + build:mobile yeşil; **Xcode kurulu değil, simülatörde derlenmedi** | dal `ls-16-ios-native` | Xcode kur → simülatör doğrulaması, uygulama adı kararı, App Store hazırlığı | 2026-11-10 |
+| LS-16 iOS'a özel düzenler: kenardan kaydırarak geri (`MainViewController`), durum çubuğu açık/koyu seçimi izler, uygulama API'si VDS'e (`.env.mobile` → duckdns), açılış ekranı yeni krem renk, dokunma vurgusu/uzun basma menüsü kapalı | merge edildi (#16), canlıda; ad "Hatıra Defterim"; simülatörde ve Buğra'nın iPhone 15'inde çalıştı (ücretsiz Apple hesabı: imza 7 gün geçerli) | #16 | App Store için Apple Developer Program üyeliği | 2026-11-11 |
+| LS-17 Uygulamaya iOS hissi (yalnız `.native-app`, web değişmedi): iOS gezinme çubuğu (geri düğmesi, kaydırınca beliren başlık, rafta "+"), iOS sekme çubuğu (alt sayfada üst sekme seçili kalır), ekran geçişleri (ileri/geri kayma, sekmede soluklaşma; View Transitions), basınca solma, titreşim (sayfa çevirme, albüm oluşturma, çöpe taşıma), alanlarda yakınlaştırma yok, metin seçimi kapalı (yasal metin ve altyazılar hariç), albümde durum çubuğu hep koyu | PR açık; vitest 190 yeşil; simülatörde geçişler video karelerinden doğrulandı | dal `ls-17-native-feel` | Buğra telefonda denesin | 2026-11-11 |

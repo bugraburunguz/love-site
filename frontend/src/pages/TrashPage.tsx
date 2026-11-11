@@ -46,7 +46,7 @@ export default function TrashPage() {
 
   return (
     <div className="ui home">
-      <AppHeader />
+      <AppHeader title="Çöp kutusu" back={{ to: '/profil', label: 'Profil' }} />
       <main className="ui-container home__main">
         <header className="trash__head">
           <div>

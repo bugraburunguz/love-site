@@ -106,7 +106,7 @@ export default function ProfilePage() {
 
   return (
     <div className="ui home">
-      <AppHeader />
+      <AppHeader title="Profil" />
       <main className="ui-container home__main">
         <div className="profile">
           <Card className="profile__wide">

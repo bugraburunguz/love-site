@@ -11,4 +11,9 @@ describe('statusBarText', () => {
     expect(statusBarText('system', true)).toBe('light')
     expect(statusBarText('system', false)).toBe('dark')
   })
+
+  it('lets a screen with its own paper (the album desk) fix the colour', () => {
+    expect(statusBarText('dark', true, 'dark')).toBe('dark')
+    expect(statusBarText('light', false, 'light')).toBe('light')
+  })
 })
