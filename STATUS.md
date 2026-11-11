@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 18
+Görev sayacı: 19
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -25,3 +25,4 @@ Görev sayacı: 18
 | LS-16 iOS'a özel düzenler: kenardan kaydırarak geri (`MainViewController`), durum çubuğu açık/koyu seçimi izler, uygulama API'si VDS'e (`.env.mobile` → duckdns), açılış ekranı yeni krem renk, dokunma vurgusu/uzun basma menüsü kapalı | merge edildi (#16), canlıda; ad "Hatıra Defterim"; simülatörde ve Buğra'nın iPhone 15'inde çalıştı (ücretsiz Apple hesabı: imza 7 gün geçerli) | #16 | App Store için Apple Developer Program üyeliği | 2026-11-11 |
 | LS-17 Uygulamaya iOS hissi (yalnız `.native-app`, web değişmedi): iOS gezinme çubuğu (geri düğmesi, kaydırınca beliren başlık, rafta "+"), iOS sekme çubuğu (alt sayfada üst sekme seçili kalır), ekran geçişleri (ileri/geri kayma, sekmede soluklaşma; View Transitions), basınca solma, titreşim (sayfa çevirme, albüm oluşturma, çöpe taşıma), alanlarda yakınlaştırma yok, metin seçimi kapalı (yasal metin ve altyazılar hariç), albümde durum çubuğu hep koyu | merge edildi, canlıda; Buğra'nın iPhone'una yüklendi | #17 | — | 2026-11-11 |
 | LS-18 Telefonda çıkartma seçilince "Hatıra çantası" kapanır, çıkartma sayfaya yerleşirken görünür ve seçili gelir; 760px ve üstünde çanta yanda açık kalır (art arda ekleme) | PR açık; vitest 192 yeşil; simülatörde denenmedi (canlı albüme veri yazardı) | dal `ls-18-sticker-close` | Buğra telefonda denesin | 2026-11-11 |
+| LS-19 Hız sınırı açıkları: reprocess (kullanıcı başına 30/saat, medya başına kabul edilen yeniden deneme 5 dk'da 1), sınırlayıcı temizliği her anahtarın kendi penceresiyle, login/yükleme IP sınırı IPv6 /64 ile, Caddy'de love-site gövdesi en çok 1 MB. Redis eklenmedi (tek instance, gerek yok) | PR açık; backend 276 test yeşil (VideoProcessorTest ayrı koşuldu, tam koşuda 4 GB Docker'da ffmpeg OOM), reviewer engelleyici bulgu yok | #19 | merge → deploy sonrası sunucuda Caddy reload (`docker compose exec -w /etc/caddy caddy caddy reload`) | 2026-11-11 |
