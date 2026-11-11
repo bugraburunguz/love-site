@@ -17,5 +17,9 @@ public record RateLimitProperties(
         /** "I want to upload these files" requests per signed-in user and per address, per window (each request may carry 50 files) */
         @DefaultValue("120") int uploadStartPerUser,
         @DefaultValue("300") int uploadStartPerIp,
-        @DefaultValue("1h") Duration uploadWindow) {
+        @DefaultValue("1h") Duration uploadWindow,
+        /** "process this media again" requests: one per media per cooldown, and a ceiling per signed-in user per window */
+        @DefaultValue("5m") Duration reprocessMediaCooldown,
+        @DefaultValue("30") int reprocessPerUser,
+        @DefaultValue("1h") Duration reprocessWindow) {
 }

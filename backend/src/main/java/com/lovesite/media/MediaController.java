@@ -47,7 +47,7 @@ public class MediaController {
     public UploadResponse requestUploads(CurrentUser me, @PathVariable UUID albumId, @RequestBody UploadRequest request,
                                          jakarta.servlet.http.HttpServletRequest http) {
         limiter.check("upload-user:" + me.userId(), limits.uploadStartPerUser(), limits.uploadWindow());
-        limiter.check("upload-ip:" + ClientIp.of(http), limits.uploadStartPerIp(), limits.uploadWindow());
+        limiter.check("upload-ip:" + ClientIp.networkOf(http), limits.uploadStartPerIp(), limits.uploadWindow());
         return mediaService.requestUploads(me, albumId, request.files());
     }
 
@@ -58,7 +58,12 @@ public class MediaController {
 
     @PostMapping("/api/media/{id}/reprocess")
     public MediaResponse reprocess(CurrentUser me, @PathVariable UUID id) {
-        return mediaService.reprocess(me, id);
+        // every reprocess runs the media tools again (ffmpeg on the shared server): a ceiling per user on every request,
+        // and one accepted retry per media per cooldown (a refused "already being processed" does not use it up).
+        // Keyed by user too, so nobody can block a media of somebody else's space.
+        limiter.check("reprocess-user:" + me.userId(), limits.reprocessPerUser(), limits.reprocessWindow());
+        return mediaService.reprocess(me, id, () ->
+                limiter.check("reprocess-media:" + me.userId() + ":" + id, 1, limits.reprocessMediaCooldown()));
     }
 
     @PutMapping("/api/media/{id}/date")

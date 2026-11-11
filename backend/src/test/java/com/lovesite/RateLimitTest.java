@@ -1,5 +1,6 @@
 package com.lovesite;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +29,12 @@ class RateLimitTest {
         r.add("app.rate-limit.login-per-ip", () -> "6");
         r.add("app.rate-limit.upload-start-per-user", () -> "3");
         r.add("app.rate-limit.upload-start-per-ip", () -> "5");
+        r.add("app.rate-limit.reprocess-per-user", () -> "5");
+    }
+
+    int reprocess(String email, UUID media) throws Exception {
+        return mvc.perform(post("/api/media/" + media + "/reprocess").with(user(email)).with(csrf())
+                .header("X-Forwarded-For", "192.0.2.50")).andReturn().getResponse().getStatus();
     }
 
     static final String FILE = "{\"files\":[{\"clientId\":\"c1\",\"filename\":\"a.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":100,\"sha256\":\"" + "ab".repeat(32) + "\"}]}";
@@ -97,5 +104,64 @@ class RateLimitTest {
         assertThat(uploadStart(b, ip)).isEqualTo(404);
         assertThat(uploadStart(b, ip)).isEqualTo(404);
         assertThat(uploadStart(a, ip)).isEqualTo(429);
+    }
+
+    @Test
+    void ipv6AddressesOfOneSlash64ShareTheLoginLimit() throws Exception {
+        // one home or server gets a whole /64: rotating the last 64 bits must not buy new attempts
+        for (int i = 1; i <= 6; i++) {
+            assertThat(login("v6-" + i + "@x.io", "wrong-password", "2001:db8:aa:1::" + i)).as("attempt " + i).isEqualTo(401);
+        }
+        assertThat(login("v6-7@x.io", "wrong-password", "2001:db8:aa:1::77")).isEqualTo(429);
+        // another /64 is unaffected
+        assertThat(login("v6-8@x.io", "wrong-password", "2001:db8:aa:2::1")).isEqualTo(401);
+    }
+
+    @Test
+    void ipv6AddressesOfOneSlash64ShareTheUploadLimit() throws Exception {
+        String a = newUser("v6a");
+        String b = newUser("v6b");
+        for (int i = 1; i <= 5; i++) {
+            assertThat(uploadStart(i % 2 == 0 ? a : b, "2001:db8:bb:1::" + i)).as("request " + i).isEqualTo(404);
+        }
+        assertThat(uploadStart(a, "2001:db8:bb:1::99")).isEqualTo(429);
+    }
+
+    /** A READY photo in a new album of the user's space. */
+    UUID readyMedia(String email) throws Exception {
+        String album = JsonPath.read(mvc.perform(post("/api/albums").with(user(email)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"A\"}")).andReturn().getResponse().getContentAsString(), "$.id");
+        String res = mvc.perform(post("/api/albums/" + album + "/uploads").with(user(email)).with(csrf())
+                .header("X-Forwarded-For", "192.0.2.60").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"files\":[{\"clientId\":\"c\",\"filename\":\"a.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":10}]}"))
+                .andReturn().getResponse().getContentAsString();
+        UUID media = UUID.fromString(JsonPath.read(res, "$.items[0].mediaId"));
+        markReady(media);
+        return media;
+    }
+
+    void markReady(UUID media) {
+        jdbc.update("UPDATE media SET status = 'READY' WHERE id = ?", media);
+    }
+
+    @Test
+    void oneMediaCannotBeReprocessedAgainRightAway() throws Exception {
+        String user = newUser("reproc");
+        UUID media = readyMedia(user);
+        assertThat(reprocess(user, media)).isEqualTo(200);
+        // still queued: the "already being processed" answer stays, and it does not use up anything
+        assertThat(reprocess(user, media)).isEqualTo(409);
+        // processed again, but the cooldown after the accepted retry is not over
+        markReady(media);
+        assertThat(reprocess(user, media)).isEqualTo(429);
+        // another media of the same user is not blocked by that cooldown
+        assertThat(reprocess(user, readyMedia(user))).isEqualTo(200);
+    }
+
+    @Test
+    void reprocessRequestsAreLimitedPerUser() throws Exception {
+        String user = newUser("reprocu");
+        for (int i = 1; i <= 5; i++) assertThat(reprocess(user, UUID.randomUUID())).as("request " + i).isEqualTo(404);
+        assertThat(reprocess(user, UUID.randomUUID())).isEqualTo(429);
     }
 }
