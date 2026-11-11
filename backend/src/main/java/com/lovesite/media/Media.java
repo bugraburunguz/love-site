@@ -77,6 +77,10 @@ public class Media {
     @Column(name = "duration_ms")
     private Long durationMs;
 
+    /** videos: where the 3-second living-photo clip starts (ms); null = the beginning */
+    @Column(name = "clip_start_ms")
+    private Long clipStartMs;
+
     @Column(name = "taken_at")
     private Instant takenAt;
 
@@ -210,6 +214,15 @@ public class Media {
 
     public void setFeatured(boolean featured) {
         this.featured = featured;
+    }
+
+    public Long getClipStartMs() {
+        return clipStartMs;
+    }
+
+    /** null or negative = the beginning; the processor keeps the clip inside the video */
+    public void setClipStartMs(Long clipStartMs) {
+        this.clipStartMs = clipStartMs == null || clipStartMs <= 0 ? null : clipStartMs;
     }
 
     public Long getVariantsBytes() {

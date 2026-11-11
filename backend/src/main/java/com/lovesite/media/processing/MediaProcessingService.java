@@ -118,7 +118,7 @@ public class MediaProcessingService {
             Path original = tmp.resolve("original");
             storage.download(item.getOriginalKey(), original);
 
-            ProcessedMedia result = item.getType() == MediaKind.IMAGE ? photos.process(original, tmp) : videos.process(original, tmp);
+            ProcessedMedia result = item.getType() == MediaKind.IMAGE ? photos.process(original, tmp) : videos.process(original, tmp, item.getClipStartMs());
 
             int version = item.getProcessingVersion() + 1;
             // variants live next to the original, whatever layout its key has (old "albums/..." or "spaces/...")

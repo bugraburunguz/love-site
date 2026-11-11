@@ -12,14 +12,13 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Videos: a silent boomerang loop (first 3 s forward, then backward) as H.264 MP4 plus a WebP poster.
+ * Videos: a silent boomerang loop (3 s forward, then backward; from the start the user picked, see {@link ClipWindow})
+ * as H.264 MP4 plus a WebP poster.
  * HDR (HLG / PQ) sources are tone-mapped to SDR bt709, otherwise iPhone clips look washed out.
  */
 @Component
 public class VideoProcessor {
 
-    static final double CLIP_SECONDS = 3.0;
-    static final double SHORT_VIDEO_SECONDS = 1.0;
     static final int LONG_EDGE = 720;
     static final double MAX_FPS = 30;
 
@@ -37,14 +36,16 @@ public class VideoProcessor {
     }
 
     public ProcessedMedia process(Path original, Path workDir) throws IOException, InterruptedException {
-        Probe source = probe(original);
+        return process(original, workDir, null);
+    }
 
-        // Videos shorter than a second are used whole; otherwise the first 3 s (or all of it when shorter).
-        double seconds = source.durationMs() / 1000.0;
-        double clip = seconds <= 0 ? CLIP_SECONDS : seconds < SHORT_VIDEO_SECONDS ? seconds : Math.min(CLIP_SECONDS, seconds);
+    /** @param clipStartMs where the user wants the 3-second clip to start (null: the beginning) */
+    public ProcessedMedia process(Path original, Path workDir, Long clipStartMs) throws IOException, InterruptedException {
+        Probe source = probe(original);
+        ClipWindow window = ClipWindow.of(source.durationMs(), clipStartMs);
 
         Path loop = workDir.resolve("loop.mp4");
-        ProcessRunner.runChecked(loopCommand(original, loop, clip, source), properties.videoTimeout());
+        ProcessRunner.runChecked(loopCommand(original, loop, window, source), properties.videoTimeout());
 
         Path poster = workDir.resolve("poster.webp");
         ProcessRunner.runChecked(List.of(
@@ -57,7 +58,7 @@ public class VideoProcessor {
                 source.durationMs(), ExifDates.sane(source.creationTime()));
     }
 
-    List<String> loopCommand(Path in, Path out, double clipSeconds, Probe source) {
+    List<String> loopCommand(Path in, Path out, ClipWindow window, Probe source) {
         String scale = "scale=w='if(gte(iw,ih),min(" + LONG_EDGE + ",iw),-2)':h='if(gte(iw,ih),-2,min(" + LONG_EDGE + ",ih))'";
         // Scale first (cheap, still 10-bit), then tone-map at the small size: tone-mapping 4K frames in float is far too slow.
         String colour = source.hdr()
@@ -71,7 +72,10 @@ public class VideoProcessor {
         List<String> command = new ArrayList<>(List.of(
                 properties.ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
                 "-filter_complex_threads", "2", "-filter_threads", "2", "-threads", "2",
-                "-t", String.format(Locale.ROOT, "%.3f", clipSeconds), "-i", in.toString(),
+                // input seeking: jumps to the nearest keyframe before the start and decodes from there, so the clip
+                // begins exactly at the chosen moment without decoding the whole video before it
+                "-ss", String.format(Locale.ROOT, "%.3f", window.start()),
+                "-t", String.format(Locale.ROOT, "%.3f", window.length()), "-i", in.toString(),
                 "-filter_complex", graph, "-map", "[v]", "-an",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "26", "-profile:v", "high", "-pix_fmt", "yuv420p",
                 "-threads", "2", "-movflags", "+faststart",

@@ -41,6 +41,8 @@ export interface MediaDto {
   /** a date was set by hand; originalDate is what it would be without it */
   dateOverridden?: boolean
   originalDate?: string
+  /** videos: where the living photo starts (ms); null = the beginning */
+  clipStartMs?: number | null
 }
 
 export interface UploadFileRequest {
@@ -53,6 +55,8 @@ export interface UploadFileRequest {
   lastModified?: number
   /** the file gets a page of its own */
   featured?: boolean
+  /** videos: where the 3-second living photo starts (ms); omitted = the beginning */
+  clipStartMs?: number
 }
 
 export interface UploadItemResult {
@@ -84,6 +88,9 @@ export const updateCaption = (id: string, caption: string) =>
 export const getMediaStatuses = (ids: string[]) =>
   api<MediaDto[]>(`/api/media?ids=${ids.join(',')}`)
 export const reprocessMedia = (id: string) => api<MediaDto>(`/api/media/${id}/reprocess`, { method: 'POST' })
+/** LS-22: a new start for a video's living photo (null = the beginning); the server cuts it again */
+export const changeClip = (id: string, startMs: number | null) =>
+  api<MediaDto>(`/api/media/${id}/clip`, { method: 'PUT', body: { startMs } })
 export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { method: 'DELETE' })
 export const requestUploads = (albumId: string, files: UploadFileRequest[]) =>
   api<{ items: UploadItemResult[] }>(`/api/albums/${albumId}/uploads`, { method: 'POST', body: { files } })

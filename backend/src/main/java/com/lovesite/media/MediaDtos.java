@@ -12,8 +12,13 @@ public final class MediaDtos {
     }
 
     /** One file the client wants to upload. Validation happens per file, not on the bean. */
+    /** clipStartMs: videos only, where the living-photo clip starts (LS-22); omitted = the beginning */
     public record UploadFile(String clientId, String filename, String contentType, Long sizeBytes, String sha256,
-                             Long lastModified, Boolean featured) {
+                             Long lastModified, Boolean featured, Long clipStartMs) {
+    }
+
+    /** a new start for the clip of a video that is already uploaded; null = the beginning */
+    public record ClipRequest(Long startMs) {
     }
 
     public record UploadRequest(List<UploadFile> files) {
@@ -73,7 +78,8 @@ public final class MediaDtos {
                                 Instant displayDate, String caption,
                                 String thumbUrl, String displayUrl, String loopUrl, String posterUrl,
                                 Integer width, Integer height, Long durationMs, String uploadedByName,
-                                UUID albumId, boolean dateUncertain, boolean dateOverridden, Instant originalDate) {
+                                UUID albumId, boolean dateUncertain, boolean dateOverridden, Instant originalDate,
+                                Long clipStartMs) {
     }
 
     /** null takenAt = back to the original date */

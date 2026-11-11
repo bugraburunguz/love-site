@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
-  changeAlbumTheme, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
+  changeAlbumTheme, changeClip, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
 import {
   applyPageTheme, changePageLook, changePageTheme, changeTemplate, createPage, deletePage, featureMedia, initializePages,
@@ -31,6 +31,7 @@ import PagePanel from '../components/edit/PagePanel'
 import { closesAfterPick } from '../components/edit/drawerFit'
 import Tray from '../components/edit/Tray'
 import UploadSetupDialog from '../components/edit/UploadSetupDialog'
+import ClipPicker from '../components/edit/ClipPicker'
 import UploadPanel from '../components/UploadPanel'
 import ExportCard from '../components/export/ExportCard'
 import SharePanel from '../components/export/SharePanel'
@@ -174,6 +175,34 @@ function AlbumView({ id }: { id: string }) {
       clearInterval(timer)
     }
   }, [pendingKey])
+
+  // LS-22: picking another moment of an uploaded video for its living photo (the server cuts it again from the original)
+  const [clipEdit, setClipEdit] = useState<{ media: MediaDto; url: string } | null>(null)
+  const [clipBusy, setClipBusy] = useState(false)
+  const [clipError, setClipError] = useState<string | null>(null)
+
+  function openClipPicker(item: MediaDto) {
+    setClipError(null)
+    getOriginal(item.id)
+      .then((o) => setClipEdit({ media: item, url: o.url }))
+      .catch((e: Error) => setError(e.message))
+  }
+
+  async function saveClip(startMs: number) {
+    if (!clipEdit) return
+    setClipBusy(true)
+    setClipError(null)
+    try {
+      const updated = await changeClip(clipEdit.media.id, startMs > 0 ? startMs : null)
+      setMedia((list) => list?.map((m) => (m.id === updated.id ? updated : m)) ?? list)
+      setClipEdit(null)
+      toast('Yeni an kesiliyor; birazdan albümde canlanır', 'success')
+    } catch (e) {
+      setClipError(e instanceof Error ? e.message : 'Klip değiştirilemedi')
+    } finally {
+      setClipBusy(false)
+    }
+  }
 
   async function retryProcessing(item: MediaDto) {
     try {
@@ -750,6 +779,11 @@ function AlbumView({ id }: { id: string }) {
             return (
               <>
                 <LightboxItem onClick={() => { close(); setDateEdit(m) }}>Tarihi düzelt</LightboxItem>
+                {m.type === 'VIDEO' && (
+                  <LightboxItem disabled={m.status !== 'READY' && m.status !== 'FAILED'} onClick={() => { close(); openClipPicker(m) }}>
+                    Canlanan anı değiştir
+                  </LightboxItem>
+                )}
                 <p className="lightbox__menu-title">İndir / Paylaş</p>
                 <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'transparent' })}>Polaroid olarak indir (şeffaf)</LightboxItem>
                 <LightboxItem disabled={!ready} onClick={() => run('POLAROID', { background: 'page' })}>Polaroid olarak indir (sayfa arka planlı)</LightboxItem>
@@ -849,10 +883,21 @@ function AlbumView({ id }: { id: string }) {
         <UploadSetupDialog
           files={pickedFiles}
           onCancel={() => setPickedFiles(null)}
-          onStart={(files, single) => {
+          onStart={(files, single, clips) => {
             setPickedFiles(null)
-            add(files, single)
+            add(files, single, clips)
           }}
+        />
+      )}
+
+      {clipEdit && (
+        <ClipPicker
+          src={clipEdit.url}
+          startMs={clipEdit.media.clipStartMs ?? null}
+          busy={clipBusy}
+          error={clipError}
+          onCancel={() => setClipEdit(null)}
+          onDone={(ms) => void saveClip(ms)}
         />
       )}
 

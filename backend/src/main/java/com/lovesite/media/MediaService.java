@@ -103,6 +103,27 @@ public class MediaService {
         return toResponse(m);
     }
 
+    /**
+     * LS-22: a new start for the 3-second clip of a processed video (null = the beginning). The worker cuts it again
+     * from the original, so the media goes back into the queue; while it waits, another change is refused.
+     */
+    public MediaResponse changeClip(CurrentUser me, UUID mediaId, Long startMs, Runnable beforeRequeue) {
+        Media m = find(me, mediaId);
+        if (m.getType() != MediaKind.VIDEO) throw ApiException.badRequest("Yalnız videoların klibi seçilebilir");
+        if (startMs != null && (startMs < 0 || (m.getDurationMs() != null && m.getDurationMs() > 0 && startMs > m.getDurationMs()))) {
+            throw ApiException.badRequest("Klip videonun içinden seçilmeli");
+        }
+        if (m.getStatus() != MediaStatus.FAILED && m.getStatus() != MediaStatus.READY) {
+            throw ApiException.conflict("Bu video zaten işleniyor");
+        }
+        beforeRequeue.run();
+        m.setClipStartMs(startMs);
+        m.requeue();
+        m = media.save(m);
+        queue.ifAvailable(MediaProcessingQueue::kick);
+        return toResponse(m);
+    }
+
     /** Variant URLs only for READY items; they come from the shared presigned-URL cache. */
     public MediaResponse toResponse(Media m) {
         boolean ready = m.getStatus() == MediaStatus.READY;
@@ -114,7 +135,8 @@ public class MediaService {
                 ready ? url(m.getThumbKey()) : null, ready ? url(m.getDisplayKey()) : null,
                 ready ? url(m.getLoopKey()) : null, ready ? url(m.getPosterKey()) : null,
                 ready ? m.getWidth() : null, ready ? m.getHeight() : null, ready ? m.getDurationMs() : null,
-                names.of(m.getUploadedBy()), m.getAlbumId(), m.dateUncertain(), m.getDateOverride() != null, originalDate);
+                names.of(m.getUploadedBy()), m.getAlbumId(), m.dateUncertain(), m.getDateOverride() != null, originalDate,
+                m.getType() == MediaKind.VIDEO ? m.getClipStartMs() : null);
     }
 
     /** Sets (or with null removes) the hand-set date of a photo / video of the caller's space. */
@@ -205,6 +227,7 @@ public class MediaService {
                     row.reissue(type.kind(), filenameFinal, type.contentType(), size, modifiedAt);
                 }
                 row.setFeatured(Boolean.TRUE.equals(file.featured()));
+                row.setClipStartMs(type.kind() == MediaKind.VIDEO ? file.clipStartMs() : null);
                 row = media.saveAndFlush(row);
                 createdInThisBatch.add(row.getId());
 
