@@ -213,8 +213,8 @@
 }
 
 .album-card__menu-btn {
-  width: 36px;
-  height: 36px;
+  width: var(--ui-touch); /* 44px: a finger-sized target */
+  height: var(--ui-touch);
   border: 0;
   border-radius: 50%;
   background: transparent;

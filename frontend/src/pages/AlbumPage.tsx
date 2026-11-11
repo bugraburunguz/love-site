@@ -11,7 +11,8 @@ import AlbumBar from '../components/AlbumBar'
 import AlbumMusic from '../components/AlbumMusic'
 import { useHistoryState } from '../components/edit/history'
 import { useUndoableEdits } from '../components/edit/useUndoableEdits'
-import { Button, ConfirmModal } from '../components/ui'
+import { Button, ConfirmModal, useToast } from '../components/ui'
+import { LatestSaver } from '../components/latestSaver'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
 import CompassNeedle from '../components/CompassNeedle'
@@ -99,6 +100,7 @@ function AlbumView({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [search, setSearch] = useSearchParams()
   const [settingsOpen, setSettingsOpen] = useState(() => search.get('ayarlar') === '1')
+  const toast = useToast()
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -542,10 +544,38 @@ function AlbumView({ id }: { id: string }) {
     return fresh?.musicUrl ?? null
   }, [id])
 
-  async function saveTheme(themeId: string) {
-    const updated = await changeAlbumTheme(id, themeId)
-    setAlbum(updated)
-    setPreviewThemeId(null)
+  // A picked theme is saved at once (no separate "save" step); a note offers to undo it. Quick taps through the themes
+  // send at most two requests (LatestSaver) and the album shows the last pick meanwhile.
+  const themeSaver = useMemo(() => new LatestSaver<string>(async (themeId) => {
+    setAlbum(await changeAlbumTheme(id, themeId))
+  }), [id])
+  const themePick = useRef({ seq: 0, pending: 0, from: '' })
+
+  function pickTheme(themeId: string, undo = false) {
+    if (!album) return
+    const state = themePick.current
+    if (state.pending === 0) state.from = album.themeId // the theme to undo to: the one before this burst of taps
+    const from = state.from
+    const seq = ++state.seq
+    state.pending++
+    setPreviewThemeId(themeId)
+    themeSaver.save(themeId).then(
+      () => {
+        state.pending--
+        if (seq !== state.seq) return // a newer pick is on its way
+        setPreviewThemeId(null)
+        if (undo) toast('Tema geri alındı', 'success')
+        else if (from !== themeId) {
+          toast(`Tema değişti: ${getTheme(themeId).name}`, 'success', { label: 'Geri al', run: () => pickTheme(from, true) })
+        }
+      },
+      (e: unknown) => {
+        state.pending--
+        if (seq !== state.seq) return
+        setPreviewThemeId(null) // back to the theme the album really has
+        toast(e instanceof Error ? e.message : 'Tema kaydedilemedi', 'error')
+      },
+    )
   }
 
   if (album === null) {
@@ -624,7 +654,7 @@ function AlbumView({ id }: { id: string }) {
               <span className="item-bar__label">Seçili çıkartma</span>
               <Button size="sm" variant="secondary" onClick={() => bringTo(true)}>Öne getir</Button>
               <Button size="sm" variant="secondary" onClick={() => bringTo(false)}>Arkaya gönder</Button>
-              <Button size="sm" variant="danger" onClick={() => { void edits.removeFromPage(selected.item.id); setSelectedId(null) }}>Sil</Button>
+              <Button size="sm" variant="danger" onClick={() => { void edits.removeFromPage(selected.item.id); setSelectedId(null) }}>Kaldır</Button>
             </div>
           )}
           {selected && selectedMedia && (
@@ -646,7 +676,7 @@ function AlbumView({ id }: { id: string }) {
                 </>
               )}
               <Button size="sm" variant="secondary" onClick={() => { void edits.removeFromPage(selected.item.id); setSelectedId(null) }}>Sayfadan kaldır</Button>
-              <Button size="sm" variant="danger" onClick={() => setToDelete(selectedMedia)}>Sil</Button>
+              <Button size="sm" variant="danger" onClick={() => setToDelete(selectedMedia)}>Çöpe taşı</Button>
             </div>
           )}
           <PageBar
@@ -818,9 +848,8 @@ function AlbumView({ id }: { id: string }) {
       {settingsOpen && album && (
         <AlbumSettings
           album={album}
-          previewThemeId={previewThemeId ?? album.themeId}
-          onPreview={setPreviewThemeId}
-          onSaveTheme={saveTheme}
+          themeId={previewThemeId ?? album.themeId}
+          onPickTheme={(themeId) => pickTheme(themeId)}
           onAlbum={setAlbum}
           onClose={() => setSettingsOpen(false)}
         />

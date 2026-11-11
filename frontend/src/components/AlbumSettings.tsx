@@ -14,38 +14,24 @@ function musicType(file: File): string {
 
 interface Props {
   album: Album
-  /** the theme shown behind the dialog (live preview) */
-  previewThemeId: string
-  onPreview: (themeId: string) => void
-  onSaveTheme: (themeId: string) => Promise<void>
+  /** the theme the album shows (the last pick, while it is being saved) */
+  themeId: string
+  /** a theme was tapped: the album page saves it at once and offers to undo it */
+  onPickTheme: (themeId: string) => void
   /** the album changed on the server (music added / replaced / removed) */
   onAlbum: (album: Album) => void
   onClose: () => void
 }
 
-/** Theme (with live preview on the album behind) and song of an album. */
-export default function AlbumSettings({ album, previewThemeId, onPreview, onSaveTheme, onAlbum, onClose }: Props) {
+/** Theme (saved the moment it is tapped, visible on the album behind) and song of an album. */
+export default function AlbumSettings({ album, themeId, onPickTheme, onAlbum, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const file = useRef<HTMLInputElement>(null)
-  const changed = previewThemeId !== album.themeId
 
-  function close() {
-    if (changed) onPreview(album.themeId) // leave without saving: the album goes back to its own theme
-    onClose()
-  }
-
-  async function save() {
-    setBusy(true)
-    setError(null)
-    try {
-      await onSaveTheme(previewThemeId)
-      onClose()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Tema kaydedilemedi')
-      setBusy(false)
-    }
+  function pickTheme(next: string) {
+    if (next !== themeId) onPickTheme(next)
   }
 
   async function pickSong(files: FileList | null) {
@@ -84,21 +70,15 @@ export default function AlbumSettings({ album, previewThemeId, onPreview, onSave
     <Modal
       title="Albüm ayarları"
       eyebrow={album.title}
-      onClose={close}
+      onClose={onClose}
       dismissable={!busy}
       light
-      actions={changed ? (
-        <>
-          <Button variant="secondary" onClick={close} disabled={busy}>Vazgeç</Button>
-          <Button loading={busy} onClick={() => void save()}>Temayı kaydet</Button>
-        </>
-      ) : undefined}
     >
       <div className="ui-form album-settings">
         <div className="ui-field">
           <span className="ui-field__label">Tema</span>
-          <span className="ui-field__hint">Seçtiğin tema arkadaki albümde hemen görünür; kaydedene kadar değişmez.</span>
-          <ThemePicker value={previewThemeId} onChange={onPreview} />
+          <span className="ui-field__hint">Dokunduğun tema hemen kaydedilir; istersen alttaki notla geri alabilirsin.</span>
+          <ThemePicker value={themeId} onChange={pickTheme} />
         </div>
 
         <div className="ui-field album-settings__music">

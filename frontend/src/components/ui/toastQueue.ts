@@ -1,9 +1,16 @@
 export type ToastTone = 'info' | 'success' | 'error'
 
+/** one button on the note, e.g. "Geri al" after a change that was saved at once */
+export interface ToastAction {
+  label: string
+  run: () => void
+}
+
 export interface ToastItem {
   id: number
   message: string
   tone: ToastTone
+  action?: ToastAction
 }
 
 /** At most three notes on screen; the oldest makes room for a new one. */

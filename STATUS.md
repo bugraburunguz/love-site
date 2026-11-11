@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 18
+Görev sayacı: 19
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -24,4 +24,5 @@ Görev sayacı: 18
 | LS-15 Admin (istatistik kartları, aranabilir ve süzülebilir alan listesi, yeniden adlandırma/limit pencereleri), yasal sayfalar (içindekiler), 404/hata ekranı (yırtık sayfa) ve albüm ayarları penceresi yeni tasarımda; eski `dialog.css`/`space.css` kaldırıldı — web arayüzünün tamamı yeni tasarımda | merge edildi, canlıda | dal `ls-15-admin-legal` | — | 2026-11-10 |
 | LS-16 iOS'a özel düzenler: kenardan kaydırarak geri (`MainViewController`), durum çubuğu açık/koyu seçimi izler, uygulama API'si VDS'e (`.env.mobile` → duckdns), açılış ekranı yeni krem renk, dokunma vurgusu/uzun basma menüsü kapalı | merge edildi (#16), canlıda; ad "Hatıra Defterim"; simülatörde ve Buğra'nın iPhone 15'inde çalıştı (ücretsiz Apple hesabı: imza 7 gün geçerli) | #16 | App Store için Apple Developer Program üyeliği | 2026-11-11 |
 | LS-17 Uygulamaya iOS hissi (yalnız `.native-app`, web değişmedi): iOS gezinme çubuğu (geri düğmesi, kaydırınca beliren başlık, rafta "+"), iOS sekme çubuğu (alt sayfada üst sekme seçili kalır), ekran geçişleri (ileri/geri kayma, sekmede soluklaşma; View Transitions), basınca solma, titreşim (sayfa çevirme, albüm oluşturma, çöpe taşıma), alanlarda yakınlaştırma yok, metin seçimi kapalı (yasal metin ve altyazılar hariç), albümde durum çubuğu hep koyu | merge edildi, canlıda; Buğra'nın iPhone'una yüklendi | #17 | — | 2026-11-11 |
-| LS-18 Telefonda çıkartma seçilince "Hatıra çantası" kapanır, çıkartma sayfaya yerleşirken görünür ve seçili gelir; 760px ve üstünde çanta yanda açık kalır (art arda ekleme) | PR açık; vitest 192 yeşil; simülatörde denenmedi (canlı albüme veri yazardı) | dal `ls-18-sticker-close` | Buğra telefonda denesin | 2026-11-11 |
+| LS-18 Telefonda çıkartma seçilince "Hatıra çantası" kapanır, çıkartma sayfaya yerleşirken görünür ve seçili gelir; 760px ve üstünde çanta yanda açık kalır (art arda ekleme) | merge edildi, canlıda; telefona yüklendi | #18 | — | 2026-11-11 |
+| LS-19 Kullanılabilirlik hızlı düzeltmeleri (denetim: `docs/reports/ux-denetim-2026-11-11.md`): albüm teması dokununca kaydedilir + "Geri al" notu ("Temayı kaydet" kalktı); Özel günler penceresi her zaman kapanır, yazılmış form varsa bir kez sorar; "Sil" → "Çöpe taşı" (albüm, fotoğraf), çıkartmada "Kaldır"; raf "…" düğmesi 44px | PR açık; vitest 198 yeşil | dal `ls-19-quick-ux` | sırada LS-20 video kırpma ekranı | 2026-11-11 |

@@ -161,7 +161,21 @@ def calendar_check(page: Page, ctx: BrowserContext) -> None:
     dialog.get_by_role("radio", name="Kalp").click()
     dialog.get_by_role("button", name="Kaydet").click()
     expect(dialog.get_by_text("Sevgililer günü")).to_be_visible()
+    # × closes even with the form open; with something typed it asks once first (LS-19)
+    dialog.get_by_role("button", name="Özel gün ekle").click()
+    dialog.get_by_label("Ad").fill("Yarım kalan gün")
     dialog.get_by_role("button", name="Kapat").click()
+    leave = page.get_by_role("dialog", name="Yazdıkların kaydedilmedi")
+    leave.get_by_role("button", name="Vazgeç").click()
+    expect(dialog.get_by_label("Ad")).to_have_value("Yarım kalan gün")
+    dialog.get_by_role("button", name="Kapat").click()
+    leave.get_by_role("button", name="Kaydetmeden kapat").click()
+    expect(dialog).to_have_count(0)
+    page.get_by_role("button", name="Özel günler").click()
+    expect(dialog.get_by_text("Yarım kalan gün")).to_have_count(0)
+    dialog.get_by_role("button", name="Özel gün ekle").click()
+    page.keyboard.press("Escape")  # untouched form: closes at once
+    expect(dialog).to_have_count(0)
     cell = page.locator('a.calendar__cell[href^="/takvim/gun/2024-02-14"]')
     expect(cell.locator(".calendar__thumb")).to_be_visible()
     expect(cell.locator(".calendar__specials")).to_be_visible()
@@ -352,7 +366,17 @@ def main() -> int:
         expect(settings.get_by_role("button", name="Müziği değiştir")).to_be_visible()
         mine = [x for x in api(a_ctx, "/api/albums").json() if x["id"] == album_id][0]
         assert mine["musicUrl"], "album has no music after the upload"
+
+        step("album theme: saved the moment it is tapped, undone from the note (LS-19)")
+        theme_of = lambda: [x for x in api(a_ctx, "/api/albums").json() if x["id"] == album_id][0]["themeId"]
+        was = theme_of()
+        other = "buyulu" if was != "buyulu" else "seyahat"
+        settings.get_by_role("button", name="Büyülü" if other == "buyulu" else "Seyahat", exact=True).click()
+        wait_until(lambda: theme_of() == other, f"theme saved as {other} without a save button", 20, 0.5)
+        expect(settings.get_by_role("button", name="Temayı kaydet")).to_have_count(0)
         settings.get_by_role("button", name="Kapat").click()
+        a.locator(".ui-toast").get_by_role("button", name="Geri al").click()
+        wait_until(lambda: theme_of() == was, f"theme back to {was} after Geri al", 20, 0.5)
 
         if os.environ.get("SKIP_EXPORTS") != "1":  # SKIP_EXPORTS=1: a quicker run without the export checks
             step("Phase 7: exports (formats, visual comparison, roles, mixed page themes)")

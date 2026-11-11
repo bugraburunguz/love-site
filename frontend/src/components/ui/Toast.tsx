@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
-import { dismissToast, pushToast, type ToastItem, type ToastTone } from './toastQueue'
+import { dismissToast, pushToast, type ToastAction, type ToastItem, type ToastTone } from './toastQueue'
 
-type Show = (message: string, tone?: ToastTone) => void
+type Show = (message: string, tone?: ToastTone, action?: ToastAction) => void
 
 const ToastContext = createContext<Show | null>(null)
 
@@ -13,6 +13,18 @@ function Note({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) =>
     <div className={`ui-toast ui-toast--${item.tone}`}>
       <span className="ui-toast__seal" aria-hidden="true">{SEAL[item.tone]}</span>
       <span className="ui-toast__text">{item.message}</span>
+      {item.action && (
+        <button
+          type="button"
+          className="ui-toast__action"
+          onClick={() => {
+            item.action?.run()
+            onDismiss(item.id)
+          }}
+        >
+          {item.action.label}
+        </button>
+      )}
       <button type="button" className="ui-toast__close" onClick={() => onDismiss(item.id)} aria-label="Bildirimi kapat">×</button>
     </div>
   )
@@ -28,10 +40,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const dismiss = useCallback((id: number) => setItems((q) => dismissToast(q, id)), [])
 
-  const show = useCallback<Show>((message, tone = 'info') => {
+  const show = useCallback<Show>((message, tone = 'info', action) => {
     const id = nextId.current++
-    setItems((q) => pushToast(q, { id, message, tone }))
-    window.setTimeout(() => dismiss(id), tone === 'error' ? DURATION_MS * 2 : DURATION_MS)
+    setItems((q) => pushToast(q, { id, message, tone, action }))
+    // a note with a button stays longer, so there is time to reach it
+    const ms = tone === 'error' || action ? DURATION_MS * 2 : DURATION_MS
+    window.setTimeout(() => dismiss(id), ms)
   }, [dismiss])
 
   const value = useMemo(() => show, [show])

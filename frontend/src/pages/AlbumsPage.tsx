@@ -81,7 +81,7 @@ function AlbumMenu({ album, onRename, onDelete }: { album: Album; onRename: () =
         <div className="album-card__dropdown" id={listId} ref={list}>
           <Link to={`/albums/${album.id}?ayarlar=1`} onClick={() => setOpen(false)}>Tema ve müzik</Link>
           <button type="button" onClick={() => { setOpen(false); onRename() }}>Yeniden adlandır</button>
-          <button type="button" className="album-card__danger" onClick={() => { setOpen(false); onDelete() }}>Sil</button>
+          <button type="button" className="album-card__danger" onClick={() => { setOpen(false); onDelete() }}>Çöpe taşı</button>
         </div>
       )}
     </div>
@@ -262,9 +262,9 @@ export default function AlbumsPage() {
       )}
       {dialog?.kind === 'delete' && (
         <ConfirmModal
-          title="Albüm silinsin mi?"
-          message={`"${dialog.album.title}" albümü raftan kalkacak. İçindekilerle birlikte 30 gün sonra kalıcı olarak silinir.`}
-          confirmLabel="Sil"
+          title="Albüm çöpe taşınsın mı?"
+          message={`"${dialog.album.title}" albümü raftan kalkacak. 30 gün boyunca Çöp kutusundan geri alabilirsin; sonra içindekilerle birlikte kalıcı olarak silinir.`}
+          confirmLabel="Çöpe taşı"
           danger
           onClose={close}
           onConfirm={async () => {
