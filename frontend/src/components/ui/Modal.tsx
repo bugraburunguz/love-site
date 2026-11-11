@@ -38,8 +38,6 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
     const opener = document.activeElement as HTMLElement | null
     const first = box.current?.querySelector<HTMLElement>('[autofocus], ' + FOCUSABLE)
     ;(first ?? box.current)?.focus()
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
 
     function onKey(e: KeyboardEvent) {
       if (!isTopModal(token)) return
@@ -61,10 +59,10 @@ export default function Modal({ title, eyebrow, onClose, children, actions, dism
     }
     document.addEventListener('keydown', onKey)
     return () => {
-      closeModal(token)
+      closeModal(token) // frees the page scroll when this was the last dialog
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
-      opener?.focus?.()
+      // the opener may be gone (it lived in a dialog that closed in the same commit): then the page keeps focus
+      if (opener?.isConnected) opener.focus()
     }
   }, [])
 

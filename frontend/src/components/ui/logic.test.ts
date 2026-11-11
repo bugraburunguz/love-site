@@ -37,6 +37,13 @@ describe('toast queue', () => {
     expect(q.map((t) => t.id)).toEqual([3, 4, 5])
   })
 
+  it('replaces an older note with the same key (one "Geri al" for the theme at a time)', () => {
+    let q: ToastItem[] = [item(1)]
+    q = pushToast(q, { ...item(2), key: 'album-theme' })
+    q = pushToast(q, { ...item(3), key: 'album-theme' })
+    expect(q.map((t) => t.id)).toEqual([1, 3])
+  })
+
   it('dismisses by id and ignores unknown ids', () => {
     const q = [item(1), item(2)]
     expect(dismissToast(q, 1).map((t) => t.id)).toEqual([2])

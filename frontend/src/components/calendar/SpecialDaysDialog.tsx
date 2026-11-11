@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
-  createSpecialDay, deleteSpecialDay, listSpecialDays, updateSpecialDay, type SpecialDay, type SpecialIcon as Icon,
+  createSpecialDay, deleteSpecialDay, listSpecialDays, updateSpecialDay, type SpecialDay,
 } from '../../api/calendar'
 import { longDate } from '../../calendar/calendarMath'
-import { Button, Checkbox, Modal, TextField } from '../ui'
+import { Button, Checkbox, ConfirmModal, Modal, TextField } from '../ui'
 import SpecialIcon, { ICON_LABEL, ICONS } from './SpecialIcon'
-
-type Draft = { id?: string; title: string; day: string; icon: Icon; yearly: boolean }
-const EMPTY: Draft = { title: '', day: '', icon: 'heart', yearly: true }
+import { draftChanged, EMPTY_DRAFT as EMPTY, type Draft } from './specialDraft'
 
 /** Your special days: add, change, remove. Yearly ones come back every year on the same day; one-off ones show once. */
 export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: () => void; onClose: () => void }) {
   const [days, setDays] = useState<SpecialDay[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  // what the form started from (an empty day, or the day being changed), to tell whether closing loses anything
+  const [start, setStart] = useState<Draft>(EMPTY)
+  const [askLeave, setAskLeave] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -25,6 +26,13 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   function edit(next: Draft | null) {
     setError(null)
     setDraft(next)
+    if (next) setStart(next)
+  }
+
+  // ×, the backdrop and Escape always close; with something typed in the form, one question comes first
+  function requestClose() {
+    if (draft && draftChanged(draft, start)) setAskLeave(true)
+    else onClose()
   }
 
   async function save() {
@@ -56,8 +64,8 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
   }
 
   return (
-    // while a day is being written, Escape / backdrop must not throw the draft away ("Vazgeç" goes back to the list)
-    <Modal title="Özel günlerimiz" eyebrow="Takvim" onClose={onClose} dismissable={!draft}>
+    <>
+    <Modal title="Özel günlerimiz" eyebrow="Takvim" onClose={requestClose} dismissable={!busy}>
       <div className="special-days">
         {draft ? (
           <div className="ui-form">
@@ -110,5 +118,15 @@ export default function SpecialDaysDialog({ onChanged, onClose }: { onChanged: (
         )}
       </div>
     </Modal>
+    {askLeave && (
+      <ConfirmModal
+        title="Yazdıkların kaydedilmedi"
+        message="Bu özel gün kaydedilmeden kapatılsın mı?"
+        confirmLabel="Kaydetmeden kapat"
+        onConfirm={onClose}
+        onClose={() => setAskLeave(false)}
+      />
+    )}
+    </>
   )
 }

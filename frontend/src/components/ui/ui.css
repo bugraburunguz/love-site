@@ -669,6 +669,18 @@
   flex: 1;
 }
 
+.ui-toast__action {
+  flex: none;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  background: transparent;
+  color: var(--ui-primary);
+  font: 600 var(--ui-text-small) / 1 var(--ui-font-body);
+  cursor: pointer;
+}
+
 .ui-toast__close {
   flex: none;
   border: 0;
