@@ -45,7 +45,11 @@ public class VideoProcessor {
         ClipWindow window = ClipWindow.of(source.durationMs(), clipStartMs);
 
         Path loop = workDir.resolve("loop.mp4");
-        ProcessRunner.runChecked(loopCommand(original, loop, window, source), properties.videoTimeout());
+        if (!cutLoop(original, loop, window, source) && window.start() > 0) {
+            // the container said the video is longer than its picture really is (e.g. longer audio): a late start found
+            // no frames, so the clip comes from the beginning rather than failing the whole video
+            cutLoop(original, loop, ClipWindow.of(source.durationMs(), null), source);
+        }
 
         Path poster = workDir.resolve("poster.webp");
         ProcessRunner.runChecked(List.of(
@@ -56,6 +60,24 @@ public class VideoProcessor {
         Probe result = probe(loop);
         return new ProcessedMedia(null, null, loop, poster, result.width(), result.height(),
                 source.durationMs(), ExifDates.sane(source.creationTime()));
+    }
+
+    /**
+     * Cuts the boomerang; false when the window held no frames (only for a start other than the beginning: from the
+     * beginning every failure is a real one and is thrown).
+     */
+    private boolean cutLoop(Path in, Path out, ClipWindow window, Probe source) throws IOException, InterruptedException {
+        try {
+            ProcessRunner.runChecked(loopCommand(in, out, window, source), properties.videoTimeout());
+            Probe result = probe(out);
+            if (result.width() > 0 && result.durationMs() > 0) return true;
+        } catch (ProcessRunner.ProcessKilledException e) {
+            throw e; // out of time or memory: cutting again from the beginning would only repeat it
+        } catch (IOException e) {
+            if (window.start() <= 0) throw e;
+        }
+        if (window.start() <= 0) throw new IOException("the video gave a clip without frames");
+        return false;
     }
 
     List<String> loopCommand(Path in, Path out, ClipWindow window, Probe source) {

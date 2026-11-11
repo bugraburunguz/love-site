@@ -15,7 +15,8 @@ public record ClipWindow(double start, double length) {
      */
     public static ClipWindow of(long durationMs, Long requestedStartMs) {
         double wanted = requestedStartMs == null ? 0 : Math.max(0, requestedStartMs) / 1000.0;
-        if (durationMs <= 0) return new ClipWindow(wanted, CLIP_SECONDS); // unknown length: trust the choice
+        // unknown length: nothing keeps the choice inside the video (a start past its end gives a clip without frames)
+        if (durationMs <= 0) return new ClipWindow(0, CLIP_SECONDS);
         double seconds = durationMs / 1000.0;
         if (seconds <= CLIP_SECONDS) return new ClipWindow(0, seconds); // short videos are used whole
         // slide back from the end so the clip keeps its full length

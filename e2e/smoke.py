@@ -364,6 +364,7 @@ def main() -> int:
         api_json(a_ctx, "PUT", f"/api/media/{clip['id']}/clip", {"startMs": 1500})
         clip = wait_until(clip_ready("v2"), "the video cut again at the new moment")
         assert clip["clipStartMs"] == 1500, clip
+        a.goto(f"/albums/{album_id}")  # the steps below work on the first album
         a.reload()
         expect(a.locator(".polaroid").first).to_be_visible()
         a.wait_for_timeout(800)

@@ -120,6 +120,29 @@ class VideoClipApiTest {
     }
 
     @Test
+    void theSameMomentAgainDoesNotCutTheVideoAgain() throws Exception {
+        UUID video = readyVideo();
+        jdbc.update("UPDATE media SET clip_start_ms = 3000 WHERE id = ?", video);
+        MvcResult res = send(put("/api/media/" + video + "/clip"), "{\"startMs\":3000}");
+        assertThat(res.getResponse().getStatus()).isEqualTo(200);
+        assertThat(JsonPath.<String>read(res.getResponse().getContentAsString(), "$.status")).isEqualTo("READY");
+    }
+
+    @Test
+    void anAbsurdStartSentWithAnUploadIsIgnored() throws Exception {
+        assertThat(clipOf(upload("huge.mov", "video/quicktime", "1000000000000"))).isNull();
+    }
+
+    @Test
+    void theClipChangesOnlyWhileTheVideoIsNotBeingProcessed() throws Exception {
+        // the change is one conditional update: if the worker took the item in between, nothing is written (409)
+        UUID video = readyVideo();
+        jdbc.update("UPDATE media SET status = 'PROCESSING' WHERE id = ?", video);
+        assertThat(send(put("/api/media/" + video + "/clip"), "{\"startMs\":2000}").getResponse().getStatus()).isEqualTo(409);
+        assertThat(clipOf(video.toString())).isNull();
+    }
+
+    @Test
     void aStartPastTheEndOfTheVideoIsRefused() throws Exception {
         UUID video = readyVideo(); // 12 s long
         assertThat(send(put("/api/media/" + video + "/clip"), "{\"startMs\":12001}").getResponse().getStatus()).isEqualTo(400);

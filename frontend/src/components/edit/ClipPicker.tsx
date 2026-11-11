@@ -66,7 +66,7 @@ export default function ClipPicker({ src, startMs, onDone, onCancel, busy = fals
         </p>
         <div className="clip-picker__stage">
           {failed ? (
-            <p className="clip-picker__fallback">Bu tarayıcı videoyu gösteremiyor. Telefondan seçebilir ya da ilk 3 saniyeyle devam edebilirsin.</p>
+            <p className="clip-picker__fallback">Bu tarayıcı videoyu gösteremiyor (iPhone videoları bazı bilgisayar tarayıcılarında açılmaz). Anı telefondan seçebilirsin; şimdilik seçili an değişmez.</p>
           ) : (
             <video
               ref={video}
@@ -76,8 +76,13 @@ export default function ClipPicker({ src, startMs, onDone, onCancel, busy = fals
               autoPlay
               preload="metadata"
               onLoadedMetadata={(e) => {
-                setDuration(e.currentTarget.duration)
-                e.currentTarget.currentTime = startRef.current
+                const length = e.currentTarget.duration
+                // a start saved earlier may sit past the last full window (the server slid it back): show where it really is
+                const from = clipStart(startRef.current, length) / 1000
+                setDuration(length)
+                setStart(from)
+                startRef.current = from
+                e.currentTarget.currentTime = from
               }}
               onError={() => setFailed(true)}
             />
@@ -112,7 +117,8 @@ export default function ClipPicker({ src, startMs, onDone, onCancel, busy = fals
         {error && <p role="alert" className="ui-field__error">{error}</p>}
         <div className="ui-modal__actions">
           <Button variant="secondary" onClick={onCancel} disabled={busy}>Vazgeç</Button>
-          <Button loading={busy} onClick={() => onDone(known ? clipStart(start, duration) : 0)}>Bu anı kullan</Button>
+          {/* nothing can be chosen until the video's length is known; when it cannot play here, the earlier choice stays */}
+          <Button loading={busy} disabled={!known} onClick={() => known && onDone(clipStart(start, duration))}>Bu anı kullan</Button>
         </div>
       </div>
     </Modal>

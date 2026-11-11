@@ -110,18 +110,21 @@ public class MediaService {
     public MediaResponse changeClip(CurrentUser me, UUID mediaId, Long startMs, Runnable beforeRequeue) {
         Media m = find(me, mediaId);
         if (m.getType() != MediaKind.VIDEO) throw ApiException.badRequest("Yalnız videoların klibi seçilebilir");
-        if (startMs != null && (startMs < 0 || (m.getDurationMs() != null && m.getDurationMs() > 0 && startMs > m.getDurationMs()))) {
+        long limit = m.getDurationMs() != null && m.getDurationMs() > 0 ? m.getDurationMs() : Media.MAX_CLIP_START_MS;
+        if (startMs != null && (startMs < 0 || startMs > limit)) {
             throw ApiException.badRequest("Klip videonun içinden seçilmeli");
         }
+        Long wanted = startMs == null || startMs == 0 ? null : startMs;
+        // the same moment again: nothing to cut (and no free reprocess past the per-media cooldown)
+        if (m.getStatus() == MediaStatus.READY && java.util.Objects.equals(wanted, m.getClipStartMs())) return toResponse(m);
         if (m.getStatus() != MediaStatus.FAILED && m.getStatus() != MediaStatus.READY) {
             throw ApiException.conflict("Bu video zaten işleniyor");
         }
         beforeRequeue.run();
-        m.setClipStartMs(startMs);
-        m.requeue();
-        m = media.save(m);
+        Integer changed = tx.execute(s -> media.requeueWithClip(mediaId, wanted));
+        if (changed == null || changed == 0) throw ApiException.conflict("Bu video zaten işleniyor");
         queue.ifAvailable(MediaProcessingQueue::kick);
-        return toResponse(m);
+        return toResponse(media.findById(mediaId).orElseThrow());
     }
 
     /** Variant URLs only for READY items; they come from the shared presigned-URL cache. */

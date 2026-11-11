@@ -20,11 +20,18 @@ export default function UploadSetupDialog({ files, onStart, onCancel }: Props) {
   const videos = useMemo(() => files.map(isVideoFile), [files])
   const hasVideo = videos.some(Boolean)
 
-  // the picked video plays from the phone / computer itself (nothing is uploaded yet)
-  const pickingUrl = useMemo(() => (picking === null ? null : URL.createObjectURL(files[picking])), [picking, files])
-  useEffect(() => () => {
-    if (pickingUrl) URL.revokeObjectURL(pickingUrl)
-  }, [pickingUrl])
+  // the picked video plays from the phone / computer itself (nothing is uploaded yet); made and freed in one effect, so
+  // React's double run of effects in development cannot free a URL that is still on screen
+  const [pickingUrl, setPickingUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (picking === null) return
+    const url = URL.createObjectURL(files[picking])
+    setPickingUrl(url)
+    return () => {
+      URL.revokeObjectURL(url)
+      setPickingUrl(null)
+    }
+  }, [picking, files])
 
   const clipLabel = (ms: number | null) => {
     const from = (ms ?? 0) / 1000

@@ -190,6 +190,10 @@ function AlbumView({ id }: { id: string }) {
 
   async function saveClip(startMs: number) {
     if (!clipEdit) return
+    if (startMs === (clipEdit.media.clipStartMs ?? 0)) {
+      setClipEdit(null) // the same moment: nothing to cut again
+      return
+    }
     setClipBusy(true)
     setClipError(null)
     try {

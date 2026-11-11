@@ -36,8 +36,9 @@ class ClipWindowTest {
     }
 
     @Test
-    void anUnknownLengthKeepsTheChoiceAndTheUsualClip() {
-        assertThat(ClipWindow.of(0, 2_000L)).isEqualTo(new ClipWindow(2, 3));
+    void anUnknownLengthStartsAtTheBeginning() {
+        // nothing to keep the choice inside: a start past the end would give a clip without frames
+        assertThat(ClipWindow.of(0, 2_000L)).isEqualTo(new ClipWindow(0, 3));
     }
 
     @Test

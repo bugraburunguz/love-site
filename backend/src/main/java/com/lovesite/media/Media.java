@@ -220,9 +220,12 @@ public class Media {
         return clipStartMs;
     }
 
-    /** null or negative = the beginning; the processor keeps the clip inside the video */
+    /** no video is a day long: a start past this is a broken client, and the clip starts at the beginning */
+    public static final long MAX_CLIP_START_MS = 24L * 60 * 60 * 1000;
+
+    /** null, negative or absurd = the beginning; the processor keeps the clip inside the video */
     public void setClipStartMs(Long clipStartMs) {
-        this.clipStartMs = clipStartMs == null || clipStartMs <= 0 ? null : clipStartMs;
+        this.clipStartMs = clipStartMs == null || clipStartMs <= 0 || clipStartMs > MAX_CLIP_START_MS ? null : clipStartMs;
     }
 
     public Long getVariantsBytes() {
