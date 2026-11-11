@@ -207,8 +207,13 @@ Her repoda `.github/workflows/deploy.yml` bulunur:
 İş sunucuya `deploy` kullanıcısıyla bağlanır ve hedefin adını söyler: `love`, `fc-backend` ya da `fc-web`. Sunucu tarafında sadece [scripts/deploy-trigger.sh](scripts/deploy-trigger.sh) çalışır. O da şunları yapar:
 1. Repoyu çeker (`--ff-only`).
 2. O tek imajı build eder.
-3. Servisi yeniden başlatır. `love` için bütün stack uygulanır, çünkü compose.yml ve Caddyfile o repoda. FC için sadece kendi servisi başlar.
+3. Servisi yeniden başlatır. `love` için bütün stack uygulanır, çünkü compose.yml ve Caddyfile (`caddy/Caddyfile`) o repoda. FC için sadece kendi servisi başlar.
 4. Servis sağlıklı cevap verene kadar bekler. fc-backend kendi `/actuator/health` adresinden kontrol edilir.
+5. `love` için Caddy'yi yeniden yükler (`caddy reload`). Bağlantılar kopmaz. `up -d` değişen Caddyfile için Caddy'yi kendiliğinden yeniden başlatmaz, bu yüzden bu adım var. Caddy yeni Caddyfile'ı reddederse eski yapılandırmayla çalışmaya devam eder; iş kırmızı biter ve logda `Caddy refused the Caddyfile` yazar.
+
+Caddy, Caddyfile'ı tek dosya olarak değil, `caddy/` klasörü olarak görür. `git pull` değişen dosyayı yeni bir dosya olarak yazar. Tek dosyalık mount bu yeni dosyayı çalışan container'a hiç göstermez; reload da eski içeriği okur.
+
+Başka bir deploy sürerken başlayan deploy, logun başına `waiting for another deploy to finish` yazar ve sırasını bekler. Sunucu SSH'ta 30 saniye içinde cevap vermezse iş hemen kırmızı biter.
 
 Deploy SSH bağlantısından bağımsız çalışır ve logu Actions'a akar. Bağlantı kopsa ya da iş iptal edilse bile deploy yarıda kalmaz; log `~/deploy-logs` altında durur (son 30 deploy). Aynı anda tek deploy çalışır; ikincisi sırasını bekler.
 

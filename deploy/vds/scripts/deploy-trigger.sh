@@ -27,7 +27,7 @@ env_value() { awk -v k="$1" 'index($0, k "=") == 1 { v = substr($0, length(k) + 
 target=${SSH_ORIGINAL_COMMAND:-}
 case "$target" in
   love)
-    repo=love-site; service=love-web; up=(up -d); domain=$(env_value LOVE_DOMAIN) ;;
+    repo=love-site; service=love-web; up=(up -d); domain=$(env_value LOVE_DOMAIN); reload_caddy=1 ;;
   fc-backend)
     repo=FCarrierTacticBuilderBackend; service=fc-backend; up=(up -d --no-deps fc-backend); domain=$(env_value FC_DOMAIN) ;;
   fc-web)
@@ -69,8 +69,18 @@ wait_healthy() {
   done
 }
 
+# love-site carries the Caddyfile: `up -d` never restarts a running Caddy for a changed file, so it is reloaded (graceful,
+# no dropped connections). A Caddyfile Caddy refuses leaves the config it runs untouched.
+caddy_reload() {
+  [ -n "${reload_caddy:-}" ] || return 0
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+}
+
 exec 9> "$HOME/.vds-deploy.lock"
-flock -w 3600 9 || { echo "another deploy has been running for an hour, giving up" >&2; exit 1; }
+if ! flock -n 9; then
+  echo "== waiting for another deploy to finish"
+  flock -w 3600 9 || { echo "another deploy has been running for an hour, giving up" >&2; exit 1; }
+fi
 
 dir="$SRC_ROOT/$repo"
 echo "== $(date '+%F %T') deploy $target"
@@ -89,9 +99,14 @@ if ! docker compose "${up[@]}" || ! wait_healthy; then
   docker compose logs --tail 40 "$service" >&2 || true
   echo "== going back to $prev" >&2
   git -C "$dir" reset --hard "$prev"
-  docker compose build "$service" && docker compose "${up[@]}" && wait_healthy \
+  docker compose build "$service" && docker compose "${up[@]}" && wait_healthy && caddy_reload \
     && echo "== previous version is back up" >&2 \
     || echo "== previous version did not come back either: the site needs a look" >&2
+  exit 1
+fi
+
+if ! caddy_reload; then
+  echo "== Caddy refused the Caddyfile of this commit; Caddy keeps the config it was running (the app is up)" >&2
   exit 1
 fi
 

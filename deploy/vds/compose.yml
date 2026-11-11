@@ -29,7 +29,9 @@ services:
       LOGS_USER: ${LOGS_USER:?LOGS_USER}
       LOGS_PASSWORD_HASH: ${LOGS_PASSWORD_HASH:?LOGS_PASSWORD_HASH}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # the folder, not the file: git pull writes a changed Caddyfile as a new file, which a single-file mount never
+      # shows to the running container (deploy-trigger.sh reloads Caddy after every love deploy)
+      - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:
