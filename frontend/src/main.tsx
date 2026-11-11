@@ -26,7 +26,8 @@ function render() {
       </Suspense>
     ) : (
       <StrictMode>
-        <BrowserRouter>
+        {/* the app animates screen changes itself and needs each change applied at once (native/navTransition.ts) */}
+        <BrowserRouter useTransitions={isNativeApp ? false : undefined}>
           <AuthProvider>
             <ToastProvider>
               <App />

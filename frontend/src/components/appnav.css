@@ -182,6 +182,10 @@
   gap: 5px;
   min-height: 44px;
   margin-left: -4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
   color: var(--ui-primary);
   font: 400 17px / 1 var(--ui-font-body);
   text-decoration: none;
@@ -221,7 +225,11 @@
   border-top: 0.5px solid color-mix(in srgb, var(--ui-border) 90%, transparent);
   box-shadow: none;
   backdrop-filter: saturate(180%) blur(20px);
-  view-transition-name: tabs; /* stays put while the screens slide (native.css) */
+}
+
+/* stays put while two screens with tabs slide (navTransition.ts sets data-tabs, native.css holds the group still) */
+:root[data-tabs='keep'] .bottom-tabs {
+  view-transition-name: tabs;
 }
 
 .native-app .bottom-tabs__tab {

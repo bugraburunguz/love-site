@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { nativeBack } from '../native/navTransition'
 import { initials } from '../shelf/shelfText'
 import { Brand } from './AuthLayout'
 import './appnav.css'
@@ -39,10 +40,11 @@ export default function AppHeader({ title, back, action }: Props) {
       <div className="ui-container app-header__inner">
         <div className="app-header__lead">
           {back && (
-            <Link to={back.to} className="app-header__back">
+            // a real back step when the parent is behind this screen, so the history (and the back swipe) stays right
+            <button type="button" className="app-header__back" onClick={() => nativeBack(back.to)} aria-label={`Geri: ${back.label}`}>
               <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {back.label}
-            </Link>
+            </button>
           )}
           <Brand to="/" />
         </div>

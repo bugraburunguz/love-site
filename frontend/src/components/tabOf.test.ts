@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { tabOf } from './tabOf'
+import { activeTab, tabOf } from './tabOf'
+
+describe('activeTab', () => {
+  it('keeps the website as it was: a tab is lit only on its own screens', () => {
+    expect(activeTab('/', false)).toBe('/')
+    expect(activeTab('/takvim/gun/2026-11-11', false)).toBe('/takvim')
+    expect(activeTab('/cop', false)).toBeNull()
+    expect(activeTab('/albums/a1', false)).toBeNull()
+  })
+
+  it('lights the parent tab in the store app', () => {
+    expect(activeTab('/cop', true)).toBe('/profil')
+  })
+})
 
 describe('tabOf', () => {
   it('lights the tab of the screen itself', () => {

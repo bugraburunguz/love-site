@@ -22,6 +22,7 @@ import Clay from '../components/Clay'
 import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
 import { haptic } from '../native/haptics'
+import { useStatusBarText } from '../native/statusBar'
 import { useNoSwipeBack } from '../native/swipeBack'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
@@ -61,6 +62,7 @@ const MAX_AUTO = 4
 export default function AlbumPage() {
   const { id = '' } = useParams()
   useNoSwipeBack() // iOS: the edge swipe turns the book's pages here, it must not leave the album
+  useStatusBarText('dark') // the desk is light paper in every theme, also in night reading
   // key: a different album is a fresh page, with its own aspect cache and state
   return <AlbumView key={id} id={id} />
 }

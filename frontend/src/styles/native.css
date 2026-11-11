@@ -9,13 +9,16 @@
   user-select: none;
 }
 
-.native-app :is(input, textarea, [contenteditable='true'], [contenteditable='']) {
+.native-app :is(input, textarea, [contenteditable='true'], [contenteditable='']),
+.native-app :is(.legal__layout, .polaroid__caption, .ui-polaroid__caption, [data-selectable]) {
   -webkit-user-select: text;
   user-select: text;
 }
 
-/* iOS zooms the page into any field under 16px and stays zoomed; 16px keeps the screen still */
-.native-app :is(input, textarea, select) {
+/* iOS zooms the page into any field under 16px and stays zoomed; 16px keeps the screen still. 1em keeps the fields
+   that inherit a larger size (photo captions, day notes) as they are. */
+.native-app :is(input, textarea, select),
+.native-app :is(.invite-link__row .ui-input, .calendar__filter select) {
   font-size: max(16px, 1em);
 }
 

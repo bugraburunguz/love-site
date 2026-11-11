@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { interceptable, navKind } from './navTransition'
+import { backAction, interceptable, keepsTabs, navKind, nextStack } from './navTransition'
+
+describe('keepsTabs', () => {
+  it('holds the tab bar still only when both screens show it', () => {
+    expect(keepsTabs('/profil', '/cop')).toBe(true)
+    expect(keepsTabs('/', '/takvim')).toBe(true)
+    expect(keepsTabs('/', '/albums/a1')).toBe(false)
+    expect(keepsTabs('/albums/a1?sayfa=2', '/')).toBe(false)
+  })
+})
+
+describe('nextStack', () => {
+  it('follows pushes, replaces and back steps', () => {
+    let s = nextStack([], 'POP', '/profil') // app start
+    expect(s).toEqual(['/profil'])
+    s = nextStack(s, 'PUSH', '/cop')
+    expect(s).toEqual(['/profil', '/cop'])
+    s = nextStack(s, 'REPLACE', '/admin')
+    expect(s).toEqual(['/profil', '/admin'])
+    s = nextStack(s, 'POP', '/profil')
+    expect(s).toEqual(['/profil'])
+  })
+
+  it('starts over on a jump it cannot place', () => {
+    expect(nextStack(['/', '/albums/a1'], 'POP', '/takvim')).toEqual(['/takvim'])
+  })
+
+  it('ignores a change of the query on the same screen', () => {
+    expect(nextStack(['/', '/albums/a1'], 'PUSH', '/albums/a1')).toEqual(['/', '/albums/a1'])
+  })
+})
+
+describe('backAction', () => {
+  it('steps back in history when the previous screen is the parent', () => {
+    expect(backAction(['/profil', '/cop'], '/profil')).toBe('history')
+  })
+
+  it('replaces the screen when the app was opened on it (no parent behind it)', () => {
+    expect(backAction(['/cop'], '/profil')).toBe('replace')
+    expect(backAction(['/', '/cop'], '/profil')).toBe('replace')
+  })
+
+  it('compares paths without the query', () => {
+    expect(backAction(['/takvim', '/takvim/gun/2026-11-11'], '/takvim?ay=2026-11')).toBe('history')
+  })
+})
 
 describe('navKind', () => {
   it('cross-fades between the three tabs', () => {

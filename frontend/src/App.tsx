@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ComponentType } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { landingFor } from './auth/accountForm'
 import { useAuth } from './auth/AuthContext'
@@ -11,13 +11,38 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import { AccountDeletionPage, PrivacyPage } from './pages/LegalPages'
 
-const AdminPage = lazy(() => import('./pages/AdminPage'))
-const AlbumsPage = lazy(() => import('./pages/AlbumsPage'))
-const AlbumPage = lazy(() => import('./pages/AlbumPage'))
-const CalendarPage = lazy(() => import('./pages/CalendarPage'))
-const CalendarDayPage = lazy(() => import('./pages/CalendarDayPage'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const TrashPage = lazy(() => import('./pages/TrashPage'))
+/**
+ * A code-split page that renders straight away once its code is loaded. The store app preloads all of them (they are
+ * local files), so a screen change never shows the "Defter açılıyor…" fallback in the middle of its animation.
+ */
+function lazyPage(load: () => Promise<{ default: ComponentType }>) {
+  let loaded: ComponentType | null = null
+  const preload = () => load().then((m) => {
+    loaded = m.default
+    return m
+  })
+  const Lazy = lazy(preload)
+  function Page() {
+    const Loaded = loaded
+    return Loaded ? <Loaded /> : <Lazy />
+  }
+  Page.preload = preload
+  return Page
+}
+
+const AdminPage = lazyPage(() => import('./pages/AdminPage'))
+const AlbumsPage = lazyPage(() => import('./pages/AlbumsPage'))
+const AlbumPage = lazyPage(() => import('./pages/AlbumPage'))
+const CalendarPage = lazyPage(() => import('./pages/CalendarPage'))
+const CalendarDayPage = lazyPage(() => import('./pages/CalendarDayPage'))
+const ProfilePage = lazyPage(() => import('./pages/ProfilePage'))
+const TrashPage = lazyPage(() => import('./pages/TrashPage'))
+
+if (isNativeApp) {
+  for (const page of [AlbumsPage, AlbumPage, CalendarPage, CalendarDayPage, ProfilePage, TrashPage, AdminPage]) {
+    void page.preload().catch(() => undefined) // a failed preload is retried by the page's own lazy load
+  }
+}
 const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 
