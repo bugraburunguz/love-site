@@ -28,6 +28,12 @@ class RateLimitTest {
         r.add("app.rate-limit.login-per-ip", () -> "6");
         r.add("app.rate-limit.upload-start-per-user", () -> "3");
         r.add("app.rate-limit.upload-start-per-ip", () -> "5");
+        r.add("app.rate-limit.reprocess-per-user", () -> "3");
+    }
+
+    int reprocess(String email, UUID media) throws Exception {
+        return mvc.perform(post("/api/media/" + media + "/reprocess").with(user(email)).with(csrf())
+                .header("X-Forwarded-For", "192.0.2.50")).andReturn().getResponse().getStatus();
     }
 
     static final String FILE = "{\"files\":[{\"clientId\":\"c1\",\"filename\":\"a.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":100,\"sha256\":\"" + "ab".repeat(32) + "\"}]}";
@@ -97,5 +103,46 @@ class RateLimitTest {
         assertThat(uploadStart(b, ip)).isEqualTo(404);
         assertThat(uploadStart(b, ip)).isEqualTo(404);
         assertThat(uploadStart(a, ip)).isEqualTo(429);
+    }
+
+    @Test
+    void ipv6AddressesOfOneSlash64ShareTheLoginLimit() throws Exception {
+        // one home or server gets a whole /64: rotating the last 64 bits must not buy new attempts
+        for (int i = 1; i <= 6; i++) {
+            assertThat(login("v6-" + i + "@x.io", "wrong-password", "2001:db8:aa:1::" + i)).as("attempt " + i).isEqualTo(401);
+        }
+        assertThat(login("v6-7@x.io", "wrong-password", "2001:db8:aa:1::77")).isEqualTo(429);
+        // another /64 is unaffected
+        assertThat(login("v6-8@x.io", "wrong-password", "2001:db8:aa:2::1")).isEqualTo(401);
+    }
+
+    @Test
+    void ipv6AddressesOfOneSlash64ShareTheUploadLimit() throws Exception {
+        String a = newUser("v6a");
+        String b = newUser("v6b");
+        for (int i = 1; i <= 5; i++) {
+            assertThat(uploadStart(i % 2 == 0 ? a : b, "2001:db8:bb:1::" + i)).as("request " + i).isEqualTo(404);
+        }
+        assertThat(uploadStart(a, "2001:db8:bb:1::99")).isEqualTo(429);
+    }
+
+    @Test
+    void oneMediaCannotBeReprocessedAgainRightAway() throws Exception {
+        String user = newUser("reproc");
+        UUID media = UUID.randomUUID();
+        // the limiter sits in front of the lookup, so a missing id counts too
+        assertThat(reprocess(user, media)).isEqualTo(404);
+        assertThat(reprocess(user, media)).isEqualTo(429);
+        // another media of the same user is not blocked by that cooldown
+        assertThat(reprocess(user, UUID.randomUUID())).isEqualTo(404);
+        // nor is another user's request for the same id
+        assertThat(reprocess(newUser("reproc"), media)).isEqualTo(404);
+    }
+
+    @Test
+    void reprocessRequestsAreLimitedPerUser() throws Exception {
+        String user = newUser("reprocu");
+        for (int i = 1; i <= 3; i++) assertThat(reprocess(user, UUID.randomUUID())).as("request " + i).isEqualTo(404);
+        assertThat(reprocess(user, UUID.randomUUID())).isEqualTo(429);
     }
 }

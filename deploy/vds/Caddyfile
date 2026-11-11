@@ -6,8 +6,14 @@
 
 # love-site. Caddy writes the client address into X-Forwarded-For itself (incoming values are not trusted), so the
 # rightmost entry the app reads (ClientIp) is the real client.
+#
+# The API only takes small JSON bodies (photos, videos and songs go straight to the bucket with presigned URLs), so a
+# body over 1 MB is refused here (413) before it reaches the app.
 {$LOVE_DOMAIN} {
 	encode zstd gzip
+	request_body {
+		max_size 1MB
+	}
 	reverse_proxy love-web:8080
 }
 

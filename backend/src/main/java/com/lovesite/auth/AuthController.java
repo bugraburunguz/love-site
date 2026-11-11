@@ -34,7 +34,7 @@ public class AuthController {
     public UserResponse login(@Valid @RequestBody LoginRequest login, HttpServletRequest request,
                               HttpServletResponse response) {
         // per address, whatever e-mail is tried; the per-e-mail lock in AuthService covers one account from many addresses
-        limiter.check("login-ip:" + ClientIp.of(request), limits.loginPerIp(), limits.loginWindow());
+        limiter.check("login-ip:" + ClientIp.networkOf(request), limits.loginPerIp(), limits.loginWindow());
         return authService.login(login, request, response);
     }
 

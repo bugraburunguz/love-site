@@ -29,6 +29,27 @@ public final class ClientIp {
         return raw.getRemoteAddr();
     }
 
+    /** The caller's network ({@link #network(String)}): the key every per-address limit counts by. */
+    public static String networkOf(HttpServletRequest request) {
+        return network(of(request));
+    }
+
+    /**
+     * The unit a caller controls: an IPv4 address, or the /64 network of an IPv6 address (one home or server usually
+     * gets a whole /64, so counting single IPv6 addresses would let it rotate addresses endlessly).
+     */
+    public static String network(String clientIp) {
+        if (clientIp == null || clientIp.indexOf(':') < 0) return String.valueOf(clientIp);
+        try {
+            // a string with ':' is parsed as an IPv6 literal, never looked up in DNS
+            byte[] bytes = java.net.InetAddress.getByName(clientIp).getAddress();
+            if (bytes.length != 16) return clientIp;
+            return java.util.HexFormat.of().formatHex(bytes, 0, 8) + "::/64";
+        } catch (java.net.UnknownHostException e) {
+            return clientIp;
+        }
+    }
+
     private static HttpServletRequest unwrap(HttpServletRequest request) {
         ServletRequest current = request;
         while (current instanceof ServletRequestWrapper wrapper && wrapper.getRequest() instanceof HttpServletRequest inner) {
