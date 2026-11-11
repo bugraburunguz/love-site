@@ -12,7 +12,7 @@ import AlbumMusic from '../components/AlbumMusic'
 import { useHistoryState } from '../components/edit/history'
 import { useUndoableEdits } from '../components/edit/useUndoableEdits'
 import { Button, ConfirmModal, useToast } from '../components/ui'
-import { LatestSaver } from '../components/latestSaver'
+import { LatestSaver, UndoBurst } from '../components/latestSaver'
 import AlbumSettings from '../components/AlbumSettings'
 import Ambient, { useAmbientPreference } from '../components/Ambient'
 import CompassNeedle from '../components/CompassNeedle'
@@ -540,43 +540,54 @@ function AlbumView({ id }: { id: string }) {
   const refreshMusicUrl = useCallback(async () => {
     const albums = await listAlbums()
     const fresh = albums.find((a) => a.id === id)
-    if (fresh) setAlbum(fresh)
+    if (fresh) setAlbum((a) => (a ? { ...a, musicUrl: fresh.musicUrl, musicName: fresh.musicName } : fresh))
     return fresh?.musicUrl ?? null
   }, [id])
 
   // A picked theme is saved at once (no separate "save" step); a note offers to undo it. Quick taps through the themes
   // send at most two requests (LatestSaver) and the album shows the last pick meanwhile.
-  const themeSaver = useMemo(() => new LatestSaver<string>(async (themeId) => {
-    setAlbum(await changeAlbumTheme(id, themeId))
-  }), [id])
-  const themePick = useRef({ seq: 0, pending: 0, from: '' })
+  // (AlbumView remounts per album, so one saver per mount is one per album; only the theme field is taken from the
+  // answer, so a slower music refresh cannot put an old theme back and the other way round)
+  const [themeSaver] = useState(() => new LatestSaver<string>(async (themeId) => {
+    const updated = await changeAlbumTheme(id, themeId)
+    setAlbum((a) => (a ? { ...a, themeId: updated.themeId } : updated))
+  }))
+  const [themeBurst] = useState(() => new UndoBurst<string>())
+  const albumRef = useRef(album)
+  albumRef.current = album
+  /** the theme the "Geri al" in the settings dialog goes back to (the note offers the same) */
+  const [themeUndo, setThemeUndo] = useState<string | null>(null)
+  const pickThemeRef = useRef<(themeId: string, undo?: boolean) => void>(() => undefined)
 
   function pickTheme(themeId: string, undo = false) {
-    if (!album) return
-    const state = themePick.current
-    if (state.pending === 0) state.from = album.themeId // the theme to undo to: the one before this burst of taps
-    const from = state.from
-    const seq = ++state.seq
-    state.pending++
+    const current = albumRef.current
+    if (!current) return
+    const { seq, from } = themeBurst.start(current.themeId)
+    const offerUndo = () => ({ label: 'Geri al', run: () => pickThemeRef.current(from, true) })
+    setThemeUndo(null)
     setPreviewThemeId(themeId)
     themeSaver.save(themeId).then(
       () => {
-        state.pending--
-        if (seq !== state.seq) return // a newer pick is on its way
+        if (!themeBurst.settle(seq)) return // a newer pick is on its way
         setPreviewThemeId(null)
-        if (undo) toast('Tema geri alındı', 'success')
+        if (undo) toast('Tema geri alındı', 'success', { key: 'album-theme' })
         else if (from !== themeId) {
-          toast(`Tema değişti: ${getTheme(themeId).name}`, 'success', { label: 'Geri al', run: () => pickTheme(from, true) })
+          setThemeUndo(from)
+          toast(`Tema değişti: ${getTheme(themeId).name}`, 'success', { key: 'album-theme', action: offerUndo() })
         }
       },
       (e: unknown) => {
-        state.pending--
-        if (seq !== state.seq) return
+        if (!themeBurst.settle(seq)) return
         setPreviewThemeId(null) // back to the theme the album really has
-        toast(e instanceof Error ? e.message : 'Tema kaydedilemedi', 'error')
+        // an earlier pick of the burst may have been saved: then going back is still offered
+        const saved = albumRef.current?.themeId
+        const canUndo = !undo && saved !== undefined && saved !== from
+        if (canUndo) setThemeUndo(from)
+        toast(e instanceof Error ? e.message : 'Tema kaydedilemedi', 'error', { key: 'album-theme', action: canUndo ? offerUndo() : undefined })
       },
     )
   }
+  pickThemeRef.current = pickTheme
 
   if (album === null) {
     // a missing album and one that belongs to another space look exactly the same
@@ -850,7 +861,9 @@ function AlbumView({ id }: { id: string }) {
           album={album}
           themeId={previewThemeId ?? album.themeId}
           onPickTheme={(themeId) => pickTheme(themeId)}
-          onAlbum={setAlbum}
+          undoTo={themeUndo}
+          onUndo={() => themeUndo && pickTheme(themeUndo, true)}
+          onAlbum={(a) => setAlbum((prev) => (prev ? { ...prev, musicUrl: a.musicUrl, musicName: a.musicName } : a))}
           onClose={() => setSettingsOpen(false)}
         />
       )}

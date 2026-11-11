@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { completeMusicUpload, deleteAlbumMusic, requestMusicUpload, type Album } from '../api/albums'
 import { putFile } from '../upload/putFile'
+import { getTheme } from '../themes/registry'
 import ThemePicker from './ThemePicker'
 import { Button, Modal } from './ui'
 import './ui/ui.css'
@@ -18,13 +19,16 @@ interface Props {
   themeId: string
   /** a theme was tapped: the album page saves it at once and offers to undo it */
   onPickTheme: (themeId: string) => void
+  /** the theme a just-saved change can go back to (also offered by the note under the dialog) */
+  undoTo: string | null
+  onUndo: () => void
   /** the album changed on the server (music added / replaced / removed) */
   onAlbum: (album: Album) => void
   onClose: () => void
 }
 
 /** Theme (saved the moment it is tapped, visible on the album behind) and song of an album. */
-export default function AlbumSettings({ album, themeId, onPickTheme, onAlbum, onClose }: Props) {
+export default function AlbumSettings({ album, themeId, onPickTheme, undoTo, onUndo, onAlbum, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -79,6 +83,13 @@ export default function AlbumSettings({ album, themeId, onPickTheme, onAlbum, on
           <span className="ui-field__label">Tema</span>
           <span className="ui-field__hint">Dokunduğun tema hemen kaydedilir; istersen alttaki notla geri alabilirsin.</span>
           <ThemePicker value={themeId} onChange={pickTheme} />
+          {undoTo && (
+            // the note at the bottom is behind this dialog for the keyboard: the same undo, reachable here
+            <p className="ui-muted album-settings__undo">
+              Tema kaydedildi.{' '}
+              <Button size="sm" variant="ghost" onClick={onUndo}>{`${getTheme(undoTo).name} temasına geri al`}</Button>
+            </p>
+          )}
         </div>
 
         <div className="ui-field album-settings__music">

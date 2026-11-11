@@ -1,4 +1,27 @@
 /**
+ * Bookkeeping for "Geri al" over picks saved at once: a burst of quick picks (each started before the previous one
+ * settled) is undone as one, back to the value from before its first pick; only the last pick of a burst gets a note.
+ */
+export class UndoBurst<T> {
+  private pending = 0
+  private seq = 0
+  private from: T | undefined
+
+  /** a pick was made while `current` was in effect */
+  start(current: T): { seq: number; from: T } {
+    if (this.pending === 0) this.from = current
+    this.pending++
+    return { seq: ++this.seq, from: this.from as T }
+  }
+
+  /** the pick's save settled; true when it was the latest pick (the one that speaks to the user) */
+  settle(seq: number): boolean {
+    this.pending = Math.max(0, this.pending - 1)
+    return seq === this.seq
+  }
+}
+
+/**
  * Saves a value the moment it is picked, one request at a time. Picks made while a save is running are not queued one
  * by one: only the last of them is saved afterwards (tapping through themes sends at most two requests). Every caller's
  * promise settles when the save covering its pick is done.

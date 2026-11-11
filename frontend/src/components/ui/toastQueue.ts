@@ -11,13 +11,16 @@ export interface ToastItem {
   message: string
   tone: ToastTone
   action?: ToastAction
+  /** a newer note with the same key replaces this one */
+  key?: string
 }
 
 /** At most three notes on screen; the oldest makes room for a new one. */
 export const MAX_TOASTS = 3
 
 export function pushToast(queue: ToastItem[], item: ToastItem): ToastItem[] {
-  return [...queue, item].slice(-MAX_TOASTS)
+  const rest = item.key ? queue.filter((t) => t.key !== item.key) : queue
+  return [...rest, item].slice(-MAX_TOASTS)
 }
 
 export function dismissToast(queue: ToastItem[], id: number): ToastItem[] {

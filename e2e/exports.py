@@ -128,7 +128,15 @@ def export(ctx: BrowserContext, type_: str, params: dict, label: str, timeout: f
 
 
 def fetch(ctx: BrowserContext, f: dict, name: str | None = None) -> Path:
-    r = ctx.request.get(f["url"])
+    # The S3 stand-in closes idle keep-alive connections after 5 s; when the exports run slowly (a busy Docker host) the
+    # client may reuse one just as it closes ("socket hang up" / ECONNRESET, the request never reaches S3). One retry
+    # on a fresh connection covers that race; a real failure still fails the second time.
+    try:
+        r = ctx.request.get(f["url"])
+    except Exception as e:
+        if "socket hang up" not in str(e) and "ECONNRESET" not in str(e):
+            raise
+        r = ctx.request.get(f["url"], headers={"Connection": "close"})
     assert r.status == 200, f"download {f['name']}: {r.status}"
     assert "attachment" in (r.headers.get("content-disposition") or ""), r.headers
     path = OUT / (name or f["name"])
