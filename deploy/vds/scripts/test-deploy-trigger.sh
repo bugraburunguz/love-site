@@ -28,6 +28,8 @@ case "\$*" in "compose build"*) [ -n "\${FAIL_BUILD:-}" ] && [ ! -e "$WORK/built
 case "\$*" in *"exec -T fc-backend"*) [ -n "\${FAIL_HEALTH:-}" ] && exit 1 ;; esac
 # only the first up fails (a stack config the new commit broke), so the rollback up succeeds
 case "\$*" in "compose up"*) [ -n "\${FAIL_UP:-}" ] && [ ! -e "$WORK/upped" ] && { touch "$WORK/upped"; exit 1; } ;; esac
+# a Caddyfile Caddy refuses: the reload fails and Caddy keeps the config it runs
+case "\$*" in *"exec -T caddy caddy reload"*) [ -n "\${FAIL_RELOAD:-}" ] && exit 1 ;; esac
 exit 0
 EOF
 cat > "$WORK/bin/curl" <<EOF
@@ -50,6 +52,8 @@ check() { # check <name> <condition result 0/1>
   if [ "$2" = 0 ]; then echo "ok   $1"; else echo "FAIL $1"; sed 's/^/     /' "$WORK/out"; echo "     calls:"; sed 's/^/     /' "$WORK/calls"; fails=$((fails + 1)); fi
 }
 
+RELOAD="docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
+
 for bad in "" "rm -rf /" "love; id" "love && id" "../love" "LOVE" "fc-backend extra"; do
   run "$bad"
   [ "$status" = 2 ] && [ -z "$calls" ]; check "rejects '$bad' without running anything" $?
@@ -61,8 +65,9 @@ run love
   && grep -qx "docker compose build love-web" <<< "$calls" \
   && grep -qx "docker compose up -d" <<< "$calls" \
   && grep -q "curl .*https://love.test/actuator/health" <<< "$calls" \
+  && grep -qx "$RELOAD" <<< "$calls" \
   && grep -q "deploy love done" "$WORK/out"
-check "love: pulls love-site, builds love-web, applies the stack, checks health (quoted .env value), streams the log" $?
+check "love: pulls love-site, builds love-web, applies the stack, checks health (quoted .env value), reloads Caddy, streams the log" $?
 
 run fc-backend
 [ "$status" = 0 ] \
@@ -70,16 +75,18 @@ run fc-backend
   && grep -qx "docker compose build fc-backend" <<< "$calls" \
   && grep -qx "docker compose up -d --no-deps fc-backend" <<< "$calls" \
   && grep -q "docker compose exec -T fc-backend curl -sf .*localhost:8080/actuator/health" <<< "$calls" \
-  && ! grep -q "build love-web" <<< "$calls"
-check "fc-backend: builds and restarts only fc-backend, checks the backend itself" $?
+  && ! grep -q "build love-web" <<< "$calls" \
+  && ! grep -q "caddy reload" <<< "$calls"
+check "fc-backend: builds and restarts only fc-backend, checks the backend itself, leaves Caddy alone" $?
 
 run fc-web
 [ "$status" = 0 ] \
   && grep -qx "git -C $WORK/src/FCarrierTacticBuilderWeb pull --ff-only" <<< "$calls" \
   && grep -qx "docker compose build fc-web" <<< "$calls" \
   && grep -qx "docker compose up -d --no-deps fc-web" <<< "$calls" \
-  && grep -q "curl .*https://fc.test/" <<< "$calls"
-check "fc-web: builds and restarts only fc-web, checks the site" $?
+  && grep -q "curl .*https://fc.test/" <<< "$calls" \
+  && ! grep -q "caddy reload" <<< "$calls"
+check "fc-web: builds and restarts only fc-web, checks the site, leaves Caddy alone" $?
 
 FAIL_GIT=1 run love
 [ "$status" != 0 ] && ! grep -q "^docker" <<< "$calls"; check "a failed pull stops before any build" $?
@@ -100,8 +107,28 @@ check "a failed health check rebuilds and restarts the previous commit" $?
 FAIL_UP=1 run love
 [ "$status" = 1 ] \
   && grep -qx "git -C $WORK/src/love-site reset --hard prev123" <<< "$calls" \
-  && [ "$(grep -c '^docker compose up -d$' <<< "$calls")" = 2 ]
-check "a failed up goes back to the previous commit and applies it again" $?
+  && [ "$(grep -c '^docker compose up -d$' <<< "$calls")" = 2 ] \
+  && [ "$(grep -cx "$RELOAD" <<< "$calls")" = 1 ]
+check "a failed up goes back to the previous commit, applies it again and reloads its Caddyfile" $?
+
+FAIL_RELOAD=1 run love
+[ "$status" = 1 ] \
+  && ! grep -q "reset --hard" <<< "$calls" \
+  && grep -q "Caddy keeps the config it was running" "$WORK/out"
+check "a Caddyfile Caddy refuses fails the job but keeps the healthy app (Caddy keeps its running config)" $?
+
+# another deploy holds the lock for a moment: the log says so instead of staying silent
+( flock 8; touch "$WORK/locked"; sleep 2 ) 8> "$WORK/home/.vds-deploy.lock" &
+until [ -e "$WORK/locked" ]; do sleep 0.1; done
+run love
+wait
+[ "$status" = 0 ] && grep -q "waiting for another deploy" "$WORK/out"
+check "a deploy that waits for the lock says so" $?
+
+# Caddy sees the folder, not a single bind-mounted file: a pulled Caddyfile is a new file (new inode), which a file
+# mount would never show to the running container, so a reload would read the old one
+grep -q '\./caddy:/etc/caddy:ro' "$SRC_DIR/compose.yml" && [ -f "$SRC_DIR/caddy/Caddyfile" ] && [ ! -e "$SRC_DIR/Caddyfile" ]
+check "compose mounts the caddy folder (deploy/vds/caddy/Caddyfile)" $?
 
 printf 'LOVE_DOMAIN=\nFC_DOMAIN=fc.test\n' > "$WORK/vds/.env"
 run love
