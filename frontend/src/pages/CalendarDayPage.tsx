@@ -4,6 +4,7 @@ import { deleteMedia, listAlbums, reprocessMedia, updateCaption, type Album, typ
 import { calendarDay, type DayView } from '../api/calendar'
 import { longDate, occurrenceLabel, parseDay } from '../calendar/calendarMath'
 import AppHeader from '../components/AppHeader'
+import { haptic } from '../native/haptics'
 import { ConfirmModal, uiButtonClass } from '../components/ui'
 import ErrorScreen from '../components/ErrorScreen'
 import Lightbox, { LightboxItem } from '../components/Lightbox'
@@ -66,10 +67,10 @@ export default function CalendarDayPage() {
   return (
     <ThemeContext.Provider value={filterTheme}>
     <div className="ui home">
-    <AppHeader />
+    <AppHeader title={longDate(date)} back={{ to: back, label: 'Takvim' }} />
     <main className="ui-container calendar calendar--day" style={{ ...themeVars(filterTheme), ...pageVars(filterTheme, 'light', 'textured') } as CSSProperties}>
       <header className="calendar__header calendar__header--day">
-        <Link to={back} className={uiButtonClass('ghost', 'sm')}>‹ Takvim</Link>
+        <Link to={back} className={`${uiButtonClass('ghost', 'sm')} web-only`}>‹ Takvim</Link>
         <div>
           <div className="ui-eyebrow">Günün sayfası</div>
           <h1 className="calendar__day-title">{longDate(date)}</h1>
@@ -139,6 +140,7 @@ export default function CalendarDayPage() {
           onClose={() => setToDelete(null)}
           onConfirm={async () => {
             await deleteMedia(toDelete.id)
+            haptic('warning')
             setOpen(-1)
             load()
           }}

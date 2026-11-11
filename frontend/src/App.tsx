@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { landingFor } from './auth/accountForm'
 import { useAuth } from './auth/AuthContext'
+import { useNativeNavTransitions } from './native/navTransition'
 import { isNativeApp } from './native/platform'
 import ErrorBoundary from './components/ErrorBoundary'
 import ErrorScreen from './components/ErrorScreen'
@@ -42,6 +43,7 @@ function AppShell() {
 }
 
 export default function App() {
+  useNativeNavTransitions()
   return (
     <ErrorBoundary>
     <Routes>

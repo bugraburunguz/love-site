@@ -7,6 +7,7 @@ import { useElementSize } from '../../hooks/useElementSize'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { PAGE_H, PAGE_W, toMetrics, type Metrics } from '../../layout/geometry'
 import type { PageLayout } from '../../layout/types'
+import { haptic } from '../../native/haptics'
 import Clay from '../Clay'
 import PageCanvas from './PageCanvas'
 import { useTheme } from '../../themes/ThemeContext'
@@ -86,6 +87,7 @@ export default function Book({ layout, mediaById, aspects, coverColor, emptyHint
       if (flip) return
       const target = dir === 'next' ? start + cols : start - cols
       if (target < 0 || target >= total) return
+      haptic('light')
       if (reduced) setCurrent(target)
       else setFlip({ dir, from: start })
     },

@@ -21,6 +21,7 @@ import '../components/clay.css'
 import Clay from '../components/Clay'
 import Lightbox, { LightboxItem } from '../components/Lightbox'
 import Book from '../components/book/Book'
+import { haptic } from '../native/haptics'
 import { useNoSwipeBack } from '../native/swipeBack'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
@@ -327,6 +328,7 @@ function AlbumView({ id }: { id: string }) {
     if (!toDelete) return
     try {
       await deleteMedia(toDelete.id)
+      haptic('warning')
       setOpenId((current) => {
         if (current !== toDelete.id) return current
         const at = items.findIndex((m) => m.id === current)

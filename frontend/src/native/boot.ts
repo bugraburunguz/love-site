@@ -9,6 +9,8 @@ import { loadSessionToken } from './session'
 export async function bootNative(): Promise<void> {
   if (!isNativeApp) return
   document.documentElement.classList.add('native-app')
+  // WebKit applies :active (the press feedback in native.css) only once a touchstart listener exists
+  document.addEventListener('touchstart', () => undefined, { passive: true })
   await loadSessionToken()
   try {
     await StatusBar.setOverlaysWebView({ overlay: true }) // the pages use env(safe-area-inset-*)

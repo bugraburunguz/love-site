@@ -10,6 +10,7 @@ import './styles/fonts'
 import './styles/tokens.css'
 import './styles/ui-tokens.css'
 import './styles/base.css'
+import './styles/native.css'
 
 // before the first paint, so a forced light/dark choice never flashes the other one
 applyColorMode(readColorMode())

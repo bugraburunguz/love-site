@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
+import { tabOf } from './tabOf'
 import './appnav.css'
 
 /**
@@ -8,17 +9,20 @@ import './appnav.css'
  * not redesigned yet.
  */
 export default function BottomTabs() {
+  // a screen below a tab (Çöp kutusu under Profil, a day under Takvim) keeps its tab lit, as an iOS tab bar does
+  const tab = tabOf(useLocation().pathname)
+  const cls = (path: string) => `bottom-tabs__tab${tab === path ? ' active' : ''}`
   return (
     <nav className="bottom-tabs" aria-label="Ana bölümler">
-      <NavLink to="/" end className="bottom-tabs__tab">
+      <NavLink to="/" end className={() => cls('/')}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13-3.5 1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
         <span>Raf</span>
       </NavLink>
-      <NavLink to="/takvim" className="bottom-tabs__tab">
+      <NavLink to="/takvim" className={() => cls('/takvim')}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M12 17.5s-3-1.8-3-4a1.6 1.6 0 0 1 3-1 1.6 1.6 0 0 1 3 1c0 2.2-3 4-3 4z" fill="currentColor" /></svg>
         <span>Takvim</span>
       </NavLink>
-      <NavLink to="/profil" className="bottom-tabs__tab">
+      <NavLink to="/profil" className={() => cls('/profil')}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M4.5 20c1.2-3.8 4-5.6 7.5-5.6s6.3 1.8 7.5 5.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
         <span>Profil</span>
       </NavLink>

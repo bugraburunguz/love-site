@@ -37,7 +37,7 @@ export default function CalendarPage() {
   }, [setSearch])
   return (
     <div className="ui home">
-      <AppHeader />
+      <AppHeader title="Takvimimiz" />
       <CalendarBoard state={state} onChange={onChange} />
       <BottomTabs />
     </div>

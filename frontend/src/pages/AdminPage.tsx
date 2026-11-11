@@ -165,7 +165,7 @@ export default function AdminPage() {
 
   return (
     <div className="ui home">
-      <AppHeader />
+      <AppHeader title="Yönetim" back={{ to: '/profil', label: 'Profil' }} />
       <main className="ui-container home__main">
         <header className="admin-head">
           <div>

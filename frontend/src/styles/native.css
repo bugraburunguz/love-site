@@ -1,0 +1,100 @@
+/*
+ * LS-17: the store app should feel like an iOS app, not a web page. Everything here applies only under
+ * <html class="native-app"> (set by native/boot.ts), so the website is unchanged.
+ */
+
+/* Text is not selectable on the app's chrome (no blue selection handles on a long press); what you type stays so. */
+.native-app body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.native-app :is(input, textarea, [contenteditable='true'], [contenteditable='']) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* iOS zooms the page into any field under 16px and stays zoomed; 16px keeps the screen still */
+.native-app :is(input, textarea, select) {
+  font-size: max(16px, 1em);
+}
+
+/* Press feedback: links and buttons dim while the finger is on them, like iOS cells and bar buttons
+   (boot.ts registers the touchstart listener WebKit needs before it applies :active) */
+.native-app :is(a[href], button:not(:disabled), [role='button']):active {
+  opacity: 0.55;
+}
+
+/* website-only pieces the app replaces with its own bar: in-page back links, the shelf's "Yeni albüm" button (the
+   bar's + does it) and the shelf's shortcuts to Çöp kutusu / Defter ayarları (both live in the Profil tab) */
+.native-app :is(.web-only, .home__new-btn, .home__web-link) {
+  display: none;
+}
+
+/* the page's large title sits right under the navigation bar, as on iOS */
+.native-app .app-header + :is(.home__main, .calendar) {
+  padding-top: 0.75rem;
+}
+
+/* ---- screen changes (native/navTransition.ts sets data-nav before each view transition) */
+
+::view-transition-group(tabs) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-nav='push']::view-transition-old(root) {
+    animation: 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both nav-out-left;
+  }
+
+  :root[data-nav='push']::view-transition-new(root) {
+    animation: 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both nav-in-right;
+  }
+
+  :root[data-nav='pop']::view-transition-old(root) {
+    z-index: 1;
+    animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both nav-out-right;
+  }
+
+  :root[data-nav='pop']::view-transition-new(root) {
+    animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both nav-in-left;
+  }
+
+  :root[data-nav='tab']::view-transition-old(root),
+  :root[data-nav='tab']::view-transition-new(root) {
+    animation-duration: 160ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+@keyframes nav-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nav-out-left {
+  to {
+    transform: translateX(-30%);
+    filter: brightness(0.9);
+  }
+}
+
+@keyframes nav-in-left {
+  from {
+    transform: translateX(-30%);
+    filter: brightness(0.9);
+  }
+}
+
+@keyframes nav-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
