@@ -2,7 +2,7 @@
 
 Güncelleme kuralı: işi yapan oturum, bitirince kendi satırını günceller. Tarih YYYY-MM-DD.
 
-Görev sayacı: 17
+Görev sayacı: 18
 
 | İş | Durum | Son PR / dal | Sıradaki adım | Güncelleme |
 |---|---|---|---|---|
@@ -23,4 +23,5 @@ Görev sayacı: 17
 | LS-14 Çöp kutusu (`/cop`): son 30 günde silinen albüm ve fotoğraflar, "Geri al" (fotoğraf albümüne yerleşir; albümü silinmişse önce albüm; aynı dosya yeniden yüklendiyse 409; 30 günü geçmiş olan geri alınamaz). Yeni uçlar `GET /api/trash`, `POST /api/trash/{media,albums}/{id}/restore`. Kalıcı silme elle yok (gece temizliği yapar) | merge edildi, canlıda | #14 | — | 2026-11-10 |
 | LS-15 Admin (istatistik kartları, aranabilir ve süzülebilir alan listesi, yeniden adlandırma/limit pencereleri), yasal sayfalar (içindekiler), 404/hata ekranı (yırtık sayfa) ve albüm ayarları penceresi yeni tasarımda; eski `dialog.css`/`space.css` kaldırıldı — web arayüzünün tamamı yeni tasarımda | merge edildi, canlıda | dal `ls-15-admin-legal` | — | 2026-11-10 |
 | LS-16 iOS'a özel düzenler: kenardan kaydırarak geri (`MainViewController`), durum çubuğu açık/koyu seçimi izler, uygulama API'si VDS'e (`.env.mobile` → duckdns), açılış ekranı yeni krem renk, dokunma vurgusu/uzun basma menüsü kapalı | merge edildi (#16), canlıda; ad "Hatıra Defterim"; simülatörde ve Buğra'nın iPhone 15'inde çalıştı (ücretsiz Apple hesabı: imza 7 gün geçerli) | #16 | App Store için Apple Developer Program üyeliği | 2026-11-11 |
-| LS-17 Uygulamaya iOS hissi (yalnız `.native-app`, web değişmedi): iOS gezinme çubuğu (geri düğmesi, kaydırınca beliren başlık, rafta "+"), iOS sekme çubuğu (alt sayfada üst sekme seçili kalır), ekran geçişleri (ileri/geri kayma, sekmede soluklaşma; View Transitions), basınca solma, titreşim (sayfa çevirme, albüm oluşturma, çöpe taşıma), alanlarda yakınlaştırma yok, metin seçimi kapalı (yasal metin ve altyazılar hariç), albümde durum çubuğu hep koyu | PR açık; vitest 190 yeşil; simülatörde geçişler video karelerinden doğrulandı | dal `ls-17-native-feel` | Buğra telefonda denesin | 2026-11-11 |
+| LS-17 Uygulamaya iOS hissi (yalnız `.native-app`, web değişmedi): iOS gezinme çubuğu (geri düğmesi, kaydırınca beliren başlık, rafta "+"), iOS sekme çubuğu (alt sayfada üst sekme seçili kalır), ekran geçişleri (ileri/geri kayma, sekmede soluklaşma; View Transitions), basınca solma, titreşim (sayfa çevirme, albüm oluşturma, çöpe taşıma), alanlarda yakınlaştırma yok, metin seçimi kapalı (yasal metin ve altyazılar hariç), albümde durum çubuğu hep koyu | merge edildi, canlıda; Buğra'nın iPhone'una yüklendi | #17 | — | 2026-11-11 |
+| LS-18 Telefonda çıkartma seçilince "Hatıra çantası" kapanır, çıkartma sayfaya yerleşirken görünür ve seçili gelir; 760px ve üstünde çanta yanda açık kalır (art arda ekleme) | PR açık; vitest 192 yeşil; simülatörde denenmedi (canlı albüme veri yazardı) | dal `ls-18-sticker-close` | Buğra telefonda denesin | 2026-11-11 |

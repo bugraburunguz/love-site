@@ -27,6 +27,7 @@ import { useNoSwipeBack } from '../native/swipeBack'
 import type { DropTarget, PageEditor } from '../components/book/editor'
 import PageBar from '../components/edit/PageBar'
 import PagePanel from '../components/edit/PagePanel'
+import { closesAfterPick } from '../components/edit/drawerFit'
 import Tray from '../components/edit/Tray'
 import UploadSetupDialog from '../components/edit/UploadSetupDialog'
 import UploadPanel from '../components/UploadPanel'
@@ -496,6 +497,8 @@ function AlbumView({ id }: { id: string }) {
   function addStickerToPage(variant: string) {
     const page = pages[focusIndex]
     if (!page) return
+    // on a phone the drawer covers the page: close it so the sticker is seen landing (and can be moved at once)
+    if (closesAfterPick(window.innerWidth)) setPanelOpen(false)
     // the new sticker is selected, so it can be moved at once
     void edits.addStickerTo(page.id, variant, { x: 500, y: 700, width: 170, rotation: 0 }).then((stickerId) => {
       if (stickerId) setSelectedId(stickerId)
