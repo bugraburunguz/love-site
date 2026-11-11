@@ -58,11 +58,12 @@ public class MediaController {
 
     @PostMapping("/api/media/{id}/reprocess")
     public MediaResponse reprocess(CurrentUser me, @PathVariable UUID id) {
-        // every reprocess runs the media tools again (ffmpeg on the shared server): one retry per media per cooldown,
-        // and a ceiling per user. Keyed by user too, so nobody can block a media of somebody else's space.
-        limiter.check("reprocess-media:" + me.userId() + ":" + id, 1, limits.reprocessMediaCooldown());
+        // every reprocess runs the media tools again (ffmpeg on the shared server): a ceiling per user on every request,
+        // and one accepted retry per media per cooldown (a refused "already being processed" does not use it up).
+        // Keyed by user too, so nobody can block a media of somebody else's space.
         limiter.check("reprocess-user:" + me.userId(), limits.reprocessPerUser(), limits.reprocessWindow());
-        return mediaService.reprocess(me, id);
+        return mediaService.reprocess(me, id, () ->
+                limiter.check("reprocess-media:" + me.userId() + ":" + id, 1, limits.reprocessMediaCooldown()));
     }
 
     @PutMapping("/api/media/{id}/date")

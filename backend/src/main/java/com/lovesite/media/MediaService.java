@@ -87,12 +87,16 @@ public class MediaService {
                 .map(this::toResponse).toList();
     }
 
-    /** FAILED or READY items go back to the queue with a fresh attempt counter. */
-    public MediaResponse reprocess(CurrentUser me, UUID mediaId) {
+    /**
+     * FAILED or READY items go back to the queue with a fresh attempt counter. {@code beforeRequeue} runs only once the
+     * item is the caller's and may be requeued (a rate limit that should count accepted retries only).
+     */
+    public MediaResponse reprocess(CurrentUser me, UUID mediaId, Runnable beforeRequeue) {
         Media m = find(me, mediaId);
         if (m.getStatus() != MediaStatus.FAILED && m.getStatus() != MediaStatus.READY) {
             throw ApiException.conflict("Bu medya zaten işleniyor");
         }
+        beforeRequeue.run();
         m.requeue();
         m = media.save(m);
         queue.ifAvailable(MediaProcessingQueue::kick);

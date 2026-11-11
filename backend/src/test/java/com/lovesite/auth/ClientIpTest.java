@@ -20,6 +20,13 @@ class ClientIpTest {
     @Test
     void anythingUnparsableIsKeptAsItIs() {
         assertThat(ClientIp.network("not:an:address::zz")).isEqualTo("not:an:address::zz");
+        assertThat(ClientIp.network(":zz::1")).isEqualTo(":zz::1");
+        assertThat(ClientIp.network("::1::2")).isEqualTo("::1::2");
         assertThat(ClientIp.network(null)).isEqualTo("null");
+    }
+
+    @Test
+    void anIpv4MappedAddressCountsAsTheIpv4Address() {
+        assertThat(ClientIp.network("::ffff:198.51.100.7")).isEqualTo("198.51.100.7");
     }
 }

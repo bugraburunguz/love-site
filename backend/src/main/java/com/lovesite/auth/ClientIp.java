@@ -38,11 +38,18 @@ public final class ClientIp {
      * The unit a caller controls: an IPv4 address, or the /64 network of an IPv6 address (one home or server usually
      * gets a whole /64, so counting single IPv6 addresses would let it rotate addresses endlessly).
      */
+    private static final java.util.regex.Pattern IPV6_LITERAL = java.util.regex.Pattern.compile("[0-9A-Fa-f:.]+");
+
     public static String network(String clientIp) {
         if (clientIp == null || clientIp.indexOf(':') < 0) return String.valueOf(clientIp);
+        // only hex digits, ':' and '.' (an IPv6 literal, maybe with an IPv4 tail): InetAddress then parses it as a
+        // literal; anything else could make it ask DNS, so it is kept as it is
+        if (!IPV6_LITERAL.matcher(clientIp).matches()) return clientIp;
         try {
-            // a string with ':' is parsed as an IPv6 literal, never looked up in DNS
-            byte[] bytes = java.net.InetAddress.getByName(clientIp).getAddress();
+            java.net.InetAddress address = java.net.InetAddress.getByName(clientIp);
+            byte[] bytes = address.getAddress();
+            // an IPv4-mapped address (::ffff:1.2.3.4) counts as the IPv4 address itself
+            if (bytes.length == 4) return address.getHostAddress();
             if (bytes.length != 16) return clientIp;
             return java.util.HexFormat.of().formatHex(bytes, 0, 8) + "::/64";
         } catch (java.net.UnknownHostException e) {
