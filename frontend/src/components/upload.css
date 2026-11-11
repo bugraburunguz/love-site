@@ -160,3 +160,79 @@
   height: 18px;
   accent-color: var(--ui-primary);
 }
+
+/* LS-22: a video's row shows which 3 seconds become its living photo, and opens the picker */
+.upload-setup__clip {
+  flex: none;
+  min-height: 36px;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface);
+  color: var(--ui-primary);
+  font: 500 var(--ui-text-small) / 1.2 var(--ui-font-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* ---- the clip picker */
+
+.clip-picker__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  max-height: 46vh;
+  overflow: hidden;
+  border-radius: var(--ui-radius-lg);
+  background: #000;
+}
+
+.clip-picker__stage video {
+  display: block;
+  max-width: 100%;
+  max-height: 46vh;
+}
+
+.clip-picker__fallback {
+  margin: 0;
+  padding: 1.5rem;
+  color: #f4ece0;
+  text-align: center;
+}
+
+.clip-picker__controls {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* the whole video as a strip, with the chosen 3 seconds lit */
+.clip-picker__track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-sunk);
+  overflow: hidden;
+}
+
+.clip-picker__window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--clip-left, 0);
+  width: var(--clip-width, 100%);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-primary);
+}
+
+.clip-picker__slider {
+  width: 100%;
+  min-height: var(--ui-touch);
+  accent-color: var(--ui-primary);
+}
+
+.clip-picker__time {
+  margin: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

@@ -330,6 +330,41 @@ def main() -> int:
         items = wait_until(all_ready, "photo and video to become READY")
         kinds = {i["type"] for i in items}
         assert kinds == {"IMAGE", "VIDEO"}, kinds
+
+        # LS-22, in another album so the counts below stay as they are: the moment of a video that comes alive is
+        # picked before uploading, and can be changed afterwards (the worker cuts it again from the original)
+        step("video: pick its 3 seconds before uploading, change them afterwards (LS-22)")
+        clip_title, clip_album = themes[1]
+        long_video = OUT / "media" / "long.webm"
+        ffmpeg("-f", "lavfi", "-i", "testsrc2=size=480x270:rate=24:duration=8", "-c:v", "libvpx-vp9", "-b:v", "300k", str(long_video))
+        a.goto(f"/albums/{clip_album}")
+        a.locator('input[type="file"][accept="image/*,video/*"]').set_input_files([str(long_video)])
+        setup = a.get_by_role("dialog", name="Yüklenecek dosyalar")
+        setup.get_by_role("button", name="long.webm: canlı fotoğraf 0:00–0:03, değiştir").click()
+        picker = a.get_by_role("dialog", name="Canlı fotoğrafın 3 saniyesi")
+        slider = picker.get_by_role("slider", name="Klibin başladığı an")
+        expect(slider).to_be_visible(timeout=15_000)  # once the video's length is known
+        slider.fill("4")
+        expect(picker.get_by_text("0:04 – 0:07")).to_be_visible()
+        picker.get_by_role("button", name="Bu anı kullan").click()
+        setup.get_by_role("button", name="long.webm: canlı fotoğraf 0:04–0:07, değiştir").wait_for()
+        setup.get_by_role("button", name="Yükle").click()
+
+        def clip_ready(version: str):
+            def check():
+                items = api(a_ctx, f"/api/albums/{clip_album}/media").json()
+                assert all(i["status"] != "FAILED" for i in items), items
+                ready = [i for i in items if i["status"] == "READY" and f"/{version}/" in (i["loopUrl"] or "")]
+                return ready[0] if ready else None
+            return check
+
+        clip = wait_until(clip_ready("v1"), "the long video to become READY")
+        assert clip["clipStartMs"] == 4000, clip
+        from exports import api_json  # the export checks' helper sends the CSRF token
+        api_json(a_ctx, "PUT", f"/api/media/{clip['id']}/clip", {"startMs": 1500})
+        clip = wait_until(clip_ready("v2"), "the video cut again at the new moment")
+        assert clip["clipStartMs"] == 1500, clip
+        a.goto(f"/albums/{album_id}")  # the steps below work on the first album
         a.reload()
         expect(a.locator(".polaroid").first).to_be_visible()
         a.wait_for_timeout(800)

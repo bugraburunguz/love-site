@@ -66,6 +66,14 @@ public class MediaController {
                 limiter.check("reprocess-media:" + me.userId() + ":" + id, 1, limits.reprocessMediaCooldown()));
     }
 
+    @PutMapping("/api/media/{id}/clip")
+    public MediaResponse changeClip(CurrentUser me, @PathVariable UUID id, @RequestBody MediaDtos.ClipRequest request) {
+        // cutting the clip again runs ffmpeg like a reprocess: the same ceiling per user (no per-media cooldown, so a
+        // clip can be tried at another moment right after the previous one is ready)
+        return mediaService.changeClip(me, id, request.startMs(), () ->
+                limiter.check("reprocess-user:" + me.userId(), limits.reprocessPerUser(), limits.reprocessWindow()));
+    }
+
     @PutMapping("/api/media/{id}/date")
     public MediaResponse setDate(CurrentUser me, @PathVariable UUID id, @RequestBody MediaDtos.DateRequest request) {
         return mediaService.setDate(me, id, request.takenAt());

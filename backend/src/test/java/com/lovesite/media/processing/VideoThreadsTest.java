@@ -11,6 +11,6 @@ class VideoThreadsTest {
     @Test
     void theLoopCommandCapsItsThreads() {
         var probe = new VideoProcessor.Probe(5000, 3840, 2160, "30/1", true, false, null, "smpte2084", "bt2020", "yuv420p10le");
-        CompositorThreadsTest.assertCapped(new VideoProcessor(TestProps.defaults()).loopCommand(Path.of("/tmp/in"), Path.of("/tmp/out"), 3, probe));
+        CompositorThreadsTest.assertCapped(new VideoProcessor(TestProps.defaults()).loopCommand(Path.of("/tmp/in"), Path.of("/tmp/out"), new ClipWindow(0, 3), probe));
     }
 }

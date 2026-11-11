@@ -22,6 +22,8 @@ export interface UploadEntry {
   sha256?: string
   /** "Tek sayfa": the photo gets a page of its own */
   featured?: boolean
+  /** videos: where the living photo starts (ms), chosen before uploading */
+  clipStartMs?: number | null
   error?: string
   /** the space is full: retrying does not help until something is deleted */
   quota?: boolean
@@ -59,7 +61,8 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
 
         update(id, { status: 'uploading', progress: 0, error: undefined, quota: false })
         const { items } = await requestUploads(albumId, [
-          { clientId: id, filename: file.name, contentType: file.type, sizeBytes: file.size, sha256, lastModified: file.lastModified, featured: entry.featured },
+          { clientId: id, filename: file.name, contentType: file.type, sizeBytes: file.size, sha256, lastModified: file.lastModified, featured: entry.featured,
+            ...(entry.clipStartMs ? { clipStartMs: entry.clipStartMs } : {}) },
         ])
         const result = items[0]
         if (result.result === 'DUPLICATE') {
@@ -100,8 +103,10 @@ export function useUploadQueue(albumId: string, onIdle: () => void) {
   }, [run, update])
 
   const add = useCallback(
-    (files: File[], featured: boolean[] = []) => {
-      const added = files.map<UploadEntry>((file, i) => ({ id: newId(), file, status: 'queued', progress: 0, featured: featured[i] === true }))
+    (files: File[], featured: boolean[] = [], clipStarts: (number | null)[] = []) => {
+      const added = files.map<UploadEntry>((file, i) => ({
+        id: newId(), file, status: 'queued', progress: 0, featured: featured[i] === true, clipStartMs: clipStarts[i] ?? null,
+      }))
       entriesRef.current = [...entriesRef.current, ...added]
       setEntries(entriesRef.current)
       pump()
