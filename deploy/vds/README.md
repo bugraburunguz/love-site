@@ -209,7 +209,7 @@ Her repoda `.github/workflows/deploy.yml` bulunur:
 2. O tek imajı build eder.
 3. Servisi yeniden başlatır. `love` için bütün stack uygulanır, çünkü compose.yml ve Caddyfile (`caddy/Caddyfile`) o repoda. FC için sadece kendi servisi başlar.
 4. Servis sağlıklı cevap verene kadar bekler. fc-backend kendi `/actuator/health` adresinden kontrol edilir.
-5. `love` için Caddy'yi yeniden yükler (`caddy reload`). Bağlantılar kopmaz. `up -d` değişen Caddyfile için Caddy'yi kendiliğinden yeniden başlatmaz, bu yüzden bu adım var. Caddy yeni Caddyfile'ı reddederse eski yapılandırmayla çalışmaya devam eder; iş kırmızı biter ve logda `Caddy refused the Caddyfile` yazar.
+5. `love` için Caddy'yi yeniden yükler (`caddy reload`). Bağlantılar kopmaz. `up -d` değişen Caddyfile için Caddy'yi kendiliğinden yeniden başlatmaz, bu yüzden bu adım var. Caddy yeni Caddyfile'ı reddederse eski yapılandırmayla çalışmaya devam eder; iş kırmızı biter ve logda `Caddy reload failed` yazar.
 
 Caddy, Caddyfile'ı tek dosya olarak değil, `caddy/` klasörü olarak görür. `git pull` değişen dosyayı yeni bir dosya olarak yazar. Tek dosyalık mount bu yeni dosyayı çalışan container'a hiç göstermez; reload da eski içeriği okur.
 

@@ -8,7 +8,7 @@
 #   fc-backend   FCarrierTacticBuilderBackend (main) -> builds and restarts fc-backend only
 #   fc-web       FCarrierTacticBuilderWeb (main)     -> builds and restarts fc-web only
 #
-# pull (fast-forward only) -> build -> up -> wait until healthy. A failed build goes back to the previous commit and
+# pull (fast-forward only) -> build -> up -> wait until healthy -> caddy reload (love only). A failed build goes back to the previous commit and
 # restarts nothing (the old image keeps running); a failed health check goes back, rebuilds and restarts the previous
 # commit. Either way the job fails, so the Actions run shows it.
 #
@@ -99,14 +99,17 @@ if ! docker compose "${up[@]}" || ! wait_healthy; then
   docker compose logs --tail 40 "$service" >&2 || true
   echo "== going back to $prev" >&2
   git -C "$dir" reset --hard "$prev"
-  docker compose build "$service" && docker compose "${up[@]}" && wait_healthy && caddy_reload \
-    && echo "== previous version is back up" >&2 \
-    || echo "== previous version did not come back either: the site needs a look" >&2
+  if docker compose build "$service" && docker compose "${up[@]}" && wait_healthy; then
+    echo "== previous version is back up" >&2
+    caddy_reload || echo "== Caddy reload failed (bad Caddyfile or Caddy not running); Caddy keeps the config it was running" >&2
+  else
+    echo "== previous version did not come back either: the site needs a look" >&2
+  fi
   exit 1
 fi
 
 if ! caddy_reload; then
-  echo "== Caddy refused the Caddyfile of this commit; Caddy keeps the config it was running (the app is up)" >&2
+  echo "== Caddy reload failed (bad Caddyfile or Caddy not running); Caddy keeps the config it was running (the app is up)" >&2
   exit 1
 fi
 

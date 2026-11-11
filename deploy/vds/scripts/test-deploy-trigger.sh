@@ -118,8 +118,8 @@ FAIL_RELOAD=1 run love
 check "a Caddyfile Caddy refuses fails the job but keeps the healthy app (Caddy keeps its running config)" $?
 
 # another deploy holds the lock for a moment: the log says so instead of staying silent
-( flock 8; sleep 2 ) 8> "$WORK/home/.vds-deploy.lock" &
-sleep 0.5
+( flock 8; touch "$WORK/locked"; sleep 2 ) 8> "$WORK/home/.vds-deploy.lock" &
+until [ -e "$WORK/locked" ]; do sleep 0.1; done
 run love
 wait
 [ "$status" = 0 ] && grep -q "waiting for another deploy" "$WORK/out"
