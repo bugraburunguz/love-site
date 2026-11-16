@@ -1,6 +1,6 @@
-# Single Ubuntu 24.04 VDS: love-site + FC Assist + one Postgres + Garage (S3) behind Caddy (HTTPS).
-# Runbook: deploy/vds/README.md. Values come from .env (compose interpolation), love.env and fc.env (app variables);
-# all three are chmod 600 and never committed.
+# Single Ubuntu 24.04 VDS: love-site + FC Assist + Tunc Fitness + one Postgres + Garage (S3) behind Caddy (HTTPS).
+# Runbook: deploy/vds/README.md. Values come from .env (compose interpolation), love.env, fc.env and tf.env (app
+# variables); all four are chmod 600 and never committed.
 #
 #   docker compose up -d --build
 name: vds
@@ -24,6 +24,7 @@ services:
       LOVE_DOMAIN: ${LOVE_DOMAIN:?LOVE_DOMAIN}
       LOVE_S3_DOMAIN: ${LOVE_S3_DOMAIN:?LOVE_S3_DOMAIN}
       FC_DOMAIN: ${FC_DOMAIN:?FC_DOMAIN}
+      TF_DOMAIN: ${TF_DOMAIN:?TF_DOMAIN}
       LOGS_DOMAIN: ${LOGS_DOMAIN:?LOGS_DOMAIN}
       LOGS_FC_DOMAIN: ${LOGS_FC_DOMAIN:?LOGS_FC_DOMAIN}
       LOGS_USER: ${LOGS_USER:?LOGS_USER}
@@ -40,6 +41,9 @@ services:
         # network that name points at Caddy, so the app does not go out to the public IP and back
         aliases:
           - ${LOVE_S3_DOMAIN}
+      # Tunc Fitness: tf-web is reachable only through this Caddy, so no other container can send it a forged
+      # X-Forwarded-For
+      tf:
     mem_limit: 128m
     # each wrong log-page password costs a bcrypt check: bots guessing in parallel must not take every core
     cpus: 1
@@ -141,6 +145,47 @@ services:
     mem_limit: 64m
     logging: *logging
 
+  # Tunc Fitness (gym members, cards, turnstile, campaigns). tf-web is Caddy serving the SPA and passing /api to
+  # tf-backend; the edge Caddy above terminates HTTPS for TF_DOMAIN. The turnstile agent at the gym calls /api/v1/agent.
+  tf-backend:
+    image: tf-backend:latest
+    build:
+      context: ${TF_BACKEND_SRC:-/srv/src/ClubSaaSystemBackend}
+    restart: unless-stopped
+    env_file: tf.env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tuncfitness
+      DB_USERNAME: tuncfitness
+      DB_PASSWORD: ${TF_DB_PASSWORD}
+      APP_COOKIE_SECURE: "true"
+      APP_GYM_ZONE: Europe/Istanbul
+    volumes:
+      - tf-media:/data/media
+      # one-time legacy member import reads its CSV here (backend repo: tools/legacy-export/README.md)
+      - /srv/backups/tf/import:/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # default: reaches postgres; tf: answers tf-web
+    networks: [default, tf]
+    # JVM sizes its heap from this limit (MaxRAMPercentage=60 in the image): about 460 MB, the rest is metaspace,
+    # code cache and threads
+    mem_limit: 768m
+    logging: *logging
+
+  tf-web:
+    image: tf-web:latest
+    build:
+      context: ${TF_WEB_SRC:-/srv/src/ClubSaaSystemWeb}
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: tf-backend:8080
+    depends_on:
+      - tf-backend
+    networks: [tf]
+    mem_limit: 64m
+    logging: *logging
+
   # Optional: only the admin "ML valuation" endpoint uses it (without it that endpoint answers 503).
   #   docker compose --profile ml up -d
   fc-ml:
@@ -209,6 +254,8 @@ networks:
   # no route out and no app on it: only docker-ro and the Dozzle containers
   dockerapi:
     internal: true
+  # Tunc Fitness: only caddy, tf-web and tf-backend
+  tf:
 
 volumes:
   caddy-data:
@@ -216,3 +263,4 @@ volumes:
   pgdata18:
   garage-meta:
   garage-data:
+  tf-media:

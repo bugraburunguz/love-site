@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs once, when the data directory is empty: one role and one database per app. The passwords come from the
 # container environment and reach psql as variables, never as part of the SQL text.
+# Tunc Fitness (tuncfitness) is not created here: it was added to a running server by hand, README "Tunc Fitness".
 set -eu
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" \
   -v love_pw="$LOVE_DB_PASSWORD" -v fc_pw="$FC_DB_PASSWORD" <<'SQL'

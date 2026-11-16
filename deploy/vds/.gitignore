@@ -1,4 +1,5 @@
 .env
 love.env
 fc.env
+tf.env
 garage.toml
