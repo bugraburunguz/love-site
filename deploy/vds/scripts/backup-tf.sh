@@ -13,6 +13,8 @@ mkdir -p "$OUT"
 STAMP=$(date +%F)
 DB_FILE="$OUT/tuncfitness_$STAMP.dump"
 MEDIA_FILE="$OUT/tuncfitness-media_$STAMP.tar"
+# a failed dump leaves no half-written file behind
+trap 'rm -f "$DB_FILE.part" "$MEDIA_FILE.part"' EXIT
 
 docker compose exec -T postgres pg_dump -U postgres -d tuncfitness --format=custom > "$DB_FILE.part"
 mv "$DB_FILE.part" "$DB_FILE"

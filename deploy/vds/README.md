@@ -273,7 +273,8 @@ Tavanların toplamı yaklaşık 6 GB, ama hepsi aynı anda dolmaz; ani artışla
 Salon yönetimi:
 - `tf-backend`: Spring Boot, repo ClubSaaSystemBackend.
 - `tf-web`: Caddy; panel ve siteyi sunar, `/api` isteklerini `tf-backend`'e iletir. Repo ClubSaaSystemWeb.
-- Veritabanı: ortak PostgreSQL'de `tuncfitness`; kendi rolü var, diğer veritabanlarına erişemez.
+- Veritabanı: ortak PostgreSQL'de `tuncfitness`, kendi rolüyle. Kurulumda `PUBLIC`'in bağlanma yetkisi bütün veritabanlarından kaldırılır; böylece her rol yalnız kendi veritabanına bağlanır.
+- Ağ: `tf-web` yalnız `tf` ağında, yani yalnız Caddy ona ulaşır. `tf-backend` hem `tf` ağında hem `default` ağında (PostgreSQL için).
 - Görseller `tf-media` volume'unda.
 - Salondaki turnike ajanı `TF_DOMAIN/api/v1/agent` adresini çağırır.
 
@@ -284,20 +285,41 @@ Sıra önemli: love-site'ta master'a merge otomatik deploy tetikler ve bütün y
    ```bash
    cd /srv/src && git clone https://github.com/bugraburunguz/ClubSaaSystemBackend.git && git clone https://github.com/bugraburunguz/ClubSaaSystemWeb.git
    ```
-2. **`.env`'e Tunc Fitness satırlarını ekle ve veritabanını aç.** Veritabanı parolası burada üretilir, doğrudan `.env`'e yazılır ve psql'e değişken olarak verilir; ekranda görünmez. Komut çalışan PostgreSQL'e dokunur; yeniden başlatmaz.
+2. **Veritabanını aç ve `.env`'e Tunc Fitness satırlarını ekle.**
+   - Parola burada üretilir ve psql'e standart girdiden (`\set`) verilir; ekranda ve süreç listesinde görünmez.
+   - Komut çalışan PostgreSQL'e dokunur ama yeniden başlatmaz.
+   - `PUBLIC`'in bağlanma yetkisi kaldırılır. Uygulama rolleri kendi veritabanlarının sahibi olduğu için etkilenmez.
+   - İlk hatada durur. `.env` yalnız SQL başarılı olursa yazılır.
    ```bash
-   cd /srv/src/love-site/deploy/vds && PW=$(openssl rand -hex 24) && printf "CREATE ROLE tuncfitness LOGIN PASSWORD :'tf_pw';\nCREATE DATABASE tuncfitness OWNER tuncfitness;\n" | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres -v tf_pw="$PW" && printf 'TF_DOMAIN=tuncfitness.duckdns.org\nTF_DB_PASSWORD=%s\nTF_BACKEND_SRC=/srv/src/ClubSaaSystemBackend\nTF_WEB_SRC=/srv/src/ClubSaaSystemWeb\n' "$PW" >> .env && unset PW
+   cd /srv/src/love-site/deploy/vds && PW=$(openssl rand -hex 24) && printf "\\\\set tf_pw '%s'\nCREATE ROLE tuncfitness LOGIN PASSWORD :'tf_pw';\nCREATE DATABASE tuncfitness OWNER tuncfitness;\nREVOKE CONNECT, TEMPORARY ON DATABASE love, fcassist, tuncfitness, postgres FROM PUBLIC;\n" "$PW" | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres && printf 'TF_DOMAIN=tuncfitness.duckdns.org\nTF_DB_PASSWORD=%s\nTF_BACKEND_SRC=/srv/src/ClubSaaSystemBackend\nTF_WEB_SRC=/srv/src/ClubSaaSystemWeb\n' "$PW" >> .env && unset PW
    ```
-3. **`tf.env` dosyasını oluştur.** JWT anahtarı üretilir. İlk yönetici parolasını komut sorar; ekranda görünmez.
+   Komut yarıda kırılırsa baştan çalıştırmadan önce oluşanlar silinir (veritabanı yoksa ilk satır atlanır):
    ```bash
-   cd /srv/src/love-site/deploy/vds && umask 077 && read -rs -p 'Ilk yonetici parolasi: ' AP && echo && printf 'APP_JWT_SECRET=%s\nBOOTSTRAP_ADMIN_EMAIL=admin\nBOOTSTRAP_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 48)" "$AP" > tf.env && unset AP && ls -l tf.env
+   cd /srv/src/love-site/deploy/vds && printf 'DROP DATABASE IF EXISTS tuncfitness;\nDROP ROLE IF EXISTS tuncfitness;\n' | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres
+   ```
+3. **`tf.env` dosyasını oluştur.**
+   - JWT anahtarı üretilir. İlk yönetici parolasını komut sorar; ekranda görünmez.
+   - Değer tek tırnak içine yazılır (compose `$`, `#` ve tırnakları başka türlü yorumlar); parolada `'` karakteri kullanılmaz.
+   ```bash
+   cd /srv/src/love-site/deploy/vds && umask 077 && read -rs -p 'Ilk yonetici parolasi: ' AP && echo && case "$AP" in *\'*) echo "parolada ' olamaz" && unset AP && false ;; esac && printf "APP_JWT_SECRET=%s\nBOOTSTRAP_ADMIN_EMAIL=admin\nBOOTSTRAP_ADMIN_PASSWORD='%s'\n" "$(openssl rand -hex 48)" "$AP" > tf.env && unset AP && ls -l tf.env
    ```
 4. **İmajları önceden derle.** Merge sonrası deploy bunları hazır bulur ve derleme yüzünden geri dönmez.
    ```bash
    mkdir -p /srv/backups/tf/import && docker build -t tf-backend:latest /srv/src/ClubSaaSystemBackend && docker build -t tf-web:latest /srv/src/ClubSaaSystemWeb
    ```
-5. **love-site PR'ını merge et.** Otomatik deploy yığını uygular. `caddy` (yeni `TF_DOMAIN`) ve `postgres` (yeni `TF_DB_PASSWORD`) yeniden oluşturulur; bütün siteler için birkaç saniyelik bir kesinti olur.
-6. **Dene:** `https://tuncfitness.duckdns.org` açılır; `/admin/giris` sayfasından `admin` ile giriş yapılır.
+5. **Merge'den önce kontrol et.**
+   - Yeni compose dosyası hatasız açılmalı: `.env`'deki `TF_*` satırları ve `tf.env` hazır olmalı.
+   - İmajlar hazır olmalı; yoksa deploy onları derlemeye kalkar.
+   ```bash
+   cd /srv/src/love-site/deploy/vds && git fetch -q origin && git show origin/tf-6-deploy:deploy/vds/compose.yml | docker compose -f - --project-directory . config -q && docker image inspect tf-backend:latest tf-web:latest > /dev/null && echo hazir
+   ```
+6. **love-site PR'ını merge et.**
+   - Otomatik deploy yığını uygular.
+   - Yalnız `caddy` yeniden oluşturulur (yeni `TF_DOMAIN` ve `tf` ağı); bütün siteler için birkaç saniyelik bir kesinti olur. PostgreSQL'e dokunulmaz.
+   - `tf-backend` ve `tf-web` ilk kez başlar.
+7. **Dene:**
+   - `https://tuncfitness.duckdns.org` açılır; `/admin/giris` sayfasından `admin` ile giriş yapılır.
+   - Sahte IP denemesi: `-H 'X-Forwarded-For: 1.2.3.4'` başlığıyla art arda 6 hatalı giriş yapılır, ardından başlıksız tek bir hatalı giriş daha. Son istek 429 dönmeli. Dönmezse backend sahte başlığa inanıyor demektir; giriş sınırı atlatılabilir.
 
 İlk girişten sonra parolayı Ayarlar'dan değiştir. Sonra `tf.env`'deki `BOOTSTRAP_ADMIN_PASSWORD` satırını boşalt ve konteyneri yeniden oluştur:
 
@@ -323,7 +345,7 @@ Her gece veritabanı ve görseller yedeklenir; `offsite.env` varsa sunucu dış�
 Veritabanının üzerine yazar; yalnız onaydan sonra yapılır. Döküm çalışan sürümden eskiyse, önce o tarihteki commit'e dönülür ve imaj yeniden derlenir.
 
 ```bash
-cd /srv/src/love-site/deploy/vds && docker compose stop tf-backend && docker compose exec -T postgres pg_restore -U postgres -d tuncfitness --clean --if-exists --no-owner --role=tuncfitness --single-transaction --exit-on-error < /srv/backups/tf/tuncfitness_TARIH.dump && docker compose run --rm --no-deps -T --entrypoint tar tf-backend -C /data -xf - < /srv/backups/tf/tuncfitness-media_TARIH.tar && docker compose up -d tf-backend
+cd /srv/src/love-site/deploy/vds && docker compose stop tf-backend && docker compose exec -T postgres pg_restore -U postgres -d tuncfitness --clean --if-exists --no-owner --role=tuncfitness --single-transaction --exit-on-error < /srv/backups/tf/tuncfitness_TARIH.dump && docker compose run --rm --no-deps -T --entrypoint sh tf-backend -c 'rm -rf /data/media/* && tar -C /data -xf -' < /srv/backups/tf/tuncfitness-media_TARIH.tar && docker compose up -d tf-backend
 ```
 
 ### Eski üye aktarımı

@@ -41,6 +41,9 @@ services:
         # network that name points at Caddy, so the app does not go out to the public IP and back
         aliases:
           - ${LOVE_S3_DOMAIN}
+      # Tunc Fitness: tf-web is reachable only through this Caddy, so no other container can send it a forged
+      # X-Forwarded-For
+      tf:
     mem_limit: 128m
     # each wrong log-page password costs a bcrypt check: bots guessing in parallel must not take every core
     cpus: 1
@@ -54,7 +57,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}
       LOVE_DB_PASSWORD: ${LOVE_DB_PASSWORD:?LOVE_DB_PASSWORD}
       FC_DB_PASSWORD: ${FC_DB_PASSWORD:?FC_DB_PASSWORD}
-      TF_DB_PASSWORD: ${TF_DB_PASSWORD:?TF_DB_PASSWORD}
     # small server, two small apps: modest buffers instead of the defaults sized for a dedicated database host
     command: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=768MB", "-c", "work_mem=8MB",
               "-c", "maintenance_work_mem=128MB", "-c", "max_connections=60"]
@@ -164,7 +166,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # JVM sizes its heap from this limit (MaxRAMPercentage=70 in the image): about 540 MB
+    # default: reaches postgres; tf: answers tf-web
+    networks: [default, tf]
+    # JVM sizes its heap from this limit (MaxRAMPercentage=60 in the image): about 460 MB, the rest is metaspace,
+    # code cache and threads
     mem_limit: 768m
     logging: *logging
 
@@ -177,6 +182,7 @@ services:
       BACKEND_UPSTREAM: tf-backend:8080
     depends_on:
       - tf-backend
+    networks: [tf]
     mem_limit: 64m
     logging: *logging
 
@@ -248,6 +254,8 @@ networks:
   # no route out and no app on it: only docker-ro and the Dozzle containers
   dockerapi:
     internal: true
+  # Tunc Fitness: only caddy, tf-web and tf-backend
+  tf:
 
 volumes:
   caddy-data:
