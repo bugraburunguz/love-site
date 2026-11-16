@@ -261,8 +261,70 @@ Sorunu düzelten bir commit merge edilince deploy kendiliğinden yeniden çalı�
 | love-worker | 1,5 GB | HEIC, video, export (Chromium / ffmpeg); OOM olursa önce araç ölür, site ayakta kalır |
 | love-web | 768 MB | |
 | fc-backend | 1 GB | Xmx 512 MB (imajda) |
+| tf-backend | 768 MB | heap ~540 MB (imajda MaxRAMPercentage=70) |
 | garage | 512 MB | |
-| caddy / fc-web | 128 / 64 MB | |
+| caddy / fc-web / tf-web | 128 / 64 / 64 MB | |
 | logs-all / logs-fc / docker-ro | 64 MB her biri | ölçülen ~15–25 MB |
 
-Tavanların toplamı yaklaşık 5 GB, ama hepsi aynı anda dolmaz; ani artışlar için 2 GB swap var. Sunucu sürekli swap kullanıyorsa 8 GB'a geç.
+Tavanların toplamı yaklaşık 6 GB, ama hepsi aynı anda dolmaz; ani artışlar için 2 GB swap var. Sunucu sürekli swap kullanıyorsa 8 GB'a geç.
+
+## Tunc Fitness (TF-6)
+
+Salon yönetimi:
+- `tf-backend`: Spring Boot, repo ClubSaaSystemBackend.
+- `tf-web`: Caddy; panel ve siteyi sunar, `/api` isteklerini `tf-backend`'e iletir. Repo ClubSaaSystemWeb.
+- Veritabanı: ortak PostgreSQL'de `tuncfitness`; kendi rolü var, diğer veritabanlarına erişemez.
+- Görseller `tf-media` volume'unda.
+- Salondaki turnike ajanı `TF_DOMAIN/api/v1/agent` adresini çağırır.
+
+### Kurulum (bir kez, deploy kullanıcısı)
+Sıra önemli: love-site'ta master'a merge otomatik deploy tetikler ve bütün yığını uygular (`up -d`). Bu yüzden aşağıdaki adımlar merge'den **önce** yapılır.
+
+1. **Kodu al:**
+   ```bash
+   cd /srv/src && git clone https://github.com/bugraburunguz/ClubSaaSystemBackend.git && git clone https://github.com/bugraburunguz/ClubSaaSystemWeb.git
+   ```
+2. **`.env`'e Tunc Fitness satırlarını ekle ve veritabanını aç.** Veritabanı parolası burada üretilir, doğrudan `.env`'e yazılır ve psql'e değişken olarak verilir; ekranda görünmez. Komut çalışan PostgreSQL'e dokunur; yeniden başlatmaz.
+   ```bash
+   cd /srv/src/love-site/deploy/vds && PW=$(openssl rand -hex 24) && printf "CREATE ROLE tuncfitness LOGIN PASSWORD :'tf_pw';\nCREATE DATABASE tuncfitness OWNER tuncfitness;\n" | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres -v tf_pw="$PW" && printf 'TF_DOMAIN=tuncfitness.duckdns.org\nTF_DB_PASSWORD=%s\nTF_BACKEND_SRC=/srv/src/ClubSaaSystemBackend\nTF_WEB_SRC=/srv/src/ClubSaaSystemWeb\n' "$PW" >> .env && unset PW
+   ```
+3. **`tf.env` dosyasını oluştur.** JWT anahtarı üretilir. İlk yönetici parolasını komut sorar; ekranda görünmez.
+   ```bash
+   cd /srv/src/love-site/deploy/vds && umask 077 && read -rs -p 'Ilk yonetici parolasi: ' AP && echo && printf 'APP_JWT_SECRET=%s\nBOOTSTRAP_ADMIN_EMAIL=admin\nBOOTSTRAP_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 48)" "$AP" > tf.env && unset AP && ls -l tf.env
+   ```
+4. **İmajları önceden derle.** Merge sonrası deploy bunları hazır bulur ve derleme yüzünden geri dönmez.
+   ```bash
+   mkdir -p /srv/backups/tf/import && docker build -t tf-backend:latest /srv/src/ClubSaaSystemBackend && docker build -t tf-web:latest /srv/src/ClubSaaSystemWeb
+   ```
+5. **love-site PR'ını merge et.** Otomatik deploy yığını uygular. `caddy` (yeni `TF_DOMAIN`) ve `postgres` (yeni `TF_DB_PASSWORD`) yeniden oluşturulur; bütün siteler için birkaç saniyelik bir kesinti olur.
+6. **Dene:** `https://tuncfitness.duckdns.org` açılır; `/admin/giris` sayfasından `admin` ile giriş yapılır.
+
+İlk girişten sonra parolayı Ayarlar'dan değiştir. Sonra `tf.env`'deki `BOOTSTRAP_ADMIN_PASSWORD` satırını boşalt ve konteyneri yeniden oluştur:
+
+```bash
+cd /srv/src/love-site/deploy/vds && docker compose up -d tf-backend
+```
+
+### Güncelleme
+```bash
+cd /srv/src/ClubSaaSystemBackend && git pull --ff-only && cd ../ClubSaaSystemWeb && git pull --ff-only && cd /srv/src/love-site/deploy/vds && scripts/backup-tf.sh && docker compose up -d --build --no-deps tf-backend tf-web
+```
+
+Flyway migration'ları backend açılırken kendiliğinden çalışır.
+
+### Yedek
+Her gece veritabanı ve görseller yedeklenir; `offsite.env` varsa sunucu dışına da kopyalanır:
+
+```bash
+(crontab -l 2>/dev/null; echo '40 3 * * * /srv/src/love-site/deploy/vds/scripts/backup-tf.sh >> /srv/backups/tf/backup.log 2>&1') | crontab -
+```
+
+### Geri yükleme
+Veritabanının üzerine yazar; yalnız onaydan sonra yapılır. Döküm çalışan sürümden eskiyse, önce o tarihteki commit'e dönülür ve imaj yeniden derlenir.
+
+```bash
+cd /srv/src/love-site/deploy/vds && docker compose stop tf-backend && docker compose exec -T postgres pg_restore -U postgres -d tuncfitness --clean --if-exists --no-owner --role=tuncfitness --single-transaction --exit-on-error < /srv/backups/tf/tuncfitness_TARIH.dump && docker compose run --rm --no-deps -T --entrypoint tar tf-backend -C /data -xf - < /srv/backups/tf/tuncfitness-media_TARIH.tar && docker compose up -d tf-backend
+```
+
+### Eski üye aktarımı
+Talimat ClubSaaSystemBackend reposunda, `deploy/README.md` dosyasında. CSV `/srv/backups/tf/import/` klasörüne konur.

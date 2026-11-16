@@ -1,6 +1,6 @@
-# Single Ubuntu 24.04 VDS: love-site + FC Assist + one Postgres + Garage (S3) behind Caddy (HTTPS).
-# Runbook: deploy/vds/README.md. Values come from .env (compose interpolation), love.env and fc.env (app variables);
-# all three are chmod 600 and never committed.
+# Single Ubuntu 24.04 VDS: love-site + FC Assist + Tunc Fitness + one Postgres + Garage (S3) behind Caddy (HTTPS).
+# Runbook: deploy/vds/README.md. Values come from .env (compose interpolation), love.env, fc.env and tf.env (app
+# variables); all four are chmod 600 and never committed.
 #
 #   docker compose up -d --build
 name: vds
@@ -24,6 +24,7 @@ services:
       LOVE_DOMAIN: ${LOVE_DOMAIN:?LOVE_DOMAIN}
       LOVE_S3_DOMAIN: ${LOVE_S3_DOMAIN:?LOVE_S3_DOMAIN}
       FC_DOMAIN: ${FC_DOMAIN:?FC_DOMAIN}
+      TF_DOMAIN: ${TF_DOMAIN:?TF_DOMAIN}
       LOGS_DOMAIN: ${LOGS_DOMAIN:?LOGS_DOMAIN}
       LOGS_FC_DOMAIN: ${LOGS_FC_DOMAIN:?LOGS_FC_DOMAIN}
       LOGS_USER: ${LOGS_USER:?LOGS_USER}
@@ -53,6 +54,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}
       LOVE_DB_PASSWORD: ${LOVE_DB_PASSWORD:?LOVE_DB_PASSWORD}
       FC_DB_PASSWORD: ${FC_DB_PASSWORD:?FC_DB_PASSWORD}
+      TF_DB_PASSWORD: ${TF_DB_PASSWORD:?TF_DB_PASSWORD}
     # small server, two small apps: modest buffers instead of the defaults sized for a dedicated database host
     command: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=768MB", "-c", "work_mem=8MB",
               "-c", "maintenance_work_mem=128MB", "-c", "max_connections=60"]
@@ -141,6 +143,43 @@ services:
     mem_limit: 64m
     logging: *logging
 
+  # Tunc Fitness (gym members, cards, turnstile, campaigns). tf-web is Caddy serving the SPA and passing /api to
+  # tf-backend; the edge Caddy above terminates HTTPS for TF_DOMAIN. The turnstile agent at the gym calls /api/v1/agent.
+  tf-backend:
+    image: tf-backend:latest
+    build:
+      context: ${TF_BACKEND_SRC:-/srv/src/ClubSaaSystemBackend}
+    restart: unless-stopped
+    env_file: tf.env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tuncfitness
+      DB_USERNAME: tuncfitness
+      DB_PASSWORD: ${TF_DB_PASSWORD}
+      APP_COOKIE_SECURE: "true"
+      APP_GYM_ZONE: Europe/Istanbul
+    volumes:
+      - tf-media:/data/media
+      # one-time legacy member import reads its CSV here (backend repo: tools/legacy-export/README.md)
+      - /srv/backups/tf/import:/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # JVM sizes its heap from this limit (MaxRAMPercentage=70 in the image): about 540 MB
+    mem_limit: 768m
+    logging: *logging
+
+  tf-web:
+    image: tf-web:latest
+    build:
+      context: ${TF_WEB_SRC:-/srv/src/ClubSaaSystemWeb}
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: tf-backend:8080
+    depends_on:
+      - tf-backend
+    mem_limit: 64m
+    logging: *logging
+
   # Optional: only the admin "ML valuation" endpoint uses it (without it that endpoint answers 503).
   #   docker compose --profile ml up -d
   fc-ml:
@@ -216,3 +255,4 @@ volumes:
   pgdata18:
   garage-meta:
   garage-data:
+  tf-media:

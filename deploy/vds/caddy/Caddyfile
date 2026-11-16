@@ -39,6 +39,15 @@
 	reverse_proxy logs-fc:8080
 }
 
+# Tunc Fitness: Caddy (SPA + /api proxy) behind Caddy. tf-web trusts X-Forwarded-For only from private ranges (this
+# Caddy), so the backend sees the real client address. Uploads are at most 5 MB (tf-web refuses bodies over 6 MB).
+{$TF_DOMAIN} {
+	request_body {
+		max_size 6MB
+	}
+	reverse_proxy tf-web:80
+}
+
 # FC Assist: nginx (SPA + /api proxy) behind Caddy.
 {$FC_DOMAIN} {
 	encode zstd gzip
