@@ -42,7 +42,11 @@
 # Tunc Fitness: Caddy (SPA + /api proxy) behind Caddy. tf-web trusts X-Forwarded-For only from private ranges (this
 # Caddy), so the backend sees the real client address. Media uploads (POST /api/v1/media) may be videos up to 30 MB, so
 # only that path accepts bodies up to 31 MB; every other request stays at 6 MB (tf-web applies the same limits).
+# TF_DOMAIN may list several names; www.<name> answers with a permanent redirect to <name>, path and query kept. Only
+# names listed in TF_DOMAIN reach this block, so the redirect target is always one of them.
 {$TF_DOMAIN} {
+	@tfWww header_regexp tfWww Host ^(?i)www\.([^:]+)
+	redir @tfWww https://{re.tfWww.1}{uri} permanent
 	@tfMediaUpload {
 		method POST
 		path /api/v1/media

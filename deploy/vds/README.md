@@ -276,7 +276,9 @@ Salon yönetimi:
 - Veritabanı: ortak PostgreSQL'de `tuncfitness`, kendi rolüyle. Kurulumda `PUBLIC`'in bağlanma yetkisi bütün veritabanlarından kaldırılır; böylece her rol yalnız kendi veritabanına bağlanır.
 - Ağ: `tf-web` yalnız `tf` ağında, yani yalnız Caddy ona ulaşır. `tf-backend` hem `tf` ağında hem `default` ağında (PostgreSQL için).
 - Görseller `tf-media` volume'unda.
-- Salondaki turnike ajanı `TF_DOMAIN/api/v1/agent` adresini çağırır.
+- Salondaki turnike ajanı `https://tuncfitness.duckdns.org/api/v1/agent` adresini çağırır; bu ad `TF_DOMAIN` listesinden çıkarılmaz.
+- `TF_DOMAIN` virgülle ayrılmış, tırnaklı bir listedir (`TF_DOMAIN="tuncclub.com, www.tuncclub.com, tuncfitness.duckdns.org"`). `www.<ad>` kalıcı olarak `<ad>`'a yönlenir. Sitenin asıl adresi `tf.env`'deki `APP_PUBLIC_BASE_URL`'dir.
+- Ad eklemek ya da değiştirmek: önce her adın DNS A kaydı sunucuya baksın, sonra `.env` ve `tf.env` düzenlenir ve `docker compose up -d caddy tf-backend` çalıştırılır. `caddy reload` yetmez: Caddy `TF_DOMAIN`'i konteynerin ortamından okur. Caddy yeniden oluşurken bütün siteler birkaç saniye kesilir.
 
 ### Kurulum (bir kez, deploy kullanıcısı)
 Sıra önemli: love-site'ta master'a merge otomatik deploy tetikler ve bütün yığını uygular (`up -d`). Bu yüzden aşağıdaki adımlar merge'den **önce** yapılır.
@@ -291,7 +293,7 @@ Sıra önemli: love-site'ta master'a merge otomatik deploy tetikler ve bütün y
    - `PUBLIC`'in bağlanma yetkisi kaldırılır. Uygulama rolleri kendi veritabanlarının sahibi olduğu için etkilenmez.
    - İlk hatada durur. `.env` yalnız SQL başarılı olursa yazılır.
    ```bash
-   cd /srv/src/love-site/deploy/vds && PW=$(openssl rand -hex 24) && printf "\\\\set tf_pw '%s'\nCREATE ROLE tuncfitness LOGIN PASSWORD :'tf_pw';\nCREATE DATABASE tuncfitness OWNER tuncfitness;\nREVOKE CONNECT, TEMPORARY ON DATABASE love, fcassist, tuncfitness, postgres FROM PUBLIC;\n" "$PW" | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres && printf 'TF_DOMAIN=tuncfitness.duckdns.org\nTF_DB_PASSWORD=%s\nTF_BACKEND_SRC=/srv/src/ClubSaaSystemBackend\nTF_WEB_SRC=/srv/src/ClubSaaSystemWeb\n' "$PW" >> .env && unset PW
+   cd /srv/src/love-site/deploy/vds && PW=$(openssl rand -hex 24) && printf "\\\\set tf_pw '%s'\nCREATE ROLE tuncfitness LOGIN PASSWORD :'tf_pw';\nCREATE DATABASE tuncfitness OWNER tuncfitness;\nREVOKE CONNECT, TEMPORARY ON DATABASE love, fcassist, tuncfitness, postgres FROM PUBLIC;\n" "$PW" | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U postgres && printf 'TF_DOMAIN="tuncclub.com, www.tuncclub.com, tuncfitness.duckdns.org"\nTF_DB_PASSWORD=%s\nTF_BACKEND_SRC=/srv/src/ClubSaaSystemBackend\nTF_WEB_SRC=/srv/src/ClubSaaSystemWeb\n' "$PW" >> .env && unset PW
    ```
    Komut yarıda kırılırsa baştan çalıştırmadan önce oluşanlar silinir (veritabanı yoksa ilk satır atlanır):
    ```bash
