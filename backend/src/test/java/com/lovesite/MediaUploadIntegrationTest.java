@@ -80,6 +80,7 @@ class MediaUploadIntegrationTest {
     @Autowired PendingUploadCleanup cleanup;
     @MockitoSpyBean StorageService storage;
     @MockitoSpyBean MediaService mediaService;
+    @MockitoSpyBean com.lovesite.space.QuotaService quota;
 
     final HttpClient http = HttpClient.newHttpClient();
     static final RequestPostProcessor USER = user("a@test.io");
@@ -252,6 +253,18 @@ class MediaUploadIntegrationTest {
         // iOS HEIC with an empty or generic MIME is resolved from the extension.
         assertThat(JsonPath.<String>read(res, "$.items[4].contentType")).isEqualTo("image/heic");
         assertThat(JsonPath.<String>read(res, "$.items[5].contentType")).isEqualTo("image/heic");
+    }
+
+    @Test
+    void aFailingSpaceLockFallsBackToOneFileAtATime() throws Exception {
+        String album = createAlbum();
+        doThrow(new org.springframework.dao.CannotAcquireLockException("lock timeout")).doCallRealMethod()
+                .when(quota).lockLimit(any());
+
+        String res = uploads(album, "[" + file("x1", "a.jpg", "image/jpeg", 100, null) + ","
+                + file("x2", "b.jpg", "image/jpeg", 100, null) + "]");
+
+        assertThat(JsonPath.<List<String>>read(res, "$.items[*].result")).containsExactly("PRESIGNED", "PRESIGNED");
     }
 
     @Test

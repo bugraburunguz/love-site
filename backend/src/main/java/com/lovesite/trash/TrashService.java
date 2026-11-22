@@ -78,10 +78,17 @@ public class TrashService {
     public TrashView list(CurrentUser me) {
         UUID spaceId = me.requireSpace();
         Instant since = restorableSince();
-        List<TrashAlbum> deletedAlbums = albums.findBySpaceIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(spaceId).stream()
+        List<Album> restorable = albums.findBySpaceIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(spaceId).stream()
                 .filter((a) -> a.getDeletedAt().isAfter(since))
-                .map((a) -> new TrashAlbum(albumService.toResponse(a), countMedia(a.getId()), a.getDeletedAt(), purgeAt(a.getDeletedAt())))
                 .toList();
+        // the album summary counts the same media (not deleted, restorable status) in one GROUP BY for all albums
+        List<AlbumResponse> responses = albumService.toResponses(spaceId, restorable);
+        List<TrashAlbum> deletedAlbums = new java.util.ArrayList<>();
+        for (int i = 0; i < restorable.size(); i++) {
+            Album a = restorable.get(i);
+            AlbumResponse r = responses.get(i);
+            deletedAlbums.add(new TrashAlbum(r, r.mediaCount(), a.getDeletedAt(), purgeAt(a.getDeletedAt())));
+        }
         // single deleted items of albums that are still there; unconfirmed / rejected uploads are not "memories"
         Map<UUID, String> titles = new LinkedHashMap<>();
         jdbc.query(
@@ -156,10 +163,5 @@ public class TrashService {
 
     private Instant purgeAt(Instant deletedAt) {
         return deletedAt.plus(properties.trashRetention());
-    }
-
-    private int countMedia(UUID albumId) {
-        return jdbc.queryForObject("SELECT count(*) FROM media WHERE album_id = ? AND deleted_at IS NULL "
-                + "AND status IN (" + RESTORABLE_SQL + ")", Integer.class, albumId);
     }
 }

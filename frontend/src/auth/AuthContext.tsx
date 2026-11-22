@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { clearCache } from '../api/cache'
 import { api, ApiError } from '../api/client'
 
 export interface User {
@@ -42,22 +43,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    setUser(await api<User>('/api/auth/login', { method: 'POST', body: { email, password } }))
-    setNotice(null)
+  const changeUser = useCallback((next: User | null) => {
+    clearCache()
+    setUser(next)
   }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    changeUser(await api<User>('/api/auth/login', { method: 'POST', body: { email, password } }))
+    setNotice(null)
+  }, [changeUser])
 
   const endSession = useCallback((text: string) => {
     setNotice(text)
-    setUser(null)
-  }, [])
+    changeUser(null)
+  }, [changeUser])
 
   const logout = useCallback(async () => {
     await api<void>('/api/auth/logout', { method: 'POST' })
-    setUser(null)
-  }, [])
+    changeUser(null)
+  }, [changeUser])
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, setUser, endSession, notice }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, logout, setUser: changeUser, endSession, notice }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthState {

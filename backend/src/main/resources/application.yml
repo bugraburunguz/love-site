@@ -7,8 +7,9 @@ server:
       min-spare: 5
   error:
     include-message: never
+  # Caddy compresses responses in front of the app
   compression:
-    enabled: true
+    enabled: false
   forward-headers-strategy: framework
   servlet:
     session:

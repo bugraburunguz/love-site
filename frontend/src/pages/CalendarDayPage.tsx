@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { deleteMedia, listAlbums, reprocessMedia, updateCaption, type Album, type MediaDto } from '../api/albums'
-import { calendarDay, type DayView } from '../api/calendar'
+import { albumsQuery, deleteMedia, reprocessMedia, updateCaption, type Album, type MediaDto } from '../api/albums'
+import { calendarDay, type DayNote, type DayView } from '../api/calendar'
 import { longDate, occurrenceLabel, parseDay } from '../calendar/calendarMath'
 import AppHeader from '../components/AppHeader'
 import { haptic } from '../native/haptics'
@@ -12,7 +12,9 @@ import LivingPhoto from '../components/LivingPhoto'
 import DateEditDialog from '../components/calendar/DateEditDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
 import DayNotes from '../components/calendar/DayNotes'
+import { withMyNote } from '../components/calendar/myNote'
 import BottomTabs from '../components/BottomTabs'
+import { useCachedQuery } from '../hooks/useCachedQuery'
 import { pageThemeVars, pageVars, themeVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts, ThemeContext } from '../themes/ThemeContext'
@@ -21,6 +23,7 @@ import './home.css'
 import './calendar.css'
 
 const FRAME = 220
+const NO_ALBUMS: Album[] = []
 
 /** One day of the calendar: every photo / video of that day (oldest first), the album it is in, the special days. */
 export default function CalendarDayPage() {
@@ -29,7 +32,7 @@ export default function CalendarDayPage() {
   const albumId = search.get('album')
   const navigate = useNavigate()
   const [day, setDay] = useState<DayView | null>(null)
-  const [albums, setAlbums] = useState<Album[]>([])
+  const albums = useCachedQuery(albumsQuery).data ?? NO_ALBUMS
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<number>(-1)
   const [editing, setEditing] = useState<MediaDto | null>(null)
@@ -42,9 +45,7 @@ export default function CalendarDayPage() {
     calendarDay(date, albumId).then(setDay).catch((e: Error) => setError(e.message))
   }, [date, albumId, valid])
   useEffect(load, [load])
-  useEffect(() => {
-    listAlbums().then(setAlbums).catch(() => undefined)
-  }, [])
+  const keepMyNote = useCallback((note: DayNote | null) => setDay((d) => d && { ...d, notes: withMyNote(d.notes, note) }), [])
 
   const albumTheme = useMemo(() => new Map(albums.map((a) => [a.id, getTheme(a.themeId)])), [albums])
   const themeOf = useCallback((mediaId: string): ThemeDef | undefined => {
@@ -81,7 +82,7 @@ export default function CalendarDayPage() {
         <p key={o.id} className="calendar__today-special"><SpecialIcon icon={o.icon} /> {occurrenceLabel(o.title, o.yearly, o.years)}</p>
       ))}
       {error && <p role="alert" className="calendar__error">{error}</p>}
-      {day && <DayNotes key={day.date} date={day.date} notes={day.notes} onChange={load} />}
+      {day && <DayNotes key={day.date} date={day.date} notes={day.notes} onSaved={keepMyNote} />}
       {day === null ? <p className="calendar__empty">Açılıyor…</p> : day.media.length === 0 ? (
         <p className="calendar__empty">Bu günde fotoğraf yok.</p>
       ) : (

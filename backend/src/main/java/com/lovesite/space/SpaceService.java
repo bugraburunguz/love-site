@@ -7,8 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -60,11 +63,25 @@ public class SpaceService {
 
     // ---- admin
 
+    /** Three queries whatever the number of spaces: the spaces, the usage of all of them, the members of all of them. */
     public List<AdminSpace> adminList() {
+        Map<UUID, Long> usage = quota.usageBySpace();
+        Map<UUID, List<Member>> members = membersBySpace();
         return spaces.findAll().stream()
                 .sorted(Comparator.comparing(Space::getCreatedAt).reversed())
-                .map(this::summary)
+                .map(s -> new AdminSpace(s.getId(), s.getName(), members.getOrDefault(s.getId(), List.of()),
+                        usage.getOrDefault(s.getId(), 0L), s.getStorageLimitBytes(), s.getCreatedAt(), s.getKind()))
                 .toList();
+    }
+
+    private Map<UUID, List<Member>> membersBySpace() {
+        Map<UUID, List<Member>> result = new HashMap<>();
+        jdbc.query("SELECT m.space_id, u.display_name, m.role FROM space_member m JOIN app_user u ON u.id = m.user_id "
+                        + "ORDER BY m.space_id, CASE m.role WHEN 'OWNER' THEN 0 ELSE 1 END, m.joined_at",
+                rs -> {
+                    result.computeIfAbsent(rs.getObject(1, UUID.class), k -> new ArrayList<>()).add(new Member(rs.getString(2), rs.getString(3)));
+                });
+        return result;
     }
 
     @Transactional

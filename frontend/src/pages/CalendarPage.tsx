@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { listAlbums, type Album } from '../api/albums'
+import { albumsQuery, type Album } from '../api/albums'
 import {
-  calendarMonth, calendarMonths, calendarYear, onThisDay, type MonthView, type OnThisDay, type Occurrence, type YearView,
+  calendarMonth, calendarMonths, calendarYear, onThisDayQuery, type MonthView, type Occurrence, type YearView,
 } from '../api/calendar'
 import {
   MONTHS, WEEKDAYS, addMonths, dayKey, intensity, monthGrid, monthKey, nearestMonth, occurrenceLabel, parseMonth, todayKey, yearsAgoLabel,
@@ -13,11 +13,14 @@ import SpecialDaysDialog from '../components/calendar/SpecialDaysDialog'
 import SpecialIcon from '../components/calendar/SpecialIcon'
 import BottomTabs from '../components/BottomTabs'
 import { NoteIcon } from '../components/calendar/DayNotes'
+import { useCachedQuery } from '../hooks/useCachedQuery'
 import { themeVars, pageVars } from '../themes/cssVars'
 import { getTheme } from '../themes/registry'
 import { loadThemeFonts } from '../themes/ThemeContext'
 import './home.css'
 import './calendar.css'
+
+const NO_ALBUMS: Album[] = []
 
 export type CalendarState = { ay?: string | null; yil?: string | null; album?: string | null }
 
@@ -51,11 +54,11 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
   const view: 'month' | 'year' = yearParam ? 'year' : 'month'
   const current = parseMonth(state.ay) ?? parseMonth(today.slice(0, 7))!
 
-  const [albums, setAlbums] = useState<Album[]>([])
+  const albums = useCachedQuery(albumsQuery).data ?? NO_ALBUMS
   const [months, setMonths] = useState<string[]>([])
   const [month, setMonth] = useState<MonthView | null>(null)
   const [year, setYear] = useState<YearView | null>(null)
-  const [past, setPast] = useState<OnThisDay | null>(null)
+  const past = useCachedQuery(onThisDayQuery(albumId)).data ?? null
   const [error, setError] = useState<string | null>(null)
   const [specialOpen, setSpecialOpen] = useState(false)
   const [reload, setReload] = useState(0)
@@ -69,12 +72,7 @@ export function CalendarBoard({ state, onChange }: { state: CalendarState; onCha
   const go = useCallback((params: CalendarState) => onChange({ ...state, ...params }), [state, onChange])
 
   useEffect(() => {
-    listAlbums().then(setAlbums).catch(() => undefined)
-  }, [])
-
-  useEffect(() => {
     calendarMonths(albumId).then((list) => setMonths(list.map((m) => m.month))).catch((e: Error) => setError(e.message))
-    onThisDay(albumId).then(setPast).catch(() => undefined)
   }, [albumId, reload])
 
   const key = monthKey(current.year, current.month)

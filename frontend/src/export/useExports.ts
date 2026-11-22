@@ -33,12 +33,7 @@ export function useExports(albumId: string) {
     listAlbumExports(albumId).then(setJobs).catch(() => undefined)
   }, [albumId])
 
-  useEffect(() => {
-    refresh()
-    const again = () => !document.hidden && refresh()
-    document.addEventListener('visibilitychange', again)
-    return () => document.removeEventListener('visibilitychange', again)
-  }, [refresh])
+  useEffect(refresh, [refresh])
 
   const activeKey = jobs.filter((j) => j.status === 'QUEUED' || j.status === 'RUNNING').map((j) => j.id).join(',')
   useEffect(() => {

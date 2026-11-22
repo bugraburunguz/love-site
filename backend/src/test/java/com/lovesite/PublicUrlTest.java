@@ -36,6 +36,12 @@ class PublicUrlTest {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired org.springframework.core.env.Environment env;
+
+    @Test
+    void theAppLeavesResponseCompressionToTheProxy() {
+        assertThat(env.getProperty("server.compression.enabled", Boolean.class)).isFalse();
+    }
 
     static RequestPostProcessor host(String name) {
         return request -> {

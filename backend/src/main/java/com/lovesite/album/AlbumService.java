@@ -11,12 +11,17 @@ import com.lovesite.system.ApiException;
 import com.lovesite.user.CurrentUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -35,10 +40,12 @@ public class AlbumService {
     private final TransactionTemplate tx;
     private final MediaProperties mediaProperties;
     private final com.lovesite.backup.PurgeLog purgeLog;
+    private final JdbcTemplate jdbc;
 
     public AlbumService(AlbumRepository albums, ThemeProperties themes, StorageService storage, QuotaService quota,
                         TransactionTemplate tx, MediaProperties mediaProperties,
-                        com.lovesite.backup.PurgeLog purgeLog) {
+                        com.lovesite.backup.PurgeLog purgeLog, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.purgeLog = purgeLog;
         this.albums = albums;
         this.themes = themes;
@@ -49,13 +56,64 @@ public class AlbumService {
     }
 
     public AlbumResponse toResponse(Album a) {
+        return toResponses(a.getSpaceId(), List.of(a)).get(0);
+    }
+
+    /** Responses for albums of one space with their media summaries: two queries in total, whatever the number of albums. */
+    public List<AlbumResponse> toResponses(UUID spaceId, List<Album> list) {
+        if (list.isEmpty()) return List.of();
+        UUID[] ids = list.stream().map(Album::getId).toArray(UUID[]::new);
+        Map<UUID, Summary> summaries = summaries(spaceId, ids);
+        Map<UUID, String> covers = coverKeys(spaceId, ids);
+        return list.stream().map(a -> toResponse(a, summaries.getOrDefault(a.getId(), Summary.EMPTY), covers.get(a.getId()))).toList();
+    }
+
+    private AlbumResponse toResponse(Album a, Summary summary, String coverKey) {
         String url = a.getMusicKey() == null ? null : storage.presignGet(a.getMusicKey());
-        return new AlbumResponse(a.getId(), a.getTitle(), a.getThemeId(), url, a.getMusicOriginalFilename(), a.getCreatedAt(), a.getUpdatedAt());
+        String cover = coverKey == null ? null : storage.presignGet(coverKey);
+        return new AlbumResponse(a.getId(), a.getTitle(), a.getThemeId(), url, a.getMusicOriginalFilename(), a.getCreatedAt(),
+                a.getUpdatedAt(), summary.count(), summary.first(), summary.last(), cover);
+    }
+
+    private record Summary(int count, Instant first, Instant last) {
+        static final Summary EMPTY = new Summary(0, null, null);
+    }
+
+    private static final String SHOWN = "coalesce(m.date_override, m.taken_at, m.client_modified_at, m.created_at)";
+    private static final String LISTED = "('UPLOADED','PROCESSING','READY','FAILED')";
+    private static final String COVER_KEY = "(CASE WHEN m.type = 'IMAGE' THEN coalesce(m.thumb_key, m.display_key) ELSE m.poster_key END)";
+    private static final String OF_ALBUMS = " FROM media m WHERE m.space_id = ? AND m.album_id = ANY(?) AND m.deleted_at IS NULL ";
+
+    private Map<UUID, Summary> summaries(UUID spaceId, UUID[] albumIds) {
+        Map<UUID, Summary> result = new HashMap<>();
+        jdbc.query("SELECT m.album_id, count(*), min(" + SHOWN + "), max(" + SHOWN + ")" + OF_ALBUMS
+                        + "AND m.status IN " + LISTED + " GROUP BY m.album_id",
+                rs -> {
+                    result.put(rs.getObject(1, UUID.class), new Summary(rs.getInt(2), instant(rs.getTimestamp(3)), instant(rs.getTimestamp(4))));
+                }, spaceId, albumIds);
+        return result;
+    }
+
+    /** Mirrors the frontend's coverSource: the first READY item; a photo's thumb (or display), a video's poster. */
+    private Map<UUID, String> coverKeys(UUID spaceId, UUID[] albumIds) {
+        Map<UUID, String> result = new HashMap<>();
+        jdbc.query("SELECT DISTINCT ON (m.album_id) m.album_id, " + COVER_KEY + OF_ALBUMS
+                        + "AND m.status = 'READY' AND " + COVER_KEY + " IS NOT NULL ORDER BY m.album_id, m.created_at, m.id",
+                rs -> {
+                    String key = rs.getString(2);
+                    if (key != null) result.put(rs.getObject(1, UUID.class), key);
+                }, spaceId, albumIds);
+        return result;
+    }
+
+    private static Instant instant(Timestamp t) {
+        return t == null ? null : t.toInstant();
     }
 
     @Transactional(readOnly = true)
     public List<AlbumResponse> list(CurrentUser me) {
-        return albums.findBySpaceIdAndDeletedAtIsNullOrderByCreatedAtDesc(me.requireSpace()).stream().map(this::toResponse).toList();
+        UUID spaceId = me.requireSpace();
+        return toResponses(spaceId, albums.findBySpaceIdAndDeletedAtIsNullOrderByCreatedAtDesc(spaceId));
     }
 
     @Transactional(readOnly = true)

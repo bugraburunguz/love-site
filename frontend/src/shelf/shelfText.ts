@@ -14,10 +14,9 @@ export function memoryCount(n: number): string {
 const monthYear = (d: Date) => d.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric', timeZone: 'Europe/Istanbul' })
 
 /** The months an album's photos were taken in ("Aralık 2023 – Ocak 2024"); an empty album shows when it was started. */
-export function albumSpan(dates: string[], createdAt: string): string {
-  if (dates.length === 0) return `Başlangıç: ${monthYear(new Date(createdAt))}`
-  const times = dates.map((d) => new Date(d).getTime())
-  const first = monthYear(new Date(Math.min(...times)))
-  const last = monthYear(new Date(Math.max(...times)))
+export function albumSpan(firstShownAt: string | null, lastShownAt: string | null, createdAt: string): string {
+  if (!firstShownAt) return `Başlangıç: ${monthYear(new Date(createdAt))}`
+  const first = monthYear(new Date(firstShownAt))
+  const last = monthYear(new Date(lastShownAt ?? firstShownAt))
   return first === last ? first : `${first} – ${last}`
 }

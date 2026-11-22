@@ -83,18 +83,21 @@ public class PageService {
     }
 
     private PagesView build(UUID spaceId, UUID albumId) {
-        List<PageRow> rows = jdbc.query(
-                "SELECT id, album_id, space_id, page_index, template, version FROM page WHERE album_id = ? AND space_id = ? ORDER BY page_index",
-                (rs, i) -> pageRow(rs), albumId, spaceId);
+        List<PageRow> rows = new ArrayList<>();
+        Map<UUID, String[]> looks = new LinkedHashMap<>();
+        jdbc.query("SELECT id, album_id, space_id, page_index, template, version, swatch, paper, theme_id FROM page "
+                        + "WHERE album_id = ? AND space_id = ? ORDER BY page_index",
+                rs -> {
+                    PageRow r = pageRow(rs);
+                    rows.add(r);
+                    looks.put(r.id(), look(rs));
+                }, albumId, spaceId);
         Map<UUID, List<Item>> items = new LinkedHashMap<>();
         jdbc.query("SELECT i.id, i.kind, i.media_id, i.slot_index, i.x, i.y, i.width, i.rotation, i.z_index, i.variant, i.version, i.page_id "
                 + "FROM page_item i JOIN page p ON p.id = i.page_id WHERE p.album_id = ? AND p.space_id = ? "
                 + "ORDER BY i.slot_index NULLS LAST, i.z_index NULLS LAST, i.id", rs -> {
             items.computeIfAbsent(rs.getObject(12, UUID.class), k -> new ArrayList<>()).add(itemRow(rs));
         }, albumId, spaceId);
-        Map<UUID, String[]> looks = new LinkedHashMap<>();
-        jdbc.query("SELECT id, swatch, paper, theme_id FROM page WHERE album_id = ? AND space_id = ?",
-                rs -> { looks.put(rs.getObject(1, UUID.class), new String[] {rs.getString(2), rs.getString(3), rs.getString(4)}); }, albumId, spaceId);
         List<PageView> pages = rows.stream()
                 .map(r -> {
                     String[] look = looks.getOrDefault(r.id(), new String[3]);
@@ -109,11 +112,18 @@ public class PageService {
     }
 
     private PageView pageView(UUID pageId) {
-        PageRow r = jdbc.queryForObject("SELECT id, album_id, space_id, page_index, template, version FROM page WHERE id = ?",
-                (rs, i) -> pageRow(rs), pageId);
-        String[] look = jdbc.queryForObject("SELECT swatch, paper, theme_id FROM page WHERE id = ?",
-                (rs, i) -> new String[] {rs.getString(1), rs.getString(2), rs.getString(3)}, pageId);
-        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0], look[1], look[2], items(pageId));
+        String[][] look = new String[1][];
+        PageRow r = jdbc.queryForObject("SELECT id, album_id, space_id, page_index, template, version, swatch, paper, theme_id FROM page WHERE id = ?",
+                (rs, i) -> {
+                    look[0] = look(rs);
+                    return pageRow(rs);
+                }, pageId);
+        return new PageView(r.id(), r.albumId(), r.index(), r.template(), r.version(), look[0][0], look[0][1], look[0][2], items(pageId));
+    }
+
+    /** swatch, paper, theme_id: columns 7 to 9 of a page row query. */
+    private static String[] look(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new String[] {rs.getString(7), rs.getString(8), rs.getString(9)};
     }
 
     private static PageRow pageRow(java.sql.ResultSet rs) throws java.sql.SQLException {
@@ -198,9 +208,11 @@ public class PageService {
         if ("FREE".equals(template)) return;
         List<UUID> ids = jdbc.query("SELECT id FROM page_item WHERE page_id = ? AND kind = 'MEDIA' ORDER BY slot_index NULLS LAST, id",
                 (rs, i) -> rs.getObject(1, UUID.class), pageId);
+        List<Object[]> args = new ArrayList<>();
         for (int i = 0; i < ids.size(); i++) {
-            jdbc.update("UPDATE page_item SET slot_index = ? WHERE id = ? AND slot_index IS DISTINCT FROM ?", i, ids.get(i), i);
+            args.add(new Object[] {i, ids.get(i), i});
         }
+        jdbc.batchUpdate("UPDATE page_item SET slot_index = ? WHERE id = ? AND slot_index IS DISTINCT FROM ?", args);
     }
 
     private void shiftPages(UUID albumId, int fromIndex, int by) {
@@ -280,10 +292,12 @@ public class PageService {
         for (int c = 0; c < chunks; c++) {
             UUID page = insertPage(spaceId, albumId, pageIndex + 1 + c, "AUTO");
             List<Item> part = overflow.subList(c * MAX_AUTO, Math.min(overflow.size(), (c + 1) * MAX_AUTO));
+            List<Object[]> args = new ArrayList<>();
             for (int s = 0; s < part.size(); s++) {
-                jdbc.update("UPDATE page_item SET page_id = ?, slot_index = ?, x = NULL, y = NULL, width = NULL, rotation = NULL, z_index = NULL, version = version + 1 WHERE id = ?",
-                        page, s, part.get(s).id());
+                args.add(new Object[] {page, s, part.get(s).id()});
             }
+            jdbc.batchUpdate("UPDATE page_item SET page_id = ?, slot_index = ?, x = NULL, y = NULL, width = NULL, rotation = NULL, z_index = NULL, version = version + 1 WHERE id = ?",
+                    args);
         }
     }
 
@@ -335,9 +349,11 @@ public class PageService {
         if (pageIds == null || pageIds.size() != current.size() || !new HashSet<>(pageIds).equals(new HashSet<>(current))) {
             throw ApiException.conflict("Sayfalar başka bir yerde değişti").with("current", build(spaceId, albumId));
         }
+        List<Object[]> args = new ArrayList<>();
         for (int i = 0; i < pageIds.size(); i++) {
-            jdbc.update("UPDATE page SET page_index = ?, updated_at = now() WHERE id = ?", i, pageIds.get(i));
+            args.add(new Object[] {i, pageIds.get(i)});
         }
+        jdbc.batchUpdate("UPDATE page SET page_index = ?, updated_at = now() WHERE id = ?", args);
         return build(spaceId, albumId);
     }
 
@@ -410,12 +426,14 @@ public class PageService {
                     checkGeometry(new Geometry(g.x(), g.y(), g.width(), g.rotation(), g.zIndex()));
                 }
                 int z = 10;
+                List<Object[]> args = new ArrayList<>();
                 for (Item it : media) {
                     ItemGeometry g = byId.get(it.id());
-                    jdbc.update("UPDATE page_item SET slot_index = NULL, x = ?, y = ?, width = ?, rotation = ?, z_index = ?, version = version + 1 WHERE id = ?",
-                            g.x(), g.y(), g.width(), g.rotation() == null ? 0 : g.rotation(), g.zIndex() == null ? z : g.zIndex(), it.id());
+                    args.add(new Object[] {g.x(), g.y(), g.width(), g.rotation() == null ? 0 : g.rotation(), g.zIndex() == null ? z : g.zIndex(), it.id()});
                     z++;
                 }
+                jdbc.batchUpdate("UPDATE page_item SET slot_index = NULL, x = ?, y = ?, width = ?, rotation = ?, z_index = ?, version = version + 1 WHERE id = ?",
+                        args);
             }
             default -> throw ApiException.badRequest("Geçersiz sayfa şablonu");
         }
@@ -424,10 +442,12 @@ public class PageService {
     }
 
     private void clearToSlots(List<Item> keep) {
+        List<Object[]> args = new ArrayList<>();
         for (int s = 0; s < keep.size(); s++) {
-            jdbc.update("UPDATE page_item SET slot_index = ?, x = NULL, y = NULL, width = NULL, rotation = NULL, z_index = NULL, version = version + 1 WHERE id = ?",
-                    s, keep.get(s).id());
+            args.add(new Object[] {s, keep.get(s).id()});
         }
+        jdbc.batchUpdate("UPDATE page_item SET slot_index = ?, x = NULL, y = NULL, width = NULL, rotation = NULL, z_index = NULL, version = version + 1 WHERE id = ?",
+                args);
     }
 
     /** One page of a bulk request and the version the client saw (null = do not check). */
@@ -564,9 +584,11 @@ public class PageService {
             order.remove(item.id());
             int at = slotIndex == null ? order.size() : Math.max(0, Math.min(slotIndex, order.size()));
             order.add(at, item.id());
+            List<Object[]> args = new ArrayList<>();
             for (int i = 0; i < order.size(); i++) {
-                jdbc.update("UPDATE page_item SET slot_index = ?, version = version + 1 WHERE id = ? AND slot_index IS DISTINCT FROM ?", i, order.get(i), i);
+                args.add(new Object[] {i, order.get(i), i});
             }
+            jdbc.batchUpdate("UPDATE page_item SET slot_index = ?, version = version + 1 WHERE id = ? AND slot_index IS DISTINCT FROM ?", args);
             bump(src.id());
             return build(src.spaceId(), src.albumId());
         }

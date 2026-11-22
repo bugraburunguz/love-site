@@ -1,4 +1,5 @@
 import type { MediaDto } from './albums'
+import { cachedGet, invalidate, type CachedQuery } from './cache'
 import { api } from './client'
 
 export type SpecialIcon = 'heart' | 'ring' | 'cake' | 'plane' | 'star' | 'home'
@@ -86,13 +87,29 @@ export const calendarMonths = (albumId?: string | null) =>
 export const calendarMonth = (month: string, albumId?: string | null) => api<MonthView>(`/api/calendar/month?month=${month}${q(albumId)}`)
 export const calendarYear = (year: number, albumId?: string | null) => api<YearView>(`/api/calendar/year?year=${year}${q(albumId)}`)
 export const calendarDay = (date: string, albumId?: string | null) => api<DayView>(`/api/calendar/day?date=${date}${q(albumId)}`)
-export const onThisDay = (albumId?: string | null) => api<OnThisDay>(`/api/calendar/on-this-day?${albumId ? `albumId=${albumId}` : ''}`)
+export const ON_THIS_DAY_KEY = 'on-this-day:'
+export const onThisDayQuery = (albumId?: string | null): CachedQuery<OnThisDay> => ({
+  key: `${ON_THIS_DAY_KEY}${albumId ?? ''}`,
+  fetch: () => api<OnThisDay>(`/api/calendar/on-this-day?${albumId ? `albumId=${albumId}` : ''}`),
+  maxAgeMs: 5 * 60_000,
+})
+export const onThisDay = (albumId?: string | null) => {
+  const query = onThisDayQuery(albumId)
+  return cachedGet(query.key, query.fetch, query.maxAgeMs)
+}
+
+function forgetOnThisDay<T>(value: T): T {
+  invalidate(ON_THIS_DAY_KEY, { prefix: true })
+  return value
+}
 
 export const listSpecialDays = () => api<SpecialDay[]>('/api/special-days')
-export const createSpecialDay = (d: Omit<SpecialDay, 'id'>) => api<SpecialDay>('/api/special-days', { method: 'POST', body: d })
-export const updateSpecialDay = (id: string, d: Omit<SpecialDay, 'id'>) => api<SpecialDay>(`/api/special-days/${id}`, { method: 'PUT', body: d })
-export const deleteSpecialDay = (id: string) => api<void>(`/api/special-days/${id}`, { method: 'DELETE' })
+export const createSpecialDay = (d: Omit<SpecialDay, 'id'>) =>
+  api<SpecialDay>('/api/special-days', { method: 'POST', body: d }).then(forgetOnThisDay)
+export const updateSpecialDay = (id: string, d: Omit<SpecialDay, 'id'>) =>
+  api<SpecialDay>(`/api/special-days/${id}`, { method: 'PUT', body: d }).then(forgetOnThisDay)
+export const deleteSpecialDay = (id: string) => api<void>(`/api/special-days/${id}`, { method: 'DELETE' }).then(forgetOnThisDay)
 
 /** Saves my note of that day; an empty text removes it (then null comes back). */
 export const saveDayNote = (date: string, body: string) =>
-  api<DayNote | undefined>(`/api/day-notes/${date}`, { method: 'PUT', body: { body } }).then((n) => n ?? null)
+  api<DayNote | undefined>(`/api/day-notes/${date}`, { method: 'PUT', body: { body } }).then((n) => forgetOnThisDay(n ?? null))

@@ -1,44 +1,21 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { createAlbum, deleteAlbum, formatBytes, getSpace, listAlbums, listMedia, renameAlbum, type Album, type SpaceInfo } from '../api/albums'
-import { onThisDay, type OnThisDay } from '../api/calendar'
+import { albumsQuery, createAlbum, deleteAlbum, formatBytes, renameAlbum, spaceQuery, type Album } from '../api/albums'
+import { onThisDayQuery } from '../api/calendar'
 import { yearsAgoLabel } from '../calendar/calendarMath'
 import AppHeader from '../components/AppHeader'
 import { haptic } from '../native/haptics'
 import BottomTabs from '../components/BottomTabs'
 import NewAlbumDialog from '../components/NewAlbumDialog'
 import { Button, Card, Chip, ConfirmModal, EmptyState, Meter, Polaroid, PromptModal, uiButtonClass } from '../components/ui'
-import { coverSource, type CoverSource } from '../media/display'
+import { useCachedQuery } from '../hooks/useCachedQuery'
+import { coverSource } from '../media/display'
 import { albumSpan, memoryCount } from '../shelf/shelfText'
 import { assetUrl } from '../themes/assets'
 import { getTheme } from '../themes/registry'
 import './home.css'
 
 type DialogState = { kind: 'create' } | { kind: 'rename'; album: Album } | { kind: 'delete'; album: Album } | null
-
-interface AlbumFacts {
-  count: number
-  dates: string[]
-  still: CoverSource | null
-}
-
-function useAlbumFacts(albumId: string): AlbumFacts | null {
-  const [facts, setFacts] = useState<AlbumFacts | null>(null)
-  useEffect(() => {
-    let alive = true
-    listMedia(albumId)
-      .then((items) => {
-        if (!alive) return
-        const still = items.map(coverSource).find((s): s is CoverSource => s !== null) ?? null
-        setFacts({ count: items.length, dates: items.map((m) => m.displayDate), still })
-      })
-      .catch(() => alive && setFacts({ count: 0, dates: [], still: null }))
-    return () => {
-      alive = false
-    }
-  }, [albumId])
-  return facts
-}
 
 /** A disclosure (button + list of actions): Tab moves through the actions, Escape closes and returns to the button. */
 function AlbumMenu({ album, onRename, onDelete }: { album: Album; onRename: () => void; onDelete: () => void }) {
@@ -90,7 +67,6 @@ function AlbumMenu({ album, onRename, onDelete }: { album: Album; onRename: () =
 
 function AlbumCard({ album, onRename, onDelete }: { album: Album; onRename: () => void; onDelete: () => void }) {
   const theme = getTheme(album.themeId)
-  const facts = useAlbumFacts(album.id)
   const ornament = assetUrl(theme.id, theme.cover.ornament)
   const style = { '--album-color': theme.cover.color } as CSSProperties
   return (
@@ -98,12 +74,12 @@ function AlbumCard({ album, onRename, onDelete }: { album: Album; onRename: () =
       <span className="album-card__ribbon" aria-hidden="true" />
       <div className="album-card__top">
         <Chip static active>{theme.name}</Chip>
-        <span className="album-card__count">{facts ? memoryCount(facts.count) : '…'}</span>
+        <span className="album-card__count">{memoryCount(album.mediaCount)}</span>
       </div>
       <Link to={`/albums/${album.id}`} className="album-card__link" aria-label={`${album.title} albümünü aç`}>
         <div className="album-card__photo">
-          {facts?.still ? (
-            <Polaroid src={facts.still.src} alt="" seed={album.id} tape="rose" width="100%" />
+          {album.coverUrl ? (
+            <Polaroid src={album.coverUrl} alt="" seed={album.id} tape="rose" width="100%" />
           ) : (
             <div className="album-card__blank" aria-hidden="true">
               {ornament ? <img src={ornament} alt="" draggable={false} /> : <span>❦</span>}
@@ -111,7 +87,7 @@ function AlbumCard({ album, onRename, onDelete }: { album: Album; onRename: () =
           )}
         </div>
         <h3 className="album-card__title">{album.title}</h3>
-        <p className="album-card__span">{facts ? albumSpan(facts.dates, album.createdAt) : ' '}</p>
+        <p className="album-card__span">{albumSpan(album.firstShownAt, album.lastShownAt, album.createdAt)}</p>
       </Link>
       <AlbumMenu album={album} onRename={onRename} onDelete={onDelete} />
     </article>
@@ -120,10 +96,7 @@ function AlbumCard({ album, onRename, onDelete }: { album: Album; onRename: () =
 
 /** "Bugün, 2 yıl önce…": photos taken on this calendar day in earlier years. Hidden when there are none. */
 function OnThisDayStrip() {
-  const [data, setData] = useState<OnThisDay | null>(null)
-  useEffect(() => {
-    onThisDay().then(setData).catch(() => undefined)
-  }, [])
+  const { data } = useCachedQuery(onThisDayQuery())
   const days = data?.past.filter((p) => p.media.length > 0) ?? []
   if (days.length === 0) return null
   const first = days[0]
@@ -153,19 +126,11 @@ function OnThisDayStrip() {
 }
 
 export default function AlbumsPage() {
-  const [albums, setAlbums] = useState<Album[] | null>(null)
-  const [space, setSpace] = useState<SpaceInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: albumList, error: albumsError } = useCachedQuery(albumsQuery)
+  const { data: space } = useCachedQuery(spaceQuery)
+  const albums = albumList ?? null
+  const error = albumsError?.message ?? null
   const [dialog, setDialog] = useState<DialogState>(null)
-
-  const refresh = useCallback(() => {
-    listAlbums()
-      .then(setAlbums)
-      .catch((e: Error) => setError(e.message))
-    getSpace().then(setSpace).catch(() => undefined)
-  }, [])
-
-  useEffect(refresh, [refresh])
 
   const close = useCallback(() => setDialog(null), [])
   const create = () => setDialog({ kind: 'create' })
@@ -243,7 +208,6 @@ export default function AlbumsPage() {
           onSubmit={async (title, themeId) => {
             await createAlbum(title, themeId)
             haptic('success')
-            refresh()
           }}
         />
       )}
@@ -256,7 +220,6 @@ export default function AlbumsPage() {
           onClose={close}
           onSubmit={async (title) => {
             await renameAlbum(dialog.album.id, title)
-            refresh()
           }}
         />
       )}
@@ -271,7 +234,6 @@ export default function AlbumsPage() {
             // a failure stays in the dialog (ConfirmModal shows it); success closes it
             await deleteAlbum(dialog.album.id)
             haptic('warning')
-            refresh()
           }}
         />
       )}
