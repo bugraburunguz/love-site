@@ -3,6 +3,8 @@ package com.lovesite.space;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -44,6 +46,20 @@ public class QuotaService {
     /** Usage without the pending (not yet confirmed) song of one album: that reservation is about to be replaced. */
     public long usageWithoutPendingMusic(UUID spaceId, UUID albumId) {
         return mediaUsage(spaceId, null) + musicUsage(spaceId, albumId);
+    }
+
+    /** usage() of every space in one query (same formula); spaces without anything stored have 0. */
+    public Map<UUID, Long> usageBySpace() {
+        Map<UUID, Long> result = new HashMap<>();
+        jdbc.query("SELECT s.id, coalesce(mu.bytes, 0) + coalesce(au.bytes, 0) FROM space s "
+                        + "LEFT JOIN (SELECT space_id, sum(size_bytes + coalesce(variants_bytes, 0)) AS bytes FROM media "
+                        + "WHERE status <> 'REJECTED' GROUP BY space_id) mu ON mu.space_id = s.id "
+                        + "LEFT JOIN (SELECT space_id, sum(coalesce(music_size_bytes, 0) + coalesce(music_pending_size_bytes, 0)) AS bytes "
+                        + "FROM album GROUP BY space_id) au ON au.space_id = s.id",
+                rs -> {
+                    result.put(rs.getObject(1, UUID.class), rs.getLong(2));
+                });
+        return result;
     }
 
     private long mediaUsage(UUID spaceId, UUID excludedMediaId) {

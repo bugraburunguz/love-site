@@ -18,7 +18,14 @@ const SAVE_AFTER_MS = 1200
  * leave the field) and my partner's note next to it, read-only. Clearing my text removes my note.
  * The parent mounts it again (key) for another day: the text is never replaced from outside while I am typing.
  */
-export default function DayNotes({ date, notes, onChange }: { date: string; notes: DayNote[]; onChange: () => void }) {
+export interface DayNotesProps {
+  date: string
+  notes: DayNote[]
+  /** my note as the server saved it (null: removed) */
+  onSaved: (note: DayNote | null) => void
+}
+
+export default function DayNotes({ date, notes, onSaved }: DayNotesProps) {
   const { user } = useAuth()
   const mine = notes.find((n) => n.mine)
   const others = notes.filter((n) => !n.mine)
@@ -32,10 +39,10 @@ export default function DayNotes({ date, notes, onChange }: { date: string; note
     if (value.trim() === saved.current.trim()) return
     setState('saving')
     try {
-      await saveDayNote(date, value)
+      const note = await saveDayNote(date, value)
       saved.current = value.trim()
       setState('saved')
-      onChange()
+      onSaved(note)
     } catch {
       setState('error')
     }

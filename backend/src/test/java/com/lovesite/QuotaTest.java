@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -40,6 +41,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 /** Per-space storage allowance and the trash purge that finally gives space back. */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(StatementCounter.class)
 class QuotaTest {
 
     static final long LIMIT = 1000;
@@ -198,6 +200,57 @@ class QuotaTest {
         String res = mvc.perform(post("/api/albums/" + neighbourAlbum + "/uploads").with(neighbour).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"files\":[" + file("n1", 900) + "]}")).andReturn().getResponse().getContentAsString();
         assertThat(JsonPath.<String>read(res, "$.items[0].result")).isEqualTo("PRESIGNED");
+    }
+
+    String video(String id, long size, String clipStartMs) {
+        return "{\"clientId\":\"" + id + "\",\"filename\":\"" + id + ".mp4\",\"contentType\":\"video/mp4\",\"sizeBytes\":" + size
+                + ",\"clipStartMs\":" + clipStartMs + "}";
+    }
+
+    static long countMatching(List<String> sql, String fragment) {
+        return sql.stream().filter(s -> s.contains(fragment)).count();
+    }
+
+    @Test
+    void aBatchLocksSumsAndChecksTheSpaceKindOnce() throws Exception {
+        String[] res = new String[1];
+        List<String> sql = StatementCounter.record(() -> res[0] = uploads(video("v1", 300, "null"), video("v2", 300, "null"),
+                video("v3", 300, "null"), video("v4", 300, "null"), video("v5", 50, "null")));
+
+        assertThat(JsonPath.<List<String>>read(res[0], "$.items[*].result"))
+                .containsExactly("PRESIGNED", "PRESIGNED", "PRESIGNED", "QUOTA_EXCEEDED", "PRESIGNED");
+        assertThat(usage()).isEqualTo(950);
+        assertThat(countMatching(sql, "FOR UPDATE")).isEqualTo(1);
+        assertThat(countMatching(sql, "sum(size_bytes")).isEqualTo(1);
+        assertThat(countMatching(sql, "sum(coalesce(music_size_bytes")).isEqualTo(1);
+        assertThat(countMatching(sql, "SELECT kind FROM space")).isLessThanOrEqualTo(1);
+    }
+
+    @Test
+    void aFileTheDatabaseRefusesFailsAloneAndTheBatchKeepsItsReservations() throws Exception {
+        UUID foreignSpace = TenantFixtures.spaceWithOwner(jdbc, "Foreign", LIMIT, "foreign-" + UUID.randomUUID().toString().substring(0, 8) + "@x.io");
+        UUID foreignUser = jdbc.queryForObject("SELECT user_id FROM space_member WHERE space_id = ?", UUID.class, foreignSpace);
+        String clash = (java.util.HexFormat.of().formatHex("v2".getBytes()) + "0".repeat(64)).substring(0, 64);
+        jdbc.update("INSERT INTO media (album_id, space_id, uploaded_by, type, status, original_key, original_filename, content_type, size_bytes, sha256) "
+                + "VALUES (?::uuid, ?, ?, 'IMAGE', 'READY', 'k', 'f.jpg', 'image/jpeg', 1, ?)", album, foreignSpace, foreignUser, clash);
+
+        String res = uploads(file("v1", 300), file("v2", 300), file("v3", 300));
+
+        assertThat(JsonPath.<List<String>>read(res, "$.items[*].result")).containsExactly("PRESIGNED", "ERROR", "PRESIGNED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media WHERE space_id = ?", Integer.class, space)).isEqualTo(2);
+        assertThat(usage()).isEqualTo(600);
+        assertThat(JsonPath.<String>read(uploads(file("a1", 401)), "$.items[0].result")).isEqualTo("QUOTA_EXCEEDED");
+    }
+
+    @Test
+    void aRetriedPendingUploadReplacesItsOwnReservationInTheBatchTotal() throws Exception {
+        uploads(file("a1", 600));
+
+        String res = uploads(file("a1", 650), file("b2", 300));
+
+        assertThat(JsonPath.<List<String>>read(res, "$.items[*].result")).containsExactly("PRESIGNED", "PRESIGNED");
+        assertThat(usage()).isEqualTo(950);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media WHERE space_id = ?", Integer.class, space)).isEqualTo(2);
     }
 
     @Test

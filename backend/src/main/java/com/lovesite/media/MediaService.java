@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -165,86 +166,183 @@ public class MediaService {
             throw ApiException.badRequest("Tek istekte en fazla " + properties.maxBatchSize() + " dosya yüklenebilir");
         }
         albums.require(me, albumId);
+        UUID spaceId = me.requireSpace();
+        boolean free = quota.isFree(spaceId);
 
-        Set<UUID> createdInThisBatch = new HashSet<>();
-        List<UploadItem> items = files.stream()
-                .map(file -> prepare(me, albumId, file, createdInThisBatch))
-                .toList();
+        List<Checked> checked = files.stream().map(file -> check(file, free)).toList();
+        Batch batch = reserveBatchOrFallBack(me, albumId, checked);
+        List<UploadItem> items = batch.failure() == null ? batch.items() : reserveOneByOne(me, albumId, checked, batch);
         return new UploadResponse(items);
     }
 
-    private UploadItem prepare(CurrentUser me, UUID albumId, UploadFile file, Set<UUID> createdInThisBatch) {
+    /** Result of the single-transaction attempt: the items, or the file (index) whose database error rolled it back. */
+    private record Batch(List<UploadItem> items, int failedAt, RuntimeException failure) {
+    }
+
+    /** A file that passed the checks that need no database. */
+    private record Candidate(UploadFile file, MediaTypes.Resolved type, String filename, long size, String sha256, Instant modifiedAt) {
+    }
+
+    /** Either an ERROR item (the file failed a check) or a candidate for a reservation. */
+    private record Checked(String clientId, UploadItem error, Candidate candidate) {
+    }
+
+    /** Free bytes of the space while one request reserves its files: limit and usage are read once, under the space lock. */
+    private static final class Budget {
+        private final long limit;
+        private long used;
+
+        private Budget(long limit, long used) {
+            this.limit = limit;
+            this.used = used;
+        }
+    }
+
+    private Checked check(UploadFile file, boolean free) {
         String clientId = file.clientId();
-        UUID spaceId = me.requireSpace();
         try {
             String filename = file.filename() == null ? "" : file.filename().trim();
-            if (filename.isEmpty()) return UploadItem.error(clientId, "Dosya adı eksik");
+            if (filename.isEmpty()) return rejected(clientId, "Dosya adı eksik");
             if (filename.length() > MAX_FILENAME) filename = filename.substring(0, MAX_FILENAME);
 
             var resolved = MediaTypes.resolve(file.contentType(), filename);
-            if (resolved.isEmpty()) return UploadItem.error(clientId, "Desteklenmeyen dosya türü");
+            if (resolved.isEmpty()) return rejected(clientId, "Desteklenmeyen dosya türü");
 
             long size = file.sizeBytes() == null ? 0 : file.sizeBytes();
-            if (size <= 0) return UploadItem.error(clientId, "Dosya boş");
-            long limit = limitBytes(spaceId, resolved.get().kind());
+            if (size <= 0) return rejected(clientId, "Dosya boş");
+            long limit = limitBytes(resolved.get().kind(), free);
             if (size > limit) {
-                return UploadItem.error(clientId, "Dosya çok büyük (sınır " + limit / (1024 * 1024) + " MB)");
+                return rejected(clientId, "Dosya çok büyük (sınır " + limit / (1024 * 1024) + " MB)");
             }
 
             String sha256 = null;
             if (file.sha256() != null && !file.sha256().isBlank()) {
-                if (!SHA256.matcher(file.sha256().trim()).matches()) return UploadItem.error(clientId, "Geçersiz sha256");
+                if (!SHA256.matcher(file.sha256().trim()).matches()) return rejected(clientId, "Geçersiz sha256");
                 sha256 = file.sha256().trim().toLowerCase(Locale.ROOT);
             }
-
-            var type = resolved.get();
-            Instant modifiedAt = clientModifiedAt(file.lastModified());
-            String filenameFinal = filename;
-            String sha = sha256;
-
-            // The space row lock serialises reservations of one space: two uploads can never both claim the last free bytes.
-            return tx.execute(status -> {
-                long storageLimit = quota.lockLimit(spaceId);
-
-                Media row = null;
-                if (sha != null) {
-                    var existing = findBySha256(spaceId, albumId, sha);
-                    if (existing.isPresent()) {
-                        Media found = existing.get();
-                        boolean stalePending = found.getStatus() == MediaStatus.PENDING_UPLOAD
-                                && !createdInThisBatch.contains(found.getId());
-                        if (!stalePending) return UploadItem.duplicate(clientId, found.getId());
-                        row = found; // an earlier attempt that never completed: reuse it for the retry
-                    }
-                }
-
-                long used = quota.usageExcluding(spaceId, row == null ? null : row.getId());
-                if (used + size > storageLimit) {
-                    return UploadItem.quotaExceeded(clientId, ApiException.quotaExceeded().getMessage());
-                }
-
-                if (row == null) {
-                    row = new Media(UUID.randomUUID(), spaceId, albumId, me.userId(), type.kind(), filenameFinal,
-                            type.contentType(), size, sha, modifiedAt);
-                } else {
-                    row.reissue(type.kind(), filenameFinal, type.contentType(), size, modifiedAt);
-                }
-                row.setFeatured(Boolean.TRUE.equals(file.featured()));
-                row.setClipStartMs(type.kind() == MediaKind.VIDEO ? file.clipStartMs() : null);
-                row = media.saveAndFlush(row);
-                createdInThisBatch.add(row.getId());
-
-                String url = storage.presignPut(row.getOriginalKey(), type.contentType(), properties.uploadUrlTtl());
-                return UploadItem.presigned(clientId, row.getId(), url, type.contentType());
-            });
-        } catch (DataIntegrityViolationException e) {
-            // Lost a race on (album_id, sha256): a concurrent request inserted the same file first.
-            return duplicateOf(spaceId, albumId, clientId, file.sha256())
-                    .orElseGet(() -> UploadItem.error(clientId, "Eşzamanlı yükleme çakışması, lütfen tekrar deneyin"));
+            return new Checked(clientId, null,
+                    new Candidate(file, resolved.get(), filename, size, sha256, clientModifiedAt(file.lastModified())));
         } catch (RuntimeException e) {
             log.error("Could not prepare upload for client file {}", clientId, e);
-            return UploadItem.error(clientId, "Yükleme hazırlanamadı");
+            return rejected(clientId, "Yükleme hazırlanamadı");
         }
+    }
+
+    private static Checked rejected(String clientId, String message) {
+        return new Checked(clientId, UploadItem.error(clientId, message), null);
+    }
+
+    /**
+     * All reservations of the request in one transaction: the space row lock is taken once and serialises reservations of
+     * one space, so two requests can never both claim the last free bytes. When a file hits a database error the
+     * transaction is unusable: everything is rolled back and the caller falls back to one transaction per file.
+     */
+    private Batch reserveBatchOrFallBack(CurrentUser me, UUID albumId, List<Checked> checked) {
+        try {
+            return reserveBatch(me, albumId, checked);
+        } catch (RuntimeException e) {
+            log.warn("Upload batch for album {} could not start, falls back to one file at a time: {}", albumId, e.toString());
+            return new Batch(null, -1, e);
+        }
+    }
+
+    private Batch reserveBatch(CurrentUser me, UUID albumId, List<Checked> checked) {
+        UUID spaceId = me.requireSpace();
+        return tx.execute(status -> {
+            long storageLimit = quota.lockLimit(spaceId);
+            Budget budget = new Budget(storageLimit, quota.usage(spaceId));
+            Set<UUID> createdInThisBatch = new HashSet<>();
+            List<UploadItem> items = new ArrayList<>();
+            for (int i = 0; i < checked.size(); i++) {
+                Checked c = checked.get(i);
+                if (c.error() != null) {
+                    items.add(c.error());
+                    continue;
+                }
+                try {
+                    items.add(reserve(me, albumId, c.candidate(), createdInThisBatch, budget));
+                } catch (RuntimeException e) {
+                    log.warn("Upload batch for album {} falls back to one file at a time: {}", albumId, e.toString());
+                    status.setRollbackOnly();
+                    return new Batch(null, i, e);
+                }
+            }
+            return new Batch(items, -1, null);
+        });
+    }
+
+    /**
+     * The slow path after a database error: each file in its own transaction, so a bad file never fails the batch. The file
+     * that failed in the batch is answered from its error, not tried again.
+     */
+    private List<UploadItem> reserveOneByOne(CurrentUser me, UUID albumId, List<Checked> checked, Batch batch) {
+        UUID spaceId = me.requireSpace();
+        Set<UUID> createdInThisBatch = new HashSet<>();
+        List<UploadItem> items = new ArrayList<>();
+        for (int i = 0; i < checked.size(); i++) {
+            Checked c = checked.get(i);
+            if (c.error() != null) {
+                items.add(c.error());
+                continue;
+            }
+            try {
+                if (i == batch.failedAt()) {
+                    throw batch.failure();
+                }
+                items.add(tx.execute(status -> {
+                    long storageLimit = quota.lockLimit(spaceId);
+                    return reserve(me, albumId, c.candidate(), createdInThisBatch, new Budget(storageLimit, quota.usage(spaceId)));
+                }));
+            } catch (DataIntegrityViolationException e) {
+                // Lost a race on (album_id, sha256): a concurrent request inserted the same file first.
+                items.add(duplicateOf(spaceId, albumId, c.clientId(), c.candidate().file().sha256())
+                        .orElseGet(() -> UploadItem.error(c.clientId(), "Eşzamanlı yükleme çakışması, lütfen tekrar deneyin")));
+            } catch (RuntimeException e) {
+                log.error("Could not prepare upload for client file {}", c.clientId(), e);
+                items.add(UploadItem.error(c.clientId(), "Yükleme hazırlanamadı"));
+            }
+        }
+        return items;
+    }
+
+    /** Must run inside a transaction that holds the space lock; adds the reserved size to the budget. */
+    private UploadItem reserve(CurrentUser me, UUID albumId, Candidate c, Set<UUID> createdInThisBatch, Budget budget) {
+        UUID spaceId = me.requireSpace();
+        String clientId = c.file().clientId();
+        Media row = null;
+        if (c.sha256() != null) {
+            var existing = findBySha256(spaceId, albumId, c.sha256());
+            if (existing.isPresent()) {
+                Media found = existing.get();
+                boolean stalePending = found.getStatus() == MediaStatus.PENDING_UPLOAD
+                        && !createdInThisBatch.contains(found.getId());
+                if (!stalePending) return UploadItem.duplicate(clientId, found.getId());
+                row = found; // an earlier attempt that never completed: reuse it for the retry
+            }
+        }
+
+        // a reused row's own reservation is replaced by the new size
+        long replaced = row == null ? 0 : row.getSizeBytes() + (row.getVariantsBytes() == null ? 0 : row.getVariantsBytes());
+        long used = budget.used - replaced + c.size();
+        if (used > budget.limit) {
+            return UploadItem.quotaExceeded(clientId, ApiException.quotaExceeded().getMessage());
+        }
+
+        var type = c.type();
+        if (row == null) {
+            row = new Media(UUID.randomUUID(), spaceId, albumId, me.userId(), type.kind(), c.filename(),
+                    type.contentType(), c.size(), c.sha256(), c.modifiedAt());
+        } else {
+            row.reissue(type.kind(), c.filename(), type.contentType(), c.size(), c.modifiedAt());
+        }
+        row.setFeatured(Boolean.TRUE.equals(c.file().featured()));
+        row.setClipStartMs(type.kind() == MediaKind.VIDEO ? c.file().clipStartMs() : null);
+        row = media.saveAndFlush(row);
+        createdInThisBatch.add(row.getId());
+        budget.used = used;
+
+        String url = storage.presignPut(row.getOriginalKey(), type.contentType(), properties.uploadUrlTtl());
+        return UploadItem.presigned(clientId, row.getId(), url, type.contentType());
     }
 
     /** File.lastModified from the client; anything missing, non-positive or in the future is ignored. */
@@ -267,8 +365,12 @@ public class MediaService {
 
     /** Largest single file of this kind the space may upload: free (signup) spaces take only short videos. */
     private long limitBytes(UUID spaceId, MediaKind kind) {
+        return limitBytes(kind, kind == MediaKind.VIDEO && quota.isFree(spaceId));
+    }
+
+    private long limitBytes(MediaKind kind, boolean free) {
         long limit = properties.limitBytes(kind);
-        if (kind == MediaKind.VIDEO && quota.isFree(spaceId)) limit = Math.min(limit, signup.freeMaxVideoSize().toBytes());
+        if (kind == MediaKind.VIDEO && free) limit = Math.min(limit, signup.freeMaxVideoSize().toBytes());
         return limit;
     }
 

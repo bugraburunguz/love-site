@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createPartnerInvite, formatBytes, getSpace, type CreatedInvite, type SpaceInfo } from '../api/albums'
+import { createPartnerInvite, formatBytes, spaceQuery, type CreatedInvite } from '../api/albums'
 import { useAuth } from '../auth/AuthContext'
 import AppHeader from '../components/AppHeader'
 import BottomTabs from '../components/BottomTabs'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { inviteUrl } from '../components/SpacePanel'
 import { Button, Card, Chip, Meter, TextField, useToast } from '../components/ui'
+import { useCachedQuery } from '../hooks/useCachedQuery'
 import { initials } from '../shelf/shelfText'
 import { readColorMode, setColorMode, type ColorMode } from '../styles/colorMode'
 import './home.css'
@@ -76,16 +77,11 @@ export default function ProfilePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
-  const [space, setSpace] = useState<SpaceInfo | null>(null)
-  const [spaceError, setSpaceError] = useState(false)
+  const { data: space, error: spaceFailure, reload: loadSpace } = useCachedQuery(spaceQuery)
+  const spaceError = spaceFailure !== null
   const [mode, setMode] = useState<ColorMode>(readColorMode())
   const [deleting, setDeleting] = useState(false)
 
-  const loadSpace = useCallback(() => {
-    setSpaceError(false)
-    getSpace().then(setSpace).catch(() => setSpaceError(true))
-  }, [])
-  useEffect(loadSpace, [loadSpace])
 
   function pick(next: ColorMode) {
     setColorMode(next)

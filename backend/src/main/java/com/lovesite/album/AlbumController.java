@@ -36,6 +36,11 @@ public class AlbumController {
         return albumService.list(me);
     }
 
+    @GetMapping("/{id}")
+    public AlbumResponse get(CurrentUser me, @PathVariable UUID id) {
+        return albumService.get(me, id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AlbumResponse create(CurrentUser me, @Valid @RequestBody AlbumRequest request) {

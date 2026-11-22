@@ -1,4 +1,4 @@
-import type { Album, MediaDto } from './albums'
+import { forgetMediaFacts, type Album, type MediaDto } from './albums'
 import { api } from './client'
 
 export interface TrashAlbum {
@@ -23,5 +23,5 @@ export interface TrashView {
 }
 
 export const getTrash = () => api<TrashView>('/api/trash')
-export const restoreMedia = (id: string) => api<void>(`/api/trash/media/${id}/restore`, { method: 'POST' })
-export const restoreAlbum = (id: string) => api<void>(`/api/trash/albums/${id}/restore`, { method: 'POST' })
+export const restoreMedia = (id: string) => api<void>(`/api/trash/media/${id}/restore`, { method: 'POST' }).then(forgetMediaFacts)
+export const restoreAlbum = (id: string) => api<void>(`/api/trash/albums/${id}/restore`, { method: 'POST' }).then(forgetMediaFacts)

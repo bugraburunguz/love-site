@@ -1,6 +1,8 @@
 package com.lovesite;
 
 import com.jayway.jsonpath.JsonPath;
+import com.lovesite.space.QuotaService;
+import com.lovesite.space.SpaceService;
 import com.lovesite.storage.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,6 +11,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -38,6 +41,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(StatementCounter.class)
 class TenantIsolationTest {
 
     @DynamicPropertySource
@@ -95,6 +99,7 @@ class TenantIsolationTest {
     static Stream<Probe> idEndpoints() {
         String upload = "{\"files\":[{\"clientId\":\"c\",\"filename\":\"a.jpg\",\"contentType\":\"image/jpeg\",\"sizeBytes\":10}]}";
         return Stream.of(
+                new Probe("GET /api/albums/{id}", (album, media) -> get("/api/albums/" + album)),
                 new Probe("GET /api/albums/{id}/media", (album, media) -> get("/api/albums/" + album + "/media")),
                 new Probe("POST /api/albums/{id}/uploads", (album, media) -> post("/api/albums/" + album + "/uploads").content(upload)),
                 new Probe("PATCH /api/albums/{id}", (album, media) -> patch("/api/albums/" + album).content("{\"title\":\"hacked\"}")),
@@ -208,6 +213,55 @@ class TenantIsolationTest {
         assertThat(body).contains("Other couple");
         assertThat(body).doesNotContain("Private A").doesNotContain("secret.jpg").doesNotContain(albumA).doesNotContain(mediaA)
                 .doesNotContain("originalFilename").doesNotContain("Url");
+    }
+
+    UUID spaceWithContent(String tag, int members, long mediaBytes, long variantBytes, long musicBytes, long pendingMusicBytes) {
+        UUID space = TenantFixtures.space(jdbc, "Admin list " + tag, TenantFixtures.GIB);
+        UUID owner = null;
+        for (int i = 0; i < members; i++) {
+            UUID u = TenantFixtures.user(jdbc, "m" + i + "-" + tag + "@x.io", "Member " + i + " " + tag, false);
+            TenantFixtures.member(jdbc, space, u, i == 0 ? "OWNER" : "MEMBER");
+            owner = owner == null ? u : owner;
+        }
+        if (owner == null) {
+            owner = TenantFixtures.user(jdbc, "creator-" + tag + "@x.io", "Creator", false);
+        }
+        UUID album = UUID.randomUUID();
+        jdbc.update("INSERT INTO album (id, space_id, title, created_by, music_size_bytes, music_pending_size_bytes) VALUES (?, ?, 'A', ?, ?, ?)",
+                album, space, owner, musicBytes, pendingMusicBytes);
+        for (String status : List.of("READY", "PENDING_UPLOAD", "REJECTED")) {
+            jdbc.update("INSERT INTO media (album_id, space_id, uploaded_by, type, status, original_key, original_filename, content_type, "
+                    + "size_bytes, variants_bytes) VALUES (?, ?, ?, 'IMAGE', ?, 'k', 'f.jpg', 'image/jpeg', ?, ?)",
+                    album, space, owner, status, mediaBytes, variantBytes);
+        }
+        return space;
+    }
+
+    @Test
+    void adminListShowsTheSameNumbersWithAFixedNumberOfQueries(@Autowired QuotaService quota, @Autowired SpaceService spaces) throws Exception {
+        String tag = UUID.randomUUID().toString().substring(0, 8);
+        spaceWithContent(tag + "-1", 2, 100, 20, 7, 3);
+        int before = StatementCounter.record(() -> mvc.perform(get("/api/admin/spaces").with(admin)).andReturn()).size();
+        spaceWithContent(tag + "-2", 1, 50, 0, 0, 0);
+        spaceWithContent(tag + "-3", 0, 10, 5, 0, 9);
+
+        MvcResult[] res = new MvcResult[1];
+        int after = StatementCounter.record(() -> res[0] = mvc.perform(get("/api/admin/spaces").with(admin)).andReturn()).size();
+        assertThat(after).isEqualTo(before);
+
+        String body = res[0].getResponse().getContentAsString();
+        List<String> ids = JsonPath.read(body, "$[*].id");
+        assertThat(ids).hasSizeGreaterThanOrEqualTo(4);
+        for (String id : ids) {
+            UUID space = UUID.fromString(id);
+            assertThat(JsonPath.<List<Number>>read(body, "$[?(@.id == '" + id + "')].usedBytes").get(0).longValue()).as(id).isEqualTo(quota.usage(space));
+            List<String> names = JsonPath.read(body, "$[?(@.id == '" + id + "')].members[*].displayName");
+            assertThat(names).as(id).containsExactlyElementsOf(spaces.members(space).stream().map(SpaceService.Member::displayName).toList());
+        }
+        assertThat(JsonPath.<List<Number>>read(body, "$[?(@.name == 'Admin list " + tag + "-1')].usedBytes")).containsExactly(250);
+        assertThat(JsonPath.<List<String>>read(body, "$[?(@.name == 'Admin list " + tag + "-1')].members[*].displayName"))
+                .containsExactly("Member 0 " + tag + "-1", "Member 1 " + tag + "-1");
+        assertThat(JsonPath.<List<Number>>read(body, "$[?(@.name == 'Admin list " + tag + "-3')].usedBytes")).containsExactly(39);
     }
 
     @Test

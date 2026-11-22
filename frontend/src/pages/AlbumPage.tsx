@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
-  changeAlbumTheme, changeClip, deleteMedia, getMediaStatuses, listAlbums, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
+  changeAlbumTheme, changeClip, deleteMedia, getAlbum, getMediaStatuses, listMedia, reprocessMedia, updateCaption, type Album, type MediaDto,
 } from '../api/albums'
+import { ApiError } from '../api/client'
+import { shouldRefreshOnReturn } from '../hooks/refreshThrottle'
 import {
   applyPageTheme, changePageLook, changePageTheme, changeTemplate, createPage, deletePage, featureMedia, initializePages,
   moveItem, placeMedia, reorderPages, type PageDto, type PageItemDto, type PageTemplate,
@@ -61,6 +63,8 @@ import './album.css'
 /** Re-layouts caused by late-arriving aspect ratios are grouped into one update per this many ms. */
 const RELAYOUT_DELAY = 250
 const MAX_AUTO = 4
+
+const isMissingAlbum = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 400)
 
 export default function AlbumPage() {
   const { id = '' } = useParams()
@@ -217,26 +221,31 @@ function AlbumView({ id }: { id: string }) {
     }
   }
 
+  const lastRefreshAt = useRef(Date.now())
   useEffect(() => {
-    listAlbums()
-      .then((albums) => setAlbum(albums.find((a) => a.id === id) ?? null))
-      .catch((e: Error) => setError(e.message))
+    getAlbum(id)
+      .then(setAlbum)
+      .catch((e: unknown) => {
+        if (isMissingAlbum(e)) setAlbum(null)
+        else setError(e instanceof Error ? e.message : String(e))
+      })
+    lastRefreshAt.current = Date.now()
     refresh()
   }, [id, refresh])
 
-  // Another device may have changed the pages: look again whenever this tab comes back (no realtime channel).
+  // Another device may have changed the pages: look again when this tab comes back (no realtime channel), at most every 30 s.
+  const refreshExports = exportsState.refresh
   useEffect(() => {
     const again = () => {
-      if (document.hidden) return
+      const now = Date.now()
+      if (!shouldRefreshOnReturn(document.hidden, lastRefreshAt.current, now)) return
+      lastRefreshAt.current = now
       refreshAll()
+      refreshExports()
     }
     document.addEventListener('visibilitychange', again)
-    window.addEventListener('focus', again)
-    return () => {
-      document.removeEventListener('visibilitychange', again)
-      window.removeEventListener('focus', again)
-    }
-  }, [refreshAll])
+    return () => document.removeEventListener('visibilitychange', again)
+  }, [refreshAll, refreshExports])
 
   // Aspect ratios arrive one by one; they are collected and applied together so the layout is recomputed once.
   const latest = useRef<Record<string, number>>(cachedAspects(id))
@@ -571,8 +580,10 @@ function AlbumView({ id }: { id: string }) {
   }, [search, setSearch])
 
   const refreshMusicUrl = useCallback(async () => {
-    const albums = await listAlbums()
-    const fresh = albums.find((a) => a.id === id)
+    const fresh = await getAlbum(id).catch((e: unknown) => {
+      if (isMissingAlbum(e)) return undefined
+      throw e
+    })
     if (fresh) setAlbum((a) => (a ? { ...a, musicUrl: fresh.musicUrl, musicName: fresh.musicName } : fresh))
     return fresh?.musicUrl ?? null
   }, [id])

@@ -29,8 +29,12 @@ public final class AlbumDtos {
     public record MusicUploadResponse(String uploadUrl, String contentType) {
     }
 
-    /** musicUrl is a presigned GET (null when the album has no song); musicName is the original file name. */
+    /**
+     * musicUrl is a presigned GET (null when the album has no song); musicName is the original file name. mediaCount and
+     * first/lastShownAt cover the listed (not deleted, not pending or rejected) media; coverUrl is the cover of the first
+     * READY one (null when there is none).
+     */
     public record AlbumResponse(UUID id, String title, String themeId, String musicUrl, String musicName, Instant createdAt,
-                                Instant updatedAt) {
+                                Instant updatedAt, int mediaCount, Instant firstShownAt, Instant lastShownAt, String coverUrl) {
     }
 }

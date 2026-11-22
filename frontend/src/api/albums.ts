@@ -1,3 +1,6 @@
+import { addAlbum, removeAlbum, replaceAlbum } from './albumList'
+import { cachedGet, invalidate, setCached, type CachedQuery } from './cache'
+import { ON_THIS_DAY_KEY } from './calendar'
 import { api } from './client'
 
 export interface Album {
@@ -9,6 +12,10 @@ export interface Album {
   musicName: string | null
   createdAt: string
   updatedAt: string
+  mediaCount: number
+  firstShownAt: string | null
+  lastShownAt: string | null
+  coverUrl: string | null
 }
 
 export type MediaStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'
@@ -68,33 +75,77 @@ export interface UploadItemResult {
   error: string | null
 }
 
-export const listAlbums = () => api<Album[]>('/api/albums')
-export const createAlbum = (title: string, themeId?: string) => api<Album>('/api/albums', { method: 'POST', body: { title, themeId } })
+export const albumsQuery: CachedQuery<Album[]> = { key: 'albums', fetch: () => api<Album[]>('/api/albums'), maxAgeMs: 30_000 }
+export const listAlbums = () => cachedGet(albumsQuery.key, albumsQuery.fetch, albumsQuery.maxAgeMs)
+export const getAlbum = (id: string) => api<Album>(`/api/albums/${id}`)
+
+const keepInList = (album: Album) => {
+  setCached<Album[] | undefined>(albumsQuery.key, (list) => replaceAlbum(list, album))
+  return album
+}
+
+/** photos came, went or moved in time: counts, covers, dates, the used space and "on this day" are read again */
+export function forgetMediaFacts() {
+  invalidate(albumsQuery.key)
+  invalidate(spaceQuery.key)
+  invalidate(ON_THIS_DAY_KEY, { prefix: true })
+}
+
+export const createAlbum = (title: string, themeId?: string) =>
+  api<Album>('/api/albums', { method: 'POST', body: { title, themeId } }).then((album) => {
+    setCached<Album[] | undefined>(albumsQuery.key, (list) => addAlbum(list, album))
+    return album
+  })
 export const renameAlbum = (id: string, title: string) =>
-  api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { title } })
+  api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { title } }).then(keepInList)
 export const changeAlbumTheme = (id: string, themeId: string) =>
-  api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { themeId } })
+  api<Album>(`/api/albums/${id}`, { method: 'PATCH', body: { themeId } }).then(keepInList)
 
 // the album's song: presigned PUT straight to the bucket, then "complete"
 export const requestMusicUpload = (id: string, file: { filename: string; contentType: string; sizeBytes: number }) =>
   api<{ uploadUrl: string; contentType: string }>(`/api/albums/${id}/music/upload`, { method: 'POST', body: file })
-export const completeMusicUpload = (id: string) => api<Album>(`/api/albums/${id}/music/complete`, { method: 'POST' })
-export const deleteAlbumMusic = (id: string) => api<Album>(`/api/albums/${id}/music`, { method: 'DELETE' })
-export const deleteAlbum = (id: string) => api<void>(`/api/albums/${id}`, { method: 'DELETE' })
+export const completeMusicUpload = (id: string) =>
+  api<Album>(`/api/albums/${id}/music/complete`, { method: 'POST' }).then((album) => {
+    invalidate(spaceQuery.key)
+    return keepInList(album)
+  })
+export const deleteAlbumMusic = (id: string) =>
+  api<Album>(`/api/albums/${id}/music`, { method: 'DELETE' }).then((album) => {
+    invalidate(spaceQuery.key)
+    return keepInList(album)
+  })
+export const deleteAlbum = (id: string) =>
+  api<void>(`/api/albums/${id}`, { method: 'DELETE' }).then(() => {
+    setCached<Album[] | undefined>(albumsQuery.key, (list) => removeAlbum(list, id))
+    invalidate(spaceQuery.key)
+    invalidate(ON_THIS_DAY_KEY, { prefix: true })
+  })
 
 export const listMedia = (albumId: string) => api<MediaDto[]>(`/api/albums/${albumId}/media`)
 export const updateCaption = (id: string, caption: string) =>
   api<MediaDto>(`/api/media/${id}`, { method: 'PATCH', body: { caption } })
+function forgetMediaFactsAfter<T>(result: T): T {
+  forgetMediaFacts()
+  return result
+}
+
+const isSettled = (m: MediaDto) => m.status === 'READY' || m.status === 'FAILED'
+
 export const getMediaStatuses = (ids: string[]) =>
-  api<MediaDto[]>(`/api/media?ids=${ids.join(',')}`)
-export const reprocessMedia = (id: string) => api<MediaDto>(`/api/media/${id}/reprocess`, { method: 'POST' })
+  api<MediaDto[]>(`/api/media?ids=${ids.join(',')}`).then((items) => (items.some(isSettled) ? forgetMediaFactsAfter(items) : items))
+export const reprocessMedia = (id: string) =>
+  api<MediaDto>(`/api/media/${id}/reprocess`, { method: 'POST' }).then(forgetMediaFactsAfter)
 /** LS-22: a new start for a video's living photo (null = the beginning); the server cuts it again */
 export const changeClip = (id: string, startMs: number | null) =>
-  api<MediaDto>(`/api/media/${id}/clip`, { method: 'PUT', body: { startMs } })
-export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { method: 'DELETE' })
+  api<MediaDto>(`/api/media/${id}/clip`, { method: 'PUT', body: { startMs } }).then(forgetMediaFactsAfter)
+export const deleteMedia = (id: string) => api<void>(`/api/media/${id}`, { method: 'DELETE' }).then(forgetMediaFacts)
 export const requestUploads = (albumId: string, files: UploadFileRequest[]) =>
   api<{ items: UploadItemResult[] }>(`/api/albums/${albumId}/uploads`, { method: 'POST', body: { files } })
-export const completeUpload = (mediaId: string) => api<MediaDto>(`/api/media/${mediaId}/complete`, { method: 'POST' })
+export const completeUpload = (mediaId: string) =>
+  api<MediaDto>(`/api/media/${mediaId}/complete`, { method: 'POST' }).then((media) => {
+    forgetMediaFacts()
+    return media
+  })
 
 export interface SpaceInfo {
   id: string
@@ -120,7 +171,8 @@ export interface CreatedInvite {
   expiresAt: string
 }
 
-export const getSpace = () => api<SpaceInfo>('/api/space')
+export const spaceQuery: CachedQuery<SpaceInfo> = { key: 'space', fetch: () => api<SpaceInfo>('/api/space'), maxAgeMs: 30_000 }
+export const getSpace = () => cachedGet(spaceQuery.key, spaceQuery.fetch, spaceQuery.maxAgeMs)
 export const createPartnerInvite = () => api<CreatedInvite>('/api/space/invites', { method: 'POST' })
 
 export interface AdminSpace {
@@ -201,4 +253,7 @@ export function formatBytes(bytes: number): string {
 
 /** Sets the shown date by hand (ISO instant), or with null goes back to the original one. */
 export const setMediaDate = (id: string, takenAt: string | null) =>
-  api<MediaDto>(`/api/media/${id}/date`, { method: 'PUT', body: { takenAt } })
+  api<MediaDto>(`/api/media/${id}/date`, { method: 'PUT', body: { takenAt } }).then((media) => {
+    forgetMediaFacts()
+    return media
+  })
